@@ -1,0 +1,28 @@
+# Qualcomm runtime -- redistribution restricted, see NOTICE
+libQnn*.so
+qnn-context-binary-generator
+qnn-*
+*.apk
+
+# Generated from QAIRT converter output; regenerate per docs/BUILD.md
+libqnn_model.so
+lib_arm/
+lib_tpl/
+model_tpl.cpp
+model.cpp
+model.bin
+
+# Build output
+tplconv
+tplconv_arm
+*.o
+build/
+
+# Big artefacts: checkpoints, packs, context binaries
+*.safetensors
+*.ckpt
+*.pack
+!template/tpl_trim.pack
+*.bin
+!template/recipe.bin
+out/
