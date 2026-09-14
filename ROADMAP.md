@@ -48,20 +48,97 @@ Anime checkpoints convert cleanly and render noise; the cause is measured
 - **Evidence that closes it:** MistoonAnime rendering clean through the anime
   template, with the photoreal template as the negative control.
 
+⚠ **Its premise is now in doubt — do not start this before item 1a below**
+(`docs/CHECKPOINT-FAMILIES.md`, 2026-09-14):
+
+- **"Anime" may not be the failing category.** ReV Animated, an anime-lineage
+  2.5D model, profiles like a photoreal one (max span ratio **1.27** against base
+  SD1.5, against CyberRealistic's 1.22). MistoonAnime's 48 may be one merge, not
+  a family. A template calibrated for the wrong category costs 3 h and fixes one
+  checkpoint.
+- **There is no boundary to switch on.** Linear blends of the two measured
+  checkpoints move the max span ratio smoothly from 1.22 to 20.58 with no gap —
+  a 50/50 merge sits at 10.30 — so "photoreal or anime" is a cut through a
+  continuum, and the real population (ChilloutMix, majicMIX, 2.5D) lives in it.
+- **A cheaper lever may exist.** Activation encodings are literals compiled into
+  `libqnn_model.so`, but `tpl_patch.py` already redirects 2,383 static sites to
+  the pack; extending that to the 3,623 activation tensors costs ~29 KB of pack
+  and would let `tplconv` *stretch* the ranges per checkpoint. Untested, and one
+  afternoon to test.
+
 ---
 
 ## Next, in order
 
-### 1. Refuse (or warn about) a checkpoint that will render noise — cheap
+### 1. Warn about a checkpoint that will render noise — cheap
 
 The predictor already exists and is 3-for-3: the max per-tensor ratio of
 checkpoint weight span to template weight span was 1.00 / 1.02 / 1.117 / 1.061
 for the four checkpoints that converted, and **49.4** for the one that failed.
 
-Compute it during the header inspection and show it. ⚠ **Report the number,
-do not invent a threshold** — the region between 1.2 and 49 is untested, so a
-hard cutoff would be a guess dressed as a gate. A warning above, say, 2 with the
-measured table beside it is honest; a refusal is not, yet.
+⚠ **Not from the header** — spans need the weights. But they need almost none of
+them: the 404 one-dimensional UNet tensors give the same separation as all 686
+for **0.89 MB** (CyberRealistic 1.22, MistoonAnime 20.58), so the check is a
+sub-megabyte read plus a **~1.6 KB** reference table added to the bundle
+(`tools/span_probe.py`, `docs/CHECKPOINT-FAMILIES.md` §4).
+
+⚠ **Gate on a count, not the maximum.** The max is a one-tensor statistic —
+MistoonAnime's is driven by a single `skip_connection` weight. "Tensors above 2×"
+separates far more robustly: **0** for CyberRealistic, **91 of 686** for
+MistoonAnime.
+
+⚠ **Report the number, do not invent a threshold.** The region between 1.2 and 49
+is untested and is *populated* — a 50/50 merge lands at 10.3 — so a hard cutoff
+would be a guess dressed as a gate.
+
+### 1a. Survey the population before building a second anything — half a day
+
+The template question is "how many sets of activation ranges", and two local
+checkpoints cannot answer it. `tools/span_probe.py` profiles a checkpoint over
+HTTP ranges **without downloading it** (~15 MB fetched, ~80 requests, ~3 min for
+a 2 GB file; the 0.89 MB it actually needs is scattered). Fifty checkpoints
+spanning both roots and the merged middle is an afternoon.
+
+- **What it decides:** whether the span-ratio histogram is bimodal (two templates
+  is a design) or continuous (two templates is a guess), and whether base SD1.5
+  or a broad merge is the better template centroid.
+- **It should run before P1's 2.28 rebuild**, because that rebuild is a free
+  chance to change whose checkpoint the template is built from.
+- ⚠ Civitai is HTTP 451 from here, so the candidate list has to come from
+  Hugging Face mirrors and secondary sources.
+
+### 1b. Build the template from base SD1.5, not DreamShaper — free, at the next rebuild
+
+Measured (`docs/CHECKPOINT-FAMILIES.md` §5): every SD1.5 text encoder is within
+**0.2–0.4%** of stock SD1.5's, anime included, and CyberRealistic's baked VAE
+**is** `vae-ft-mse-840000-ema-pruned` to 0.021%. So stock CLIP + ft-mse VAE is
+the neutral, licence-clean default, and it costs nothing to adopt at a rebuild
+that is happening anyway.
+
+⚠ One number points the other way and 1a should settle it: CyberRealistic's max
+span ratio is 1.117 against DreamShaper and 1.22 against base, so a broad merge
+may sit more centrally in range terms than the ancestor does.
+
+### 1c. Make the activation ranges pack-driven — an afternoon, and it could retire P2
+
+Measured (`docs/CHECKPOINT-FAMILIES.md` §6): activation encodings are
+`scaleOffsetEncoding` literals compiled into `libqnn_model.so` — 3,623 NATIVE
+tensors, of which 3,369 are `UFIXED_POINT_16`. `tpl_patch.py` already rewrites
+2,383 **static** sites into `tpl::` calls that read the pack; doing the same for
+the activation encodings adds roughly **29 KB** to a 43 KB pack and lets
+`tplconv` scale each range by the span ratio it is already computing for item 1.
+
+- **Why it might work:** for `y = Wx + b`, a 10× wider weight span is a
+  first-order reason to expect a wider `y`. The anime failure is range clipping.
+- **Why it is cheap:** activations are 16-bit, so headroom costs about one bit in
+  sixteen per doubling, while a too-narrow range clips catastrophically.
+- ⚠ **Where it could hurt:** the 709 `UFIXED_POINT_8` tensors — the graph
+  converts some attention inputs down to 8 bits, and 4× there costs two bits of
+  eight. And per `PIPELINE.md`, Sigmoid outputs have semantically fixed ranges
+  that must not be widened at all.
+- **Evidence that closes it:** MistoonAnime rendering clean through the existing
+  photoreal template, with the photoreal checkpoints as the regression control.
+  ⚠ Judge it on renders — latency proves nothing.
 
 ### 2. Compile for the chip that is running, not for `_8gen2`
 
@@ -81,8 +158,8 @@ them as corruption over-called a checkpoint once.
 
 Today the app writes `Download/npuforge/<name>.zip` and the user imports it by
 hand. A share/open-with hand-off, or a documented import intent, would finish the
-loop. Deliberately **not** a DreamUI feature — the converter is its own app and
-must stay generator-agnostic.
+loop. Deliberately **not** a feature of any one generator — the converter is its
+own app and must stay generator-agnostic.
 
 ### 5. 8 GB devices
 
@@ -94,6 +171,22 @@ app says so.
 
 93 s of compile thrown away by a phone call is annoying but survivable; it
 becomes serious if the tier work makes compiles longer.
+
+### 7. A second resolution — measure one compile before planning it
+
+The graph is 512² by construction (`model_tpl.cpp`: `dimensions_sample[] = {1, 4,
+64, 64}`). Another resolution is a full Phase 0 at that size (~3 h PC) plus
+**~10.1 MB** of bundle, and the output model stays ~1.3 GB because it is mostly
+weights. Arithmetic grows 1.61× at 512×768 and 2.68× at 768²
+(`docs/CHECKPOINT-FAMILIES.md` §7).
+
+⚠ **The 4.8 GB compile peak is what decides this, and it is unmeasured above
+512².** Run one 768² compile for its peak RSS before planning anything else —
+the same discipline `PIPELINE.md` applies to SDXL.
+
+⚠ And the honest alternative is to build none of them: hires-fix at generation
+time buys the same large outputs with no second template and no higher peak. A
+second *resolution* buys composition, not detail.
 
 ---
 

@@ -89,9 +89,24 @@ anime data — a PC job of ~50 min calibration plus a ~2 h 20 m quantize.
 A converted model keeps the **template's** CLIP and VAE. This was measured before
 it was accepted:
 
-- Across checkpoints the text encoder and VAE barely move — median **0.13–0.39%**
-  relative difference — because SD1.5 finetunes train the UNet.
+- The **text encoder** barely moves, across the whole population. Median relative
+  difference against stock SD1.5's CLIP: **0.204%** (CyberRealistic) and
+  **0.363%** (MistoonAnime) — anime included, because SD1.5 finetunes train the
+  UNet.
+- **Photoreal checkpoints' VAEs are the same file.** CyberRealistic's baked VAE
+  *is* `vae-ft-mse-840000-ema-pruned`, to **0.021%**. Baking that file is what
+  checkpoint authors do.
 - The 2×2 above shows a deliberate mismatch is visually indistinguishable.
+
+⚠ **The VAE half of that does not generalise, and an earlier version of this
+section overstated it.** MistoonAnime's baked VAE is **207%** from base SD1.5's,
+**213%** from ft-mse and **212%** from the anime VAE `kl-f8-anime2` — 0 of its 248
+tensors are within 1% of ft-mse. It is not a style choice but fp16 overflow in a
+merge: `decoder.up.3.block.0.conv1.weight` has norm 2,858,648 against ft-mse's
+78.4, 516 non-finite values, and a span of 59,200 against fp16's 65,504 ceiling.
+For such a checkpoint the borrowed VAE is an **improvement**, not a compromise —
+the converted model gets a decoder the source file no longer has.
+`docs/CHECKPOINT-FAMILIES.md` §5.
 
 **Cost:** prompt interpretation follows the template. A checkpoint that leans on
 a heavily-trained text encoder, or on `clip_skip 2`, will not behave exactly as

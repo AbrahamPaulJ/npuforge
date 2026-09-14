@@ -10,7 +10,8 @@ about two minutes later `Download/npuforge/<name>.zip` is a model a generator
 can import. It has been verified the only way that means anything: the app's
 weight pack is **byte-identical** to the PC reference, and its model renders
 **byte-identical PNGs** to both the adb-driven and the PC-built pipelines. The
-repo is `CC/npuforge` (git `main`, MIT, no remote, nothing pushed anywhere).
+repo is `github.com/AbrahamPaulJ/npuforge` (git `main`, MIT — but read `NOTICE`
+before redistributing anything built from it).
 What is *not* done is everything about other people's phones — the output
 carries QAIRT 2.49's fp16 stamp and targets a hardcoded `_8gen2` tier, so
 "8 Gen 2 or newer" is necessary but not sufficient, and anime checkpoints still
@@ -44,7 +45,29 @@ convert cleanly into noise.
   user-facing copy of `docs/LIMITS.md` — **change both in the same edit**.
 - Documentation: `CLAUDE.md`, this file, `ROADMAP.md`, `docs/LIMITS.md`,
   `docs/PIPELINE.md`. The converter's history has been moved out of
-  `the PC conversion tree` into this repo; LocalDream now only points here.
+  the PC conversion tree it grew out of, into this repo.
+
+## ⚠ Added 2026-09-14, later the same day: read `docs/CHECKPOINT-FAMILIES.md`
+
+The plan below said "decide between P1 and P2". **P2's premise is now in doubt**
+and the section after this one is superseded on that point:
+
+- ReV Animated — anime-lineage, 2.5D — profiles like a *photoreal* checkpoint
+  (max weight-span ratio **1.27** against base SD1.5, vs CyberRealistic's 1.22).
+  MistoonAnime's 48 may be one merge, not a family.
+- Linear blends of the two local checkpoints move the ratio **smoothly** from
+  1.22 to 20.58 — a 50/50 merge lands at 10.30 — so there is no boundary for a
+  two-template switch to sit on.
+- A **0.89 MB** read decides a checkpoint's profile, and it works over HTTP
+  ranges without downloading the file (`tools/span_probe.py`, new).
+- Activation encodings are literals inside `libqnn_model.so`; making them
+  pack-driven costs ~29 KB and could let one template stretch to fit —
+  `ROADMAP.md` item 1c, an afternoon, and it could retire P2 entirely.
+
+**So: run the survey (item 1a) before spending 3 h on an anime template**, and
+if P1's 2.28 rebuild happens, build it from **base SD1.5 + stock CLIP + ft-mse
+VAE** rather than DreamShaper (item 1b) — measured free, and it takes a specific
+finetune out of the middle of the pipeline.
 
 ## The one thing to do next
 
@@ -84,7 +107,8 @@ will render noise is flagged before two minutes are spent. The predictor is
   Nor is the borrowed CLIP/VAE the cause — the 2×2 in `README.md` ruled it out.
 - **Do not convert the text encoder or VAE.** Measured unnecessary (0.13–0.39%
   median difference, and a deliberate mismatch is visually indistinguishable).
-- **Do not add converter UI to DreamUI.** This is a separate app by decision.
+- **Do not fold the converter into a generator's UI.** It is a separate app by
+  decision: it writes models, any generator imports them.
 
 ## Rebuild commands
 
@@ -100,13 +124,13 @@ $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++ \
 ./gradlew.bat assembleDebug
 ```
 
-Push (PowerShell only, always `-s`):
+Install and push (always pass `-s <serial>` — `adb devices` lists them; a phone
+on both USB and TCP appears twice):
 
-```powershell
-$adb = "adb"
-& $adb -s <serial> install -r app\build\outputs\apk\debug\app-debug.apk
-& $adb -s <serial> push app\build\outputs\apk\debug\app-debug.apk /sdcard/Download/npuforge-<ver>.apk
-& $adb -s <serial> shell md5sum /sdcard/Download/npuforge-<ver>.apk   # must match
+```sh
+adb -s "$SERIAL" install -r app/build/outputs/apk/debug/app-debug.apk
+adb -s "$SERIAL" push app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/npuforge-<ver>.apk
+adb -s "$SERIAL" shell md5sum /sdcard/Download/npuforge-<ver>.apk   # must match the local md5
 ```
 
 Correctness gate, before trusting any change to `native/tplconv.cpp`:
