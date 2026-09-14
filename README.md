@@ -91,9 +91,12 @@ phone at all.
 ✅ **Working end to end as an Android app** (2026-09-14, one device). Pick a
 `.safetensors`, get a loadable model directory. The app reproduces the
 adb-driven pipeline: its model renders **byte-identical PNGs** to both the
-adb-built and the PC-built versions. Output goes to
-**`Download/npuforge/<name>/`** via MediaStore — no storage permission, and
-somewhere a person can actually find it.
+adb-built and the PC-built versions. Output is a single
+**`Download/npuforge/<name>.zip`** written via MediaStore — no storage
+permission needed, somewhere a person can actually find it, and in the shape a
+generator's custom-model import expects. Verified: 7 entries, uncompressed
+(these are quantized weights; deflate would cost a minute of CPU to save
+nothing).
 
 Before picking a file it reads the safetensors **header** (a short read, not a
 2 GB copy) and shows what the checkpoint contains — UNet, VAE, text encoder —

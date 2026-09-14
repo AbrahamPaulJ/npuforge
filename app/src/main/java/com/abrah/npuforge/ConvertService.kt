@@ -133,7 +133,9 @@ class ConvertService : Service() {
                 val unet = Converter.stageCompile(this@ConvertService, pack, work)
 
                 post(getString(R.string.stage_assemble))
-                val where = Converter.assemble(this@ConvertService, unet, name)
+                val where = Converter.assemble(this@ConvertService, unet, name) { f ->
+                    post(getString(R.string.stage_assemble), f)
+                }
 
                 // ~3 GB of checkpoint + pack; keeping it would fill the device
                 // after two conversions.

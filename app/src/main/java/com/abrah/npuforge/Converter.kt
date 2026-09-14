@@ -7,6 +7,9 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import java.io.File
+import java.util.zip.Deflater
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * The conversion pipeline: a `.safetensors` in, a model directory out.
@@ -49,7 +52,7 @@ object Converter {
      */
     const val OUTPUT_SUBDIR = "npuforge"
 
-    fun outputLabel(name: String): String = "Download/$OUTPUT_SUBDIR/$name"
+    fun outputLabel(name: String): String = "Download/$OUTPUT_SUBDIR/$name.zip"
 
     private fun nativeExe(context: Context, name: String): File {
         val f = File(context.applicationInfo.nativeLibraryDir, name)
@@ -251,51 +254,69 @@ object Converter {
      * style, so this works, but a converted model is not a complete port of the
      * checkpoint and the UI should not claim otherwise.
      */
-    fun assemble(context: Context, unet: File, name: String): String {
+    fun assemble(context: Context, unet: File, name: String, onFile: (String) -> Unit): String {
         if (!Donor.isReady(context)) {
             // Emitting unet.bin alone produces a directory that looks like a
             // model and cannot load. Fail here instead.
             throw Failure("the shared text encoder and VAE are missing")
         }
-        val relative = "${Environment.DIRECTORY_DOWNLOADS}/$OUTPUT_SUBDIR/$name"
-        // Re-converting the same name must replace, not accumulate: MediaStore
-        // silently renames a clash to "unet (1).bin", which would leave a
-        // directory holding two UNets and no way to tell which is current.
-        removeExisting(context, relative)
-
+        // One zip, not seven loose files: it is what a generator's import
+        // expects, and seven 150-900 MB files strewn through Downloads is
+        // nobody's idea of a result. Entry names are flat basenames because
+        // that is what importers key on.
         val files = listOf(unet to "unet.bin") +
             Donor.dir(context).listFiles().orEmpty().map { it to it.name }
-        for ((src, target) in files) {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, target)
-                put(MediaStore.Downloads.RELATIVE_PATH, relative)
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
-            val uri = context.contentResolver
-                .insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                ?: throw Failure("could not create $target in $relative")
-            context.contentResolver.openOutputStream(uri)?.use { out ->
-                src.inputStream().use { it.copyTo(out, 1 shl 20) }
-            } ?: throw Failure("could not write $target")
-            context.contentResolver.update(
-                uri,
-                ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) },
-                null, null,
-            )
+
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, "$name.zip")
+            put(MediaStore.Downloads.MIME_TYPE, "application/zip")
+            put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/$OUTPUT_SUBDIR")
+            put(MediaStore.Downloads.IS_PENDING, 1)
         }
+        // Re-converting the same name must replace, not accumulate: MediaStore
+        // silently renames a clash to "name (1).zip".
+        removeExisting(context, "$name.zip")
+        val uri = context.contentResolver
+            .insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: throw Failure("could not create $name.zip in Downloads")
+
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { raw ->
+                ZipOutputStream(raw.buffered(1 shl 20)).use { zip ->
+                    // ⚠ No compression on purpose. These are quantized weights and
+                    // context binaries -- deflate saves almost nothing and would
+                    // add a minute of CPU to a 1.27 GB archive on a phone.
+                    zip.setLevel(Deflater.NO_COMPRESSION)
+                    for ((src, entryName) in files) {
+                        onFile(entryName)
+                        zip.putNextEntry(ZipEntry(entryName))
+                        src.inputStream().use { it.copyTo(zip, 1 shl 20) }
+                        zip.closeEntry()
+                    }
+                }
+            } ?: throw Failure("could not open $name.zip for writing")
+        } catch (e: Exception) {
+            // A half-written archive passes a file-exists check and fails at
+            // import, which is a worse outcome than no file.
+            context.contentResolver.delete(uri, null, null)
+            throw e
+        }
+        context.contentResolver.update(
+            uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null,
+        )
         return outputLabel(name)
     }
 
-    /** Drops any previous conversion under the same Downloads sub-path. */
-    private fun removeExisting(context: Context, relative: String) {
+    /** Drops any previous archive of the same name. */
+    private fun removeExisting(context: Context, display: String) {
         try {
             context.contentResolver.delete(
                 MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
-                arrayOf("$relative/%"),
+                "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} = ?",
+                arrayOf("%${Environment.DIRECTORY_DOWNLOADS}/$OUTPUT_SUBDIR%", display),
             )
         } catch (e: Exception) {
-            Log.w(TAG, "could not clear $relative: ${e.message}")
+            Log.w(TAG, "could not clear $display: ${e.message}")
         }
     }
 }
