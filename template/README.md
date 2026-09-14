@@ -1,5 +1,21 @@
 # The template bundle
 
+> ## ⛔ These two files are NOT under this repository's MIT licence
+>
+> `recipe.bin` and `tpl_trim.pack` are **non-commercial**. They contain no
+> third-party source, but they were derived from a UNet graph exported with a
+> modified `diffusers` UNet redistributed under **CC BY-NC 4.0**, so the
+> derivation chain is non-commercial and these artefacts inherit that until
+> someone qualified says otherwise. The MIT licence in `../LICENSE` covers the
+> repository's own source — `native/`, `tools/`, `app/`, the documentation — and
+> **not this directory**.
+>
+> **Commercial use requires regenerating this bundle from a clean-room export.**
+> `../docs/TEMPLATE-AUTHORING.md` says how. The rest of the pipeline is generic
+> over templates, so a clean-room bundle drops straight in.
+>
+> Full detail and the rest of the third-party picture: `../NOTICE` §2.
+
 This is everything a device needs besides the QAIRT runtime and the 9.7 MB
 `libqnn_model.so` (gitignored; see `../NOTICE` and `../docs/BUILD.md`).
 

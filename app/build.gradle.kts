@@ -11,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "com.abrah.npuforge"
         // 31: the QNN runtime and the exec-from-nativeLibraryDir trick both
-        // match DreamUI's floor, and there is no point supporting a device
+        // match the generator ecosystem's floor, and there is no point supporting a device
         // that cannot run the models this produces.
         minSdk = 31
         targetSdk = 35

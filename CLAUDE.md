@@ -1,8 +1,8 @@
 # npuforge — project index
 
 Convert an SD1.5 `.safetensors` into a Qualcomm NPU model **on the phone**, in
-~117 s, with no PC. Its own git repo (`main`, MIT), a **sibling** of
-`the PC conversion tree` — not part of it and not a DreamUI feature.
+~117 s, with no PC. A standalone converter: it writes models that any generator
+can import, and is deliberately not a feature of any one generator.
 
 📌 **START HERE: `HANDOFF.md`.** It is rewritten every session and says what
 state things are in and what to do next. This file is only an index.
@@ -37,6 +37,7 @@ whether it can be distributed at all.
 | `HANDOFF.md` | **always, first** — live state, next step, what not to redo |
 | `docs/LIMITS.md` | **before saying what this supports**, or when a conversion produced something wrong. Scope, the fp16 stamp, the anime failure and its dead hypotheses, LoRA support matrix, how to read a failure |
 | `ROADMAP.md` | planning. Also lists what is **parked by decision** (2.28 build, anime template) and what was **rejected on measurement** — check before proposing anything |
+| `docs/CHECKPOINT-FAMILIES.md` | **before planning a second template, a second resolution, or changing whose CLIP/VAE ships**. Which SD1.5 checkpoints exist and where they came from, the 0.9 MB span probe, why "photoreal vs anime" may be the wrong split, and what another resolution costs |
 | `docs/PIPELINE.md` | touching the template, the recipe, or the quantization rules. The full derivation with every measurement, plus the dead first template and the four checks that passed on it |
 | `docs/BUILD.md` | building `tplconv`, the pack-loading library, or running the adb-driven pipeline. ⚠ `-ffp-contract=off` and the md5-gating trap live here |
 | `docs/ANDROID.md` | **anything touching packaging, `jniLibs`, or library paths.** Four separate causes of one "Device Creation failure" |
@@ -52,6 +53,7 @@ whether it can be distributed at all.
 | `tools/tpl_recipe.py`, `tpl_patch.py`, `tpl_pack.py` | template authoring (PC, once) |
 | `tools/tpl_recipe_bin.py`, `tpl_pack_trim.py` | what turns authoring output into the 43 KB + 397 KB the app ships |
 | `tools/lora_merge.py` | the PC reference for the LoRA merge |
+| `tools/span_probe.py` | weight-span profile of a checkpoint, local **or over HTTP ranges** — 0.9 MB decides whether a checkpoint will survive the template's activation ranges |
 | `template/` | `recipe.bin`, `tpl_trim.pack`, `sources.txt` (686 LDM keys) |
 | `app/src/main/java/com/abrah/npuforge/Converter.kt` | the staged pipeline: weights → compile → DSP libs → zip via MediaStore |
 | `…/ConvertService.kt` | foreground service, progress parsing, `--esa` LoRA extras so adb can drive it |
@@ -81,43 +83,35 @@ whether it can be distributed at all.
   first is CC BY-NC 4.0; the rest are Qualcomm's or huge. `.gitignore` covers
   them — do not "fix" it.
 
-## What lives next door, in `the PC conversion tree`
+## What this repo does NOT contain
 
-This repo is self-contained for **building and verifying the converter**. It is
-not self-contained for **authoring a new template** or for **rendering a model
-to look at it** — those need the sibling tree. Nothing converter-related is
-documented there any more; these are tools and artefacts, not findings.
+It is self-contained for **building and verifying the converter**. It is not
+self-contained for **authoring a new template** or for **rendering a model to
+look at it**. Those need things that are deliberately absent — some because they
+are Qualcomm's, some because their licence is incompatible with this one
+(`NOTICE`), some because they are gigabytes.
 
-| What | Where | Needed for |
-|---|---|---|
-| QAIRT 2.49 SDK — device runtime, `qnn-context-binary-generator`, `libQnnHtp*` | `the PC conversion tree/qairt/2.49.0.260730/` | the app's `jniLibs` (gitignored, copied from here) and any rebuild |
-| `adb.exe` | `the PC conversion tree/mvp/platform-tools/adb.exe` | every device step |
-| Render + score harnesses (`sweep_*.ps1`, `score_*.py`, `steps_*.ps1`) | `the PC conversion tree/mvp/` | judging a converted model on device |
-| Template authoring scripts (`p0_*.sh`, `p1p2_redo.sh`, `p2_gate.sh`, `p3_*.sh`, `gen_quant_data.py`) | `the PC conversion tree/npuconvert/npuconvertv2/` **and** `~/npuconvert/` in WSL | building a new template — the 2.28 and anime work in `ROADMAP.md` |
-| Template workdirs: `~/p0` (ONNX, `model.cpp`/`model.bin`, calibration raws), `~/tpl/p0` (recipe, packs), `~/t4`, `~/p3` | WSL | ⚠ **do not delete** — a rebuild without them is hours longer |
-| A generator to load the output into | `the PC conversion tree/dreamui/` | end-to-end testing. ⛔ Read-only from here: the converter is **not** a DreamUI feature |
-
-Three LocalDream docs are still worth opening from here, and only these:
-`docs/CONVERSION.md` (the PC pipeline this template came out of, and §3.3's
-encoding gate), `docs/DEVICE-SUPPORT.md` §6 (why the fp16 stamp cannot be
-configured away — settled, do not re-derive), `docs/LORA-PROBE.md` (the 2.8×
-measurement that makes merging the right route).
-
-⚠ `the PC conversion tree` is **not a git repository**, so its docs are the only record
-and there is no history to recover a deleted claim from.
+| What | Why absent | Needed for | How to get it |
+|---|---|---|---|
+| QAIRT SDK — `qnn-context-binary-generator`, `libQnnHtp*`, the device runtime | Qualcomm's, redistribution restricted (`NOTICE` §1) | the app's `jniLibs`, and every rebuild | Qualcomm's developer site; needs an account |
+| `libqnn_model.so` (9.7 MB) | generated from QAIRT converter output (`NOTICE` §3) | the app's assets | regenerate — `docs/BUILD.md` |
+| Template authoring scripts and the modified `diffusers` UNet they import | CC BY-NC 4.0 upstream (`NOTICE` §2) | building a **new** template | `docs/TEMPLATE-AUTHORING.md` names every step and the upstream |
+| Render + score harnesses | not written for a public audience | judging a converted model on device | `docs/TEMPLATE-AUTHORING.md` §5 says what they must do |
+| Checkpoints | ~2 GB each, mixed licences (`NOTICE` §4) | any conversion | the user supplies their own |
 
 ## Environment
 
-- The app's `jniLibs` are copied from the QAIRT SDK above and are gitignored, so
-  a fresh clone does not build a working APK until they are put back.
-- Build: JDK 17 + Android SDK 35, `./gradlew.bat assembleDebug`.
-- adb from **PowerShell only**, always `-s <serial>`: USB `<serial>`,
-  Tailscale `<device-ip>:5555`. Check `adb shell settings get global wifi_on`
-  before a large push, and verify every push by md5 — `adb push` reports bytes
-  sent, not bytes landed.
-- ⚠ **`\` collapses inside quoted heredocs in this shell.** Kotlin/C++/Gradle
-  written that way comes out with literal newlines and invalid escapes. Use the
-  Write tool for source files, or `Char(92)` / `System.lineSeparator()`.
+- The app's `jniLibs` and `assets/template/libqnn_model.so` are **gitignored**, so
+  a fresh clone does not build a working APK until they are put back. That is a
+  licence boundary, not an oversight — `docs/BUILD.md` and `NOTICE`.
+- Build: JDK 17 + Android SDK 35, `./gradlew.bat assembleDebug` (or `./gradlew`).
+- adb: always pass `-s <serial>` — there is usually more than one transport when
+  a phone is on both USB and TCP. Check `adb shell settings get global wifi_on`
+  before a large push, and verify every push by md5: `adb push` reports bytes
+  **sent**, not bytes **landed**.
+- ⚠ **`\` collapses inside quoted heredocs in some shells.** Kotlin/C++/Gradle
+  written that way comes out with literal newlines and invalid escapes. Write
+  source files with an editor, or use `Char(92)` / `System.lineSeparator()`.
 
 ## Documentation convention
 

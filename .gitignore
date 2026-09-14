@@ -1,5 +1,10 @@
+# Personal tooling / local launchers -- never part of the project
+claude-yolo.bat
+*.local.*
+
 # Gradle / IDE
 .gradle/
+.kotlin/
 local.properties
 *.iml
 .idea/

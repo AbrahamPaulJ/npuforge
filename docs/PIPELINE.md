@@ -8,11 +8,11 @@ reasonable ideas until you have paid for them.
 Everything was measured on 2026-09-13 / 2026-09-14. Device: Samsung SM-S938B
 (SM8750, HTP **v79**). Host: WSL Ubuntu, QAIRT **2.49**, Linux NDK r27c.
 
-⚠ **The authoring scripts are not in this repo.** They live outside it, in the
-PC conversion tree they were written for: `~/npuconvert/npuconvertv2/*.sh|py`
-(WSL) and `the PC conversion tree/mvp/*.ps1|py` (render + score harnesses). What this repo
-carries is the *product* — `tools/tpl_*.py`, `native/tplconv.cpp`, and the
-template bundle.
+⚠ **The authoring scripts are not in this repo**, and cannot be: they import a
+modified `diffusers` UNet whose licence is incompatible with this one
+(`NOTICE` §2). What this repo carries is the *product* — `tools/tpl_*.py`,
+`native/tplconv.cpp`, and the template bundle. To rebuild the authoring side from
+scratch, see `docs/TEMPLATE-AUTHORING.md`.
 
 ## The idea, in one paragraph
 

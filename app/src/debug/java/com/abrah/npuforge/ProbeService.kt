@@ -65,7 +65,8 @@ class ProbeService : Service() {
             assets.open("probe/$n").use { i -> f.outputStream().use { i.copyTo(it) } }
         }
 
-        // DreamUI's own backend, purpose-built for this: it creates a QNN device
+        // Local Dream's backend (CC BY-NC 4.0, never committed -- see NOTICE),
+        // purpose-built for this: it creates a QNN device
         // and load-tests the canary pair. Reusing it beats hand-rolling a probe
         // whose failure mode I would have to trust -- the first attempt, with
         // qnn-net-run and an empty input list, bailed during argument parsing

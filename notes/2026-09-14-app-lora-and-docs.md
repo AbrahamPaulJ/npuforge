@@ -11,7 +11,7 @@ file.
    correctly it was 5/5 byte-identical. The first real lesson of the day was
    about the check, not the converter.
 2. Scope correction from the user: the converter is **a separate app, never a
-   DreamUI feature**. All DreamUI changes were reverted and the work moved into
+   feature of a generator app**. Those changes were reverted and the work moved into
    `CC/npuforge` as its own MIT repo.
 3. The Android app: checkpoint picker → header inspection → foreground-service
    conversion → a single zip in Downloads. Getting QNN to run inside an app cost
@@ -20,7 +20,7 @@ file.
    app with a bounded strength slider.
 5. An anime checkpoint converted cleanly and rendered noise. Localised to the
    converted UNet by a 2×2 and explained by weight-span ratio (`docs/LIMITS.md`).
-6. Documentation split: converter history moved out of `the PC conversion tree` into this
+6. Documentation split: converter history moved out of the PC conversion tree into this
    repo; an **Info tab** added to the app so the limits reach the person holding
    the phone. APK `0.2 (2)` installed and pushed to `/sdcard/Download/`.
 

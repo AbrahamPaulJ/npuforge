@@ -193,10 +193,46 @@ dead hypotheses, in **`docs/LIMITS.md`**; what is planned about them is in
 
 ## Build and run
 
-See `docs/BUILD.md`.
+⚠ **A fresh clone does not build a working APK.** Three things are deliberately
+absent because they are not ours to ship, and the build needs all three:
+
+| You must supply | Where it goes | Why it is absent |
+|---|---|---|
+| QAIRT SDK device runtime (`libQnnHtp*.so`, `libQnnSystem.so`, …) and `qnn-context-binary-generator` | `app/src/main/jniLibs/arm64-v8a/` | Qualcomm's, redistribution restricted |
+| `libqnn_model.so` (9.7 MB) | `app/src/main/assets/template/` | generated from QAIRT converter output |
+| an SD1.5 `.safetensors` to convert | the phone | ~2 GB, and licences vary per checkpoint |
+
+Full steps, including the `-ffp-contract=off` requirement that is **not
+optional**, are in **`docs/BUILD.md`**. Android packaging has four separate traps
+that all surface as the same error — **`docs/ANDROID.md`** before you touch
+`jniLibs`.
+
+## Where to start reading
+
+| If you want to | Read |
+|---|---|
+| know what this supports and where it fails | `docs/LIMITS.md` |
+| build it | `docs/BUILD.md`, then `docs/ANDROID.md` |
+| understand how the template/recipe split was derived | `docs/PIPELINE.md` |
+| build a **new** template (other resolution, SDK, or calibration) | `docs/TEMPLATE-AUTHORING.md` |
+| know which checkpoints work, and why two templates may be the wrong plan | `docs/CHECKPOINT-FAMILIES.md` |
+| pick something to work on | `ROADMAP.md` — it also lists what was **rejected on measurement** |
+| see the live state and what not to redo | `HANDOFF.md` |
+
+`CLAUDE.md` is the index that ties them together. Findings live in `docs/`, one
+file per topic, each claim carrying its measurement; when a claim is refuted the
+section stating it is rewritten rather than annotated.
 
 ## Licence
 
-MIT (`LICENSE`) for this repository's own source. ⚠ **`NOTICE` is not optional
-reading** — the QAIRT runtime is redistribution-restricted, and the template's
-derivation chain passes through a non-commercial licence.
+**MIT** (`LICENSE`) for this repository's own source: `native/`, `tools/`,
+`app/`, and the documentation.
+
+⛔ **`template/` is not MIT and is not commercial-use clean.** `recipe.bin` and
+`tpl_trim.pack` inherit a **CC BY-NC 4.0** derivation chain — see
+`template/README.md` and `NOTICE` §2. A clean-room regeneration removes this;
+`docs/TEMPLATE-AUTHORING.md` says how.
+
+⚠ **`NOTICE` is not optional reading.** The QAIRT runtime is
+redistribution-restricted, the app fetches a CLIP/VAE donor at runtime from the
+same non-commercial project, and checkpoints carry their own terms.

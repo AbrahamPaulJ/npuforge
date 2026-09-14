@@ -2,6 +2,6 @@
 <resources>
     <!-- The UI is entirely Compose, so this only has to give the Activity a
          window with no action bar before Compose takes over. Same choice as
-         DreamUI. -->
+         a generator app. -->
     <style name="Theme.Npuforge" parent="android:Theme.Material.NoActionBar" />
 </resources>

@@ -4,8 +4,8 @@
 the phone. Pick a `.safetensors`, optionally stack LoRAs, get
 `Download/npuforge/<name>.zip`.
 
-⛔ It is **not** a DreamUI feature and must not become one. DreamUI is a
-generator; this writes models any generator can import.
+⛔ It is **not** a feature of any one generator and must not become one. A
+generator renders; this writes models that any generator can import.
 
 ## The pipeline, as the app runs it
 
