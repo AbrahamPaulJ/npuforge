@@ -86,6 +86,39 @@ phone at all.
 
 ⚠ The **compile** step is the heavy one: ~4.8 GB peak. 8 GB phones are unproven.
 
+## LoRA: merge, then convert
+
+Runtime LoRA needs `UPDATEABLE_STATIC` tensors, and marking even **one** costs
+2.8x inference on this hardware -- a cliff, not a slope (83 ms/pass -> 281, and
+24 vs 768 tensors cost the same). Merging instead produces an ordinary model at
+full speed. That route was previously rejected only because re-converting cost
+1-1.5 h on a PC; on-device conversion makes it ~2 min.
+
+`tools/lora_merge.py` does `W' = W + strength * (alpha/rank) * (up @ down)` in
+checkpoint space, which also sidesteps the per-head attention split -- merged
+`to_q`/`to_k`/`to_v` are split by the recipe like any base weight.
+
+✅ **Measured 2026-09-14**: DreamShaper + a rank-128 watercolour LoRA at 0.8,
+192/192 attention modules merged, converted and rendered on device. The style
+transfer is unmistakable and there are no artifacts.
+
+| | |
+|---|---|
+| inference cost | **none** -- it is an ordinary model |
+| conversion cost | seconds on top of the usual ~117 s |
+| **storage** | **~1.3 GB per (checkpoint x LoRA x strength)** |
+
+Storage is the real constraint: strength is baked in, not a slider.
+
+⚠ kohya names SD1.5 LoRAs with **diffusers** block names while the checkpoint
+uses **LDM** ones, so the block prefix needs translating. Build the kohya name
+forwards from each checkpoint key -- reversing it is ambiguous, because
+`to_out_0`, `ff_net_0_proj` and `transformer_blocks_0` all collide under
+`"." -> "_"`.
+⚠ The text-encoder half (`lora_te_*`) is dropped, since CLIP comes from the
+template. For the style LoRA tested, the UNet half still carried the effect.
+⚠ Standard kohya LoRA only; LoCon/LoHa/DoRA need their own merge formulas.
+
 ## Status
 
 ✅ **Working end to end as an Android app** (2026-09-14, one device). Pick a
