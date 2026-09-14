@@ -24,6 +24,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlin.math.roundToInt
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
@@ -61,7 +63,7 @@ private fun ConvertScreen() {
     var pickedName by remember { mutableStateOf("") }
     var modelName by remember { mutableStateOf("") }
     var report by remember { mutableStateOf<CheckpointInfo.Report?>(null) }
-    val loras = remember { mutableStateListOf<Triple<Uri, String, String>>() }  // uri, name, strength
+    val loras = remember { mutableStateListOf<Triple<Uri, String, Float>>() }  // uri, name, strength
     var nameEdited by remember { mutableStateOf(false) }
 
     /**
@@ -76,9 +78,23 @@ private fun ConvertScreen() {
         fun clean(v: String) = v.substringBeforeLast(".").take(28)
             .replace(Regex("[^A-Za-z0-9_.-]"), "_").trim('_')
         val base = clean(pickedName)
-        val adapters = loras.joinToString("") { (_, n, st) -> "+" + clean(n) + "@" + st }
+        val adapters = loras.joinToString("") { (_, n, st) -> "+" + clean(n) + "@" + fmt(st) }
         return (base + adapters).take(60)
     }
+    /**
+     * Why the name is validated at all: it becomes a FILENAME in Downloads via
+     * MediaStore. An invalid one fails at the very end, after ~2 minutes of
+     * conversion, which is the worst possible moment to find out.
+     */
+    val nameError: Int? = when {
+        modelName.isBlank() -> R.string.name_blank
+        modelName.length > 80 -> R.string.name_long
+        modelName.any { it in ("/:*?<>|" + Char(34) + Char(92)) } -> R.string.name_chars
+        modelName.startsWith(".") -> R.string.name_dot
+        modelName != modelName.trim() -> R.string.name_space
+        else -> null
+    }
+
     if (!nameEdited && picked != null) modelName = suggestedName()
     var inspectError by remember { mutableStateOf<String?>(null) }
 
@@ -110,7 +126,7 @@ private fun ConvertScreen() {
     val loraPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri != null) loras.add(Triple(uri, displayName(context as Activity, uri), "0.8"))
+        if (uri != null) loras.add(Triple(uri, displayName(context as Activity, uri), 0.8f))
     }
 
     Column(
@@ -209,6 +225,8 @@ private fun ConvertScreen() {
                         onValueChange = { modelName = it; nameEdited = true },
                         label = { Text(stringResource(R.string.model_name)) },
                         singleLine = true,
+                        isError = nameError != null,
+                        supportingText = nameError?.let { { Text(stringResource(it)) } },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     LoraList(loras) { loraPicker.launch(arrayOf("*/*")) }
@@ -216,12 +234,12 @@ private fun ConvertScreen() {
                         onClick = {
                             ConvertService.start(
                                 context, picked!!, modelName,
-                                loras.map { it.first to (it.third.toFloatOrNull() ?: 1f) },
+                                loras.map { it.first to it.third },
                             )
                         },
                         // Never offer to convert a file already known not to fit:
                         // the failure would arrive after a 2 GB copy.
-                        enabled = modelName.isNotBlank() && report?.convertible == true,
+                        enabled = nameError == null && report?.convertible == true,
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(stringResource(R.string.convert)) }
                 }
@@ -296,27 +314,35 @@ private fun PartRow(label: String, p: CheckpointInfo.Part, kept: Boolean) {
  */
 @Composable
 private fun LoraList(
-    loras: androidx.compose.runtime.snapshots.SnapshotStateList<Triple<Uri, String, String>>,
+    loras: androidx.compose.runtime.snapshots.SnapshotStateList<Triple<Uri, String, Float>>,
     onAdd: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         loras.forEachIndexed { i, (uri, name, strength) ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(name, style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        name, style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(fmt(strength), style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = { loras.removeAt(i) }) {
+                        Text(stringResource(R.string.remove))
+                    }
                 }
-                Spacer(Modifier.width(8.dp))
-                OutlinedTextField(
+                // -1..2 in 0.1 steps. Negative is deliberate: detail-tweaker
+                // style adapters are used inverted, and a slider that cannot go
+                // below zero would quietly forbid that. Above 2 a merge tends to
+                // leave the template's activation ranges and produce noise, so
+                // the bound is a guard rail, not decoration.
+                Slider(
                     value = strength,
-                    onValueChange = { loras[i] = Triple(uri, name, it) },
-                    label = { Text(stringResource(R.string.lora_strength)) },
-                    singleLine = true,
-                    modifier = Modifier.width(110.dp),
+                    onValueChange = { loras[i] = Triple(uri, name, (it * 10).roundToInt() / 10f) },
+                    valueRange = -1f..2f,
+                    steps = 29,
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                TextButton(onClick = { loras.removeAt(i) }) {
-                    Text(stringResource(R.string.remove))
-                }
             }
         }
         OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
@@ -329,6 +355,9 @@ private fun LoraList(
         }
     }
 }
+
+/** One decimal, so a name reads "@0.8" and not "@0.800000011920929". */
+private fun fmt(v: Float): String = ((v * 10).roundToInt() / 10f).toString()
 
 private fun displayName(activity: Activity, uri: Uri): String {
     activity.contentResolver.query(uri, null, null, null, null)?.use { c ->

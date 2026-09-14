@@ -19,6 +19,11 @@
     <string name="stage_lora">Reading LoRA…</string>
     <string name="add_lora">Add LoRA</string>
     <string name="lora_strength">Strength</string>
+    <string name="name_blank">Give the model a name.</string>
+    <string name="name_long">Too long — keep it under 80 characters.</string>
+    <string name="name_chars">Cannot contain / \ : * ? \" &lt; &gt; |</string>
+    <string name="name_dot">Cannot start with a dot.</string>
+    <string name="name_space">No leading or trailing spaces.</string>
     <string name="remove">Remove</string>
     <string name="lora_note">LoRAs are merged into the weights, so they cost nothing at generation time — but each combination is its own model. The text-encoder half is not applied, so style LoRAs work better than trigger-word ones.</string>
     <string name="stage_weights">Quantizing weights…</string>
