@@ -82,6 +82,33 @@ whether it can be distributed at all.
   `qnn-context-binary-generator`, `libqnn_model.so`, checkpoints or packs. The
   first is CC BY-NC 4.0; the rest are Qualcomm's or huge. `.gitignore` covers
   them — do not "fix" it.
+- ⛔ **This repo is public. Sanitise before every push, not before the first
+  one.** Anything written here for local convenience gets published the moment
+  it is pushed, and a push cannot be taken back — a scrub after the fact still
+  leaves the value in someone's clone. So check *before* `git push`:
+
+  | never publish | write instead |
+  |---|---|
+  | device serials, `adb -s R5…` | `-s <serial>`, or `"$SERIAL"` |
+  | Tailscale / LAN addresses, `:5555` endpoints | `<device-ip>` |
+  | absolute paths under a home directory (`C:\Users\…`, `/home/…`, `/mnt/c/…`) | a repo-relative path, or say what the thing is and how to get it |
+  | paths into private sibling checkouts | name the artefact, not its location |
+  | personal emails, tokens, keystores, launcher scripts | nothing — `.gitignore` them |
+
+  ```sh
+  git grep -nEi "R5CY|100\.99\.|C:.Users|/home/[a-z]|:5555|@gmail" -- $(git ls-files)
+  ```
+
+  ⚠ **The working tree is not the deliverable — history is.** Scrubbing a file
+  leaves the old blob reachable. If something identifying has already been
+  committed, rewrite (`git filter-branch --tree-filter`), drop `refs/original`,
+  expire the reflog and `gc --prune=now`, then verify by scanning **every blob**,
+  not just `HEAD`. That was done once (2026-09-14) and the verification is the
+  part that took the time.
+
+  ⚠ Commits are authored as `AbrahamPaulJ@users.noreply.github.com`, and
+  `Claude-Session:` trailers are **not** published — they link to private
+  transcripts. Keep `Co-Authored-By`.
 
 ## What this repo does NOT contain
 
