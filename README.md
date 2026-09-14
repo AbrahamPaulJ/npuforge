@@ -178,25 +178,18 @@ instead of failing two minutes in.
 the same "Device Creation failure". If you touch the packaging or the library
 paths, read `docs/ANDROID.md` first.
 
-What is not done:
+An **Info tab** in the app states the scope and every known limit in plain
+language, so the person holding the phone reads the same caveats this repo does.
 
-- **CLIP/VAE come from the template**, so a converted checkpoint uses the
-  template's text encoder. The UNet carries the style, so this is fine for now,
-  but it is the next fidelity step. They are downloaded once (~1.0 GB fetched,
-  395 MB kept) rather than bundled.
-- ⚠ **Everything produced is a QAIRT 2.49 build, so it carries the fp16 stamp.**
-  Chips that reject 2.49 models will reject these too. `tplconv` itself is
-  SDK-agnostic — the stamp comes from the template library and the generator —
-  so a 2.28 variant is a rebuild, not a redesign, and needs the 2.28 SDK.
-- **Moving a converted model into a generator is still manual** — the app writes
-  to `Download/npuforge/<name>/`, which any file manager can see, but it does not
-  install the model anywhere for you.
-- **The target tier is hardcoded** to `_8gen2` (v73, 8 MB VTCM). An on-device
-  converter should compile for the chip it is running on; that is one of the
-  original motivations and is not implemented.
-- **One template**: realistic SD1.5 txt2img, 512×512. An anime checkpoint
-  borrowing photoreal activation ranges is untested and is the known hard case.
-- ⛔ **Shipping is gated on the QAIRT redistribution question.** See `NOTICE`.
+**What is not done — and it matters.** Two of the limits look like defects when
+you meet them blind: the output carries QAIRT 2.49's **fp16 stamp** (some chips
+*newer* than the target refuse to load it), the tier is hardcoded to `_8gen2`,
+and **anime checkpoints convert cleanly into noise** because they leave the
+template's borrowed activation ranges. All three are measured, with causes and
+dead hypotheses, in **`docs/LIMITS.md`**; what is planned about them is in
+**`ROADMAP.md`**.
+
+⛔ **Shipping is gated on the QAIRT redistribution question.** See `NOTICE`.
 
 ## Build and run
 

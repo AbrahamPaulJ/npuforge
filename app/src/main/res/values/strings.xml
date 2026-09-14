@@ -6,6 +6,8 @@
     <string name="convert">Convert</string>
     <string name="again">Convert another</string>
     <string name="channel_convert">Conversion</string>
+    <string name="tab_convert">Convert</string>
+    <string name="tab_info">Info</string>
 
     <string name="inside_title">Inside this file: %1$s, %2$d tensors</string>
     <string name="part_unet">UNet (style, subject)</string>

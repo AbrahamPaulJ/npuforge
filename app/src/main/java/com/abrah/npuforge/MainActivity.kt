@@ -26,6 +26,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.abrah.npuforge.ui.InfoScreen
 import kotlinx.coroutines.Dispatchers
 import kotlin.math.roundToInt
 import kotlinx.coroutines.withContext
@@ -50,8 +53,31 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme { Surface(Modifier.fillMaxSize()) { ConvertScreen() } }
+            MaterialTheme { Surface(Modifier.fillMaxSize()) { AppScreen() } }
         }
+    }
+}
+
+/**
+ * Two tabs: the job, and the truth about the job.
+ *
+ * The Info tab is not an "about" page. This converter has real limits that look
+ * like defects when you meet them blind -- a model that will not load on a
+ * phone newer than the one it targets, an anime checkpoint that converts
+ * cleanly into noise -- and the only place a user can read about them is in the
+ * app.
+ */
+@Composable
+private fun AppScreen() {
+    var tab by remember { mutableStateOf(0) }
+    Column(Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = tab) {
+            Tab(selected = tab == 0, onClick = { tab = 0 },
+                text = { Text(stringResource(R.string.tab_convert)) })
+            Tab(selected = tab == 1, onClick = { tab = 1 },
+                text = { Text(stringResource(R.string.tab_info)) })
+        }
+        if (tab == 0) ConvertScreen() else InfoScreen()
     }
 }
 
