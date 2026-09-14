@@ -34,6 +34,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -219,6 +220,37 @@ struct Safetensors {
         return out;
     }
 
+    // float -> IEEE half, round-to-nearest-even.
+    //
+    // ⚠ Why round at all: merging LoRA in memory would otherwise be MORE
+    // precise than merging with a tool and saving a checkpoint, and the two
+    // would produce different packs. Rounding here makes
+    // `--lora X:0.8` byte-identical to `lora_merge.py` + convert, which is what
+    // makes the Python path usable as the reference.
+    static uint16_t float_to_half(float f) {
+        uint32_t x;
+        memcpy(&x, &f, 4);
+        uint32_t sign = (x >> 16) & 0x8000;
+        int32_t exp = (int32_t)((x >> 23) & 0xff) - 127 + 15;
+        uint32_t man = x & 0x7fffff;
+        if (((x >> 23) & 0xff) == 0xff) return (uint16_t)(sign | 0x7c00 | (man ? 0x200 : 0));
+        if (exp >= 0x1f) return (uint16_t)(sign | 0x7c00);            // overflow -> inf
+        if (exp <= 0) {                                                // subnormal / zero
+            if (exp < -10) return (uint16_t)sign;
+            man |= 0x800000;
+            uint32_t shift = (uint32_t)(14 - exp);
+            uint32_t h = man >> shift;
+            uint32_t rem = man & ((1u << shift) - 1);
+            uint32_t half_ = 1u << (shift - 1);
+            if (rem > half_ || (rem == half_ && (h & 1))) h++;
+            return (uint16_t)(sign | h);
+        }
+        uint32_t h = ((uint32_t)exp << 10) | (man >> 13);
+        uint32_t rem = man & 0x1fff;
+        if (rem > 0x1000 || (rem == 0x1000 && (h & 1))) h++;
+        return (uint16_t)(sign | h);
+    }
+
     // IEEE half -> float, exact for every input including subnormals and NaN.
     static float half_to_float(uint16_t h) {
         uint32_t sign = (uint32_t)(h & 0x8000) << 16;
@@ -352,11 +384,162 @@ size_t header_size(const std::vector<PackEntry>& es) {
 
 // ---------------------------------------------------------- transforms ----
 
+// ---------------------------------------------------------------- LoRA ----
+//
+// Merged into the checkpoint weights before quantizing:
+//     W' = W + strength * (alpha/rank) * (up @ down)
+//
+// Runtime LoRA is not an option on this hardware -- marking tensors
+// UPDATEABLE_STATIC costs 2.8x inference, and one marked tensor costs as much
+// as 768 (LORA-PROBE.md). A merged checkpoint is an ordinary model.
+//
+// Merging in CHECKPOINT space also sidesteps the per-head attention split: the
+// recipe then slices merged to_q/to_k/to_v exactly as it slices a base weight.
+//
+// ⚠ kohya names SD1.5 LoRAs with **diffusers** block names while the checkpoint
+// uses **LDM** ones. The map is built FORWARDS from each checkpoint key, since
+// reversing is ambiguous -- "." -> "_" makes `to_out_0`, `ff_net_0_proj` and
+// `transformer_blocks_0` indistinguishable from their dotted forms.
+
+struct LoraMod {
+    const Safetensors* st;
+    std::string down, up;
+    float scale;  // strength * alpha / rank
+};
+
+// LDM attention block prefix -> the diffusers prefix kohya would have used.
+std::string diffusers_prefix(const std::string& pre) {
+    int n = -1;
+    if (sscanf(pre.c_str(), "input_blocks.%d.1", &n) == 1 && pre == "input_blocks." + std::to_string(n) + ".1")
+        return "down_blocks_" + std::to_string((n - 1) / 3) + "_attentions_" + std::to_string((n - 1) % 3);
+    if (pre == "middle_block.1") return "mid_block_attentions_0";
+    if (sscanf(pre.c_str(), "output_blocks.%d.1", &n) == 1 && pre == "output_blocks." + std::to_string(n) + ".1")
+        return "up_blocks_" + std::to_string(n / 3) + "_attentions_" + std::to_string(n % 3);
+    return "";
+}
+
+std::string underscored(std::string v) {
+    for (char& c : v) if (c == '.') c = '_';
+    return v;
+}
+
+// For one checkpoint key, every kohya module name that could refer to it.
+std::vector<std::string> kohya_names(const std::string& ldm_key) {
+    std::vector<std::string> out;
+    const std::string P = "model.diffusion_model.", S = ".weight";
+    if (ldm_key.compare(0, P.size(), P) != 0) return out;
+    if (ldm_key.size() < S.size() || ldm_key.compare(ldm_key.size() - S.size(), S.size(), S) != 0) return out;
+    std::string body = ldm_key.substr(P.size(), ldm_key.size() - P.size() - S.size());
+    out.push_back("lora_unet_" + underscored(body));
+    for (size_t i = 0; i < body.size(); i++) {
+        if (body[i] != '.') continue;
+        std::string dp = diffusers_prefix(body.substr(0, i));
+        if (!dp.empty()) out.push_back("lora_unet_" + dp + "_" + underscored(body.substr(i + 1)));
+    }
+    return out;
+}
+
+struct LoraSet {
+    std::vector<std::unique_ptr<Safetensors>> files;
+    std::unordered_map<std::string, std::vector<LoraMod>> byKey;  // LDM key -> mods
+
+    // `spec` is "path:strength" (strength optional, default 1.0).
+    void add(const std::string& spec, const std::vector<std::string>& all_sources) {
+        size_t colon = spec.rfind(':');
+        float strength = 1.0f;
+        std::string path = spec;
+        // A Windows-style "C:\..." is not a strength separator.
+        if (colon != std::string::npos && colon > 1) {
+            try {
+                strength = std::stof(spec.substr(colon + 1));
+                path = spec.substr(0, colon);
+            } catch (...) { path = spec; }
+        }
+        auto st = std::make_unique<Safetensors>();
+        st->load(path.c_str());
+        int matched = 0;
+        for (const std::string& key : all_sources) {
+            for (const std::string& kn : kohya_names(key)) {
+                auto d = st->tensors.find(kn + ".lora_down.weight");
+                auto u = st->tensors.find(kn + ".lora_up.weight");
+                if (d == st->tensors.end() || u == st->tensors.end()) continue;
+                size_t rank = (size_t)d->second.shape[0];
+                float alpha = (float)rank;
+                auto a = st->tensors.find(kn + ".alpha");
+                if (a != st->tensors.end()) {
+                    std::vector<int64_t> sh;
+                    std::vector<float> av = st->get_f32(kn + ".alpha", sh);
+                    if (!av.empty()) alpha = av[0];
+                }
+                byKey[key].push_back({st.get(), kn + ".lora_down.weight",
+                                      kn + ".lora_up.weight", strength * alpha / (float)rank});
+                matched++;
+                break;
+            }
+        }
+        fprintf(stderr, "lora %s strength %.3f: %d modules matched\n",
+                path.c_str(), strength, matched);
+        if (matched == 0) die("%s matched no tensors -- wrong LoRA format?", path.c_str());
+        files.push_back(std::move(st));
+    }
+
+    bool empty() const { return byKey.empty(); }
+
+    /** Adds every adapter's delta to `w` (checkpoint space), then rounds to fp16. */
+    void apply(const std::string& key, std::vector<float>& w) const {
+        auto it = byKey.find(key);
+        if (it == byKey.end()) return;
+        // ⚠ Cached: the recipe reads an attention weight once per HEAD, so a
+        // q/k/v tensor is fetched 8 times. Recomputing the rank-R product each
+        // time made the merge cost more than the whole rest of the conversion.
+        auto c = cache.find(key);
+        if (c != cache.end()) { w = c->second; return; }
+
+        for (const LoraMod& m : it->second) {
+            std::vector<int64_t> ds, us;
+            std::vector<float> down = m.st->get_f32(m.down, ds);
+            std::vector<float> up = m.st->get_f32(m.up, us);
+            size_t rank = (size_t)ds[0];
+            size_t in = down.size() / rank;      // in * kh * kw, flattened
+            size_t out = up.size() / rank;
+            if (out * in != w.size())
+                die("%s: lora delta %zux%zu does not fit weight %zu", key.c_str(), out, in, w.size());
+            // Sum the rank-R product into a ZERO buffer, scale once, then add --
+            // the same association as `W + scale * (up @ down)`. Folding the
+            // scale into each term changes the float32 rounding.
+            std::vector<float> delta(w.size(), 0.0f);
+            for (size_t o = 0; o < out; o++) {
+                for (size_t r = 0; r < rank; r++) {
+                    float a = up[o * rank + r];
+                    if (a == 0.0f) continue;
+                    const float* drow = &down[r * in];
+                    float* dst = &delta[o * in];
+                    for (size_t i = 0; i < in; i++) dst[i] += a * drow[i];
+                }
+            }
+            for (size_t k = 0; k < w.size(); k++) w[k] += m.scale * delta[k];
+        }
+        // Match what a merged checkpoint saved as fp16 would hold.
+        for (float& x : w) x = Safetensors::half_to_float(Safetensors::float_to_half(x));
+        cache.emplace(key, w);
+    }
+
+    mutable std::unordered_map<std::string, std::vector<float>> cache;
+};
+
 // tpl_apply.src_of: fp16 -> f32, optional 8-way head slice, then a permute with
 // trailing singleton padding. Returns data laid out as `dims`.
+// Set once in main. A global rather than a parameter only because src_of has
+// several call sites and this is a single-threaded CLI.
+const LoraSet* g_loras = nullptr;
+
 std::vector<float> src_of(const Safetensors& st, const Entry& e) {
     std::vector<int64_t> shape;
     std::vector<float> v = st.get_f32(e.source, shape);
+    // ⚠ BEFORE the head slice and the permute: LoRA is defined in checkpoint
+    // space, so merging here lets the recipe split merged q/k/v exactly as
+    // it splits any base weight.
+    if (g_loras) g_loras->apply(e.source, v);
     if (e.head >= 0) {
         size_t d = (size_t)shape[0] / 8;
         size_t stride = v.size() / (size_t)shape[0];
@@ -389,6 +572,7 @@ std::vector<float> src_of(const Safetensors& st, const Entry& e) {
     return out;
 }
 
+
 // round half AWAY from zero on a double, then clip
 inline double rha(double x, double lo, double hi) {
     double r = (x < 0 ? -1.0 : 1.0) * std::floor(std::fabs(x) + 0.5);
@@ -398,15 +582,21 @@ inline double rha(double x, double lo, double hi) {
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 5) {
+    if (argc < 5) {
         fprintf(stderr,
-                "usage: tplconv <recipe.bin> <template.pack> <checkpoint.safetensors> <out.pack>\n");
+                "usage: tplconv <recipe.bin> <template.pack> <checkpoint.safetensors> <out.pack>\n"
+                "                [--lora <file.safetensors>[:<strength>]] ...\n");
         return 2;
     }
     const char* recipe_path = argv[1];
     const char* tpl_path = argv[2];
     const char* ckpt_path = argv[3];
     const char* out_path = argv[4];
+    std::vector<std::string> lora_specs;
+    for (int i = 5; i < argc; i++) {
+        if (strcmp(argv[i], "--lora") == 0 && i + 1 < argc) lora_specs.push_back(argv[++i]);
+        else die("unexpected argument '%s'", argv[i]);
+    }
 
     std::vector<Entry> rec = read_recipe(recipe_path);
     Mapped tplm;
@@ -418,6 +608,16 @@ int main(int argc, char** argv) {
     st.load(ckpt_path);
     fprintf(stderr, "recipe %zu entries, template %zu entries, checkpoint %zu tensors\n",
             rec.size(), tpl.size(), st.tensors.size());
+
+    LoraSet loras;
+    if (!lora_specs.empty()) {
+        std::vector<std::string> sources;
+        for (const Entry& e : rec) if (!e.source.empty()) sources.push_back(e.source);
+        std::sort(sources.begin(), sources.end());
+        sources.erase(std::unique(sources.begin(), sources.end()), sources.end());
+        for (const std::string& spec : lora_specs) loras.add(spec, sources);
+        g_loras = &loras;
+    }
 
     // ---- pass 1: every scale, and the payload length of every entry --------
     std::vector<PackEntry> out(rec.size());

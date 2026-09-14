@@ -102,6 +102,16 @@ checkpoint space, which also sidesteps the per-head attention split -- merged
 192/192 attention modules merged, converted and rendered on device. The style
 transfer is unmistakable and there are no artifacts.
 
+✅ **Wired into the app**: add one or more LoRAs, each with its own strength.
+They stack in a single pass -- the merge is additive. `tplconv --lora
+<file>[:<strength>]` reproduces `lora_merge.py` + convert **byte for byte**,
+on x86 and on the phone, and the app's output renders byte-identical PNGs to
+the PC build.
+
+⚠ The merge is cached per source tensor: the recipe reads an attention weight
+once per head, so a q/k/v tensor is fetched 8 times and recomputing the rank-R
+product each time cost more than the rest of the conversion (126 s -> 55 s).
+
 | | |
 |---|---|
 | inference cost | **none** -- it is an ordinary model |

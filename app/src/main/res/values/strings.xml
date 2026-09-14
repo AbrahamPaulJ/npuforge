@@ -16,6 +16,11 @@
     <string name="will_swap">Conversion replaces the UNet only. The VAE and text encoder come from DreamShaper, so colour and prompt interpretation follow the template rather than this checkpoint.</string>
     <string name="stage_donor">Fetching the shared text encoder and VAE (one time)…</string>
     <string name="stage_import">Copying the checkpoint…</string>
+    <string name="stage_lora">Reading LoRA…</string>
+    <string name="add_lora">Add LoRA</string>
+    <string name="lora_strength">Strength</string>
+    <string name="remove">Remove</string>
+    <string name="lora_note">LoRAs are merged into the weights, so they cost nothing at generation time — but each combination is its own model. The text-encoder half is not applied, so style LoRAs work better than trigger-word ones.</string>
     <string name="stage_weights">Quantizing weights…</string>
     <string name="stage_compile">Compiling for this chip…</string>
     <string name="stage_assemble">Packing the model…</string>

@@ -17,14 +17,23 @@ Neither is in this repo (see `NOTICE`):
 
 ```sh
 # host, for testing against the Python reference
-c++ -O2 -std=c++17 -o tplconv native/tplconv.cpp
+c++ -O2 -std=c++17 -ffp-contract=off -o tplconv native/tplconv.cpp
 
 # device
 $NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++ \
-    -O2 -std=c++17 -static-libstdc++ -o tplconv_arm native/tplconv.cpp
+    -O2 -std=c++17 -ffp-contract=off -static-libstdc++ -o tplconv_arm native/tplconv.cpp
 ```
 
 No dependencies beyond libc++ and POSIX `mmap`.
+
+⚠⚠ **`-ffp-contract=off` is not optional.** clang fuses multiply-add into FMA
+by default on aarch64, and that rounds differently from a separate multiply and
+add. Plain conversion is unaffected, but the **LoRA merge** accumulates
+`up @ down` and diverges: the phone produced a different pack from x86 and the
+renders drifted 29 dB apart after 20 steps. With contraction off, the ARM build
+on the phone reproduces the x86 pack md5 **exactly**. Cross-architecture
+bit-reproducibility is what makes the byte gate meaningful -- without this flag
+the gate only ever validated the host build.
 
 ## 2. The pack-loading library (9.7 MB, regenerate — it is gitignored)
 

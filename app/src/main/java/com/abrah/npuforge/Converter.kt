@@ -91,7 +91,22 @@ object Converter {
      * none. It costs ~2 GB of storage for the duration of the conversion.
      */
     fun importCheckpoint(context: Context, uri: Uri, onBytes: (Long) -> Unit): File {
-        val dst = File(context.cacheDir, "ckpt.safetensors")
+        val dst = copyIn(context, uri, "ckpt.safetensors", onBytes)
+        if (dst.length() < 1_000_000_000L) {
+            throw Failure("that file is ${dst.length() / 1_000_000} MB; an SD1.5 checkpoint is ~2 GB")
+        }
+        return dst
+    }
+
+    /**
+     * Copies a LoRA out of SAF. Same reason as the checkpoint -- tplconv opens
+     * files by path -- but these are tens of MB, not gigabytes.
+     */
+    fun importLora(context: Context, uri: Uri, index: Int): File =
+        copyIn(context, uri, "lora_$index.safetensors") {}
+
+    private fun copyIn(context: Context, uri: Uri, name: String, onBytes: (Long) -> Unit): File {
+        val dst = File(context.cacheDir, name)
         context.contentResolver.openInputStream(uri)
             ?: throw Failure("cannot open the selected file")
         context.contentResolver.openInputStream(uri)!!.use { input ->
@@ -107,9 +122,6 @@ object Converter {
                 }
             }
         }
-        if (dst.length() < 1_000_000_000L) {
-            throw Failure("that file is ${dst.length() / 1_000_000} MB; an SD1.5 checkpoint is ~2 GB")
-        }
         return dst
     }
 
@@ -121,6 +133,10 @@ object Converter {
         val rc = p.waitFor()
         Log.i(TAG, "rc=$rc for ${cmd.first().substringAfterLast('/')}")
         if (rc != 0) throw Failure("${cmd.first().substringAfterLast('/')} failed (rc $rc)", log)
+        // On success too: this is where "lora <file>: N modules matched" lives,
+        // and a LoRA that silently matched nothing is exactly the failure that
+        // looks like success.
+        log.lineSequence().filter { it.isNotBlank() }.forEach { Log.i(TAG, it) }
         return log
     }
 
@@ -155,10 +171,19 @@ object Converter {
     }
 
     /** Stage 1: checkpoint -> weight pack. */
-    fun stageWeights(context: Context, ckpt: File, work: File): File {
+    fun stageWeights(
+        context: Context,
+        ckpt: File,
+        work: File,
+        loras: List<Pair<File, Float>> = emptyList(),
+    ): File {
         val tpl = unpackAssets(context, TEMPLATE_ASSETS, File(work, "template"))
         val exe = nativeExe(context, "libtplconv.so")
         val pack = File(work, "out.pack")
+        // Merged into the weights before quantizing, not applied at runtime:
+        // UPDATEABLE_STATIC costs 2.8x inference on this hardware. The result is
+        // an ordinary model. Several adapters stack in one pass.
+        val loraArgs = loras.flatMap { (f, s) -> listOf("--lora", "${f.absolutePath}:$s") }
         run(
             listOf(
                 exe.absolutePath,
@@ -166,7 +191,7 @@ object Converter {
                 File(tpl, "tpl_trim.pack").absolutePath,
                 ckpt.absolutePath,
                 pack.absolutePath,
-            ),
+            ) + loraArgs,
             emptyMap(), work,
         )
         if (!pack.isFile || pack.length() == 0L) throw Failure("tplconv produced no pack")

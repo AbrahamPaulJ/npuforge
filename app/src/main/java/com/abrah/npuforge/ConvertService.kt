@@ -46,14 +46,25 @@ class ConvertService : Service() {
         private const val NOTE_ID = 1
         const val EXTRA_URI = "uri"
         const val EXTRA_NAME = "name"
+        const val EXTRA_LORAS = "loras"
 
         private val _state = MutableStateFlow<State>(State.Idle)
         val state: StateFlow<State> = _state.asStateFlow()
 
-        fun start(context: Context, uri: Uri, name: String) {
+        fun start(
+            context: Context,
+            uri: Uri,
+            name: String,
+            loras: List<Pair<Uri, Float>> = emptyList(),
+        ) {
             val i = Intent(context, ConvertService::class.java)
                 .putExtra(EXTRA_URI, uri)
                 .putExtra(EXTRA_NAME, name)
+                // "uri|strength" strings rather than a Uri ArrayList: the same
+                // path is then drivable from `adb shell am --esa`, so the
+                // end-to-end LoRA flow can be tested without tapping through
+                // a file picker.
+                .putExtra(EXTRA_LORAS, loras.map { "${it.first}|${it.second}" }.toTypedArray())
             context.startForegroundService(i)
         }
 
@@ -96,6 +107,13 @@ class ConvertService : Service() {
             it.getParcelableExtra<Uri>(EXTRA_URI)
         }
         val name = intent?.getStringExtra(EXTRA_NAME).orEmpty().ifBlank { "converted" }
+        val loraSpecs: List<Pair<Uri, Float>> =
+            (intent?.getStringArrayExtra(EXTRA_LORAS) ?: emptyArray()).mapNotNull { spec ->
+                val bar = spec.lastIndexOf('|')
+                if (bar <= 0) null
+                else Uri.parse(spec.substring(0, bar)) to
+                    (spec.substring(bar + 1).toFloatOrNull() ?: 1f)
+            }
         if (uri == null) {
             stopSelf()
             return START_NOT_STICKY
@@ -126,8 +144,13 @@ class ConvertService : Service() {
                     post(getString(R.string.stage_import), "${bytes / 1_000_000} MB")
                 }
 
+                val loraFiles = loraSpecs.mapIndexed { idx, (u, strength) ->
+                    post(getString(R.string.stage_lora))
+                    Converter.importLora(this@ConvertService, u, idx) to strength
+                }
+
                 post(getString(R.string.stage_weights))
-                val pack = Converter.stageWeights(this@ConvertService, ckpt, work)
+                val pack = Converter.stageWeights(this@ConvertService, ckpt, work, loraFiles)
 
                 post(getString(R.string.stage_compile))
                 val unet = Converter.stageCompile(this@ConvertService, pack, work)
@@ -140,6 +163,7 @@ class ConvertService : Service() {
                 // ~3 GB of checkpoint + pack; keeping it would fill the device
                 // after two conversions.
                 ckpt.delete()
+                loraFiles.forEach { it.first.delete() }
                 work.deleteRecursively()
 
                 _state.value = State.Done(where, (System.currentTimeMillis() - began) / 1000)

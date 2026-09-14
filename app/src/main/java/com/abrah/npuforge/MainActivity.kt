@@ -10,15 +10,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,9 +31,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -55,6 +61,7 @@ private fun ConvertScreen() {
     var pickedName by remember { mutableStateOf("") }
     var modelName by remember { mutableStateOf("") }
     var report by remember { mutableStateOf<CheckpointInfo.Report?>(null) }
+    val loras = remember { mutableStateListOf<Triple<Uri, String, String>>() }  // uri, name, strength
     var inspectError by remember { mutableStateOf<String?>(null) }
 
     // Reading the safetensors HEADER is a short read, not a 2 GB copy -- so the
@@ -82,6 +89,12 @@ private fun ConvertScreen() {
                     .replace(Regex("[^A-Za-z0-9_.-]"), "_")
             }
         }
+    }
+
+    val loraPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) loras.add(Triple(uri, displayName(context as Activity, uri), "0.8"))
     }
 
     Column(
@@ -157,8 +170,14 @@ private fun ConvertScreen() {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    LoraList(loras) { loraPicker.launch(arrayOf("*/*")) }
                     Button(
-                        onClick = { ConvertService.start(context, picked!!, modelName) },
+                        onClick = {
+                            ConvertService.start(
+                                context, picked!!, modelName,
+                                loras.map { it.first to (it.third.toFloatOrNull() ?: 1f) },
+                            )
+                        },
                         // Never offer to convert a file already known not to fit:
                         // the failure would arrive after a 2 GB copy.
                         enabled = modelName.isNotBlank() && report?.convertible == true,
@@ -224,6 +243,50 @@ private fun PartRow(label: String, p: CheckpointInfo.Part, kept: Boolean) {
     }
     val size = if (p.bytes > 0) " · ${p.bytes / 1_000_000} MB" else ""
     Text("$label: $mark$size", style = MaterialTheme.typography.bodyMedium)
+}
+
+/**
+ * Optional LoRAs, merged into the weights at conversion time.
+ *
+ * Several stack in one pass -- the merge is additive -- so this is a list, not
+ * a single slot. Strength is baked into the model, which is why it is typed
+ * here rather than offered as a slider at generation time: changing it means
+ * converting again.
+ */
+@Composable
+private fun LoraList(
+    loras: androidx.compose.runtime.snapshots.SnapshotStateList<Triple<Uri, String, String>>,
+    onAdd: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        loras.forEachIndexed { i, (uri, name, strength) ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(name, style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Spacer(Modifier.width(8.dp))
+                OutlinedTextField(
+                    value = strength,
+                    onValueChange = { loras[i] = Triple(uri, name, it) },
+                    label = { Text(stringResource(R.string.lora_strength)) },
+                    singleLine = true,
+                    modifier = Modifier.width(110.dp),
+                )
+                TextButton(onClick = { loras.removeAt(i) }) {
+                    Text(stringResource(R.string.remove))
+                }
+            }
+        }
+        OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.add_lora))
+        }
+        if (loras.isNotEmpty()) {
+            Text(stringResource(R.string.lora_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 private fun displayName(activity: Activity, uri: Uri): String {
