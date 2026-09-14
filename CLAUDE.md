@@ -81,10 +81,35 @@ whether it can be distributed at all.
   first is CC BY-NC 4.0; the rest are Qualcomm's or huge. `.gitignore` covers
   them — do not "fix" it.
 
+## What lives next door, in `the PC conversion tree`
+
+This repo is self-contained for **building and verifying the converter**. It is
+not self-contained for **authoring a new template** or for **rendering a model
+to look at it** — those need the sibling tree. Nothing converter-related is
+documented there any more; these are tools and artefacts, not findings.
+
+| What | Where | Needed for |
+|---|---|---|
+| QAIRT 2.49 SDK — device runtime, `qnn-context-binary-generator`, `libQnnHtp*` | `the PC conversion tree/qairt/2.49.0.260730/` | the app's `jniLibs` (gitignored, copied from here) and any rebuild |
+| `adb.exe` | `the PC conversion tree/mvp/platform-tools/adb.exe` | every device step |
+| Render + score harnesses (`sweep_*.ps1`, `score_*.py`, `steps_*.ps1`) | `the PC conversion tree/mvp/` | judging a converted model on device |
+| Template authoring scripts (`p0_*.sh`, `p1p2_redo.sh`, `p2_gate.sh`, `p3_*.sh`, `gen_quant_data.py`) | `the PC conversion tree/npuconvert/npuconvertv2/` **and** `~/npuconvert/` in WSL | building a new template — the 2.28 and anime work in `ROADMAP.md` |
+| Template workdirs: `~/p0` (ONNX, `model.cpp`/`model.bin`, calibration raws), `~/tpl/p0` (recipe, packs), `~/t4`, `~/p3` | WSL | ⚠ **do not delete** — a rebuild without them is hours longer |
+| A generator to load the output into | `the PC conversion tree/dreamui/` | end-to-end testing. ⛔ Read-only from here: the converter is **not** a DreamUI feature |
+
+Three LocalDream docs are still worth opening from here, and only these:
+`docs/CONVERSION.md` (the PC pipeline this template came out of, and §3.3's
+encoding gate), `docs/DEVICE-SUPPORT.md` §6 (why the fp16 stamp cannot be
+configured away — settled, do not re-derive), `docs/LORA-PROBE.md` (the 2.8×
+measurement that makes merging the right route).
+
+⚠ `the PC conversion tree` is **not a git repository**, so its docs are the only record
+and there is no history to recover a deleted claim from.
+
 ## Environment
 
-- Device runtime and the SDK come from `the PC conversion tree/qairt/2.49.0.260730/`;
-  the app's `jniLibs` are copied from there and are gitignored.
+- The app's `jniLibs` are copied from the QAIRT SDK above and are gitignored, so
+  a fresh clone does not build a working APK until they are put back.
 - Build: JDK 17 + Android SDK 35, `./gradlew.bat assembleDebug`.
 - adb from **PowerShell only**, always `-s <serial>`: USB `<serial>`,
   Tailscale `<device-ip>:5555`. Check `adb shell settings get global wifi_on`
