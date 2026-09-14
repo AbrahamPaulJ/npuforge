@@ -90,8 +90,10 @@ phone at all.
 
 ✅ **Working end to end as an Android app** (2026-09-14, one device). Pick a
 `.safetensors`, get a loadable model directory. The app reproduces the
-adb-driven pipeline **byte-for-byte** — same `unet.bin` md5
-(`2fbde3d584de21e88456722f0f2bcad3`).
+adb-driven pipeline: its model renders **byte-identical PNGs** to both the
+adb-built and the PC-built versions. Output goes to
+**`Download/npuforge/<name>/`** via MediaStore — no storage permission, and
+somewhere a person can actually find it.
 
 Before picking a file it reads the safetensors **header** (a short read, not a
 2 GB copy) and shows what the checkpoint contains — UNet, VAE, text encoder —
@@ -113,8 +115,9 @@ What is not done:
   Chips that reject 2.49 models will reject these too. `tplconv` itself is
   SDK-agnostic — the stamp comes from the template library and the generator —
   so a 2.28 variant is a rebuild, not a redesign, and needs the 2.28 SDK.
-- **The output lands in npuforge's own external files directory.** Another app
-  cannot read that, so moving a converted model to a generator is still manual.
+- **Moving a converted model into a generator is still manual** — the app writes
+  to `Download/npuforge/<name>/`, which any file manager can see, but it does not
+  install the model anywhere for you.
 - **The target tier is hardcoded** to `_8gen2` (v73, 8 MB VTCM). An on-device
   converter should compile for the chip it is running on; that is one of the
   original motivations and is not implemented.

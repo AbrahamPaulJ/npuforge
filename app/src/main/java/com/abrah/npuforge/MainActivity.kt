@@ -110,7 +110,8 @@ private fun ConvertScreen() {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(R.string.done_title, s.seconds),
                             style = MaterialTheme.typography.titleMedium)
-                        Text(s.dir, style = MaterialTheme.typography.bodySmall,
+                        Text(stringResource(R.string.done_where, s.dir),
+                            style = MaterialTheme.typography.bodySmall,
                             maxLines = 3, overflow = TextOverflow.Ellipsis)
                         Text(stringResource(R.string.done_note), style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = { ConvertService.reset() }) {

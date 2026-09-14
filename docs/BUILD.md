@@ -77,9 +77,13 @@ be **byte-identical**. Two reference checkpoints are known-good:
 | DreamShaper 8 (`Lykon/DreamShaper`, `DreamShaper_8_pruned.safetensors`) | `042b99cf38b37cecc15483f37118bb46` |
 | AbsoluteReality (`Lykon/AbsoluteReality`, `AbsoluteRealityV1.6525_pruned.safetensors`) | `52ca4f492e9f43634d08698ea9a5360b` |
 
-If you must compare renders: a phone-compiled context binary is a **different
-size** from a PC-compiled one (882,780,736 vs 881,826,392) while rendering
-identically. Size is not a gate.
+⚠⚠ **Do NOT gate on the context binary's md5.** The compile is not
+byte-reproducible: two runs on the same phone, from the same pack, produced
+882,780,736 bytes both times with **different md5s** (`2fbde3d5…` and
+`0acd5323…`) — and rendered **byte-identical PNGs**. A PC compile differs again
+(881,826,392 bytes). Neither size nor hash is a gate at this stage; the render
+is. The one place hashes ARE exact is the weight pack, which is why that is what
+`tplconv` is verified against.
 
 ⚠ And compare against the right arm. A model built from the *recipe* pack must be
 compared against the PC's build of the *recipe* pack — not against the stock

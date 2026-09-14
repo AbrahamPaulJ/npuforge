@@ -22,6 +22,7 @@
     <string name="keep_open">Leave the screen on. The compile needs several gigabytes and Android may stop it otherwise.</string>
 
     <string name="done_title">Done in %1$d s</string>
+    <string name="done_where">Saved to %1$s — visible in Downloads, so you can move it wherever your generator keeps models.</string>
     <string name="done_note">The text encoder and VAE come from DreamShaper, not from your checkpoint: conversion covers the UNet, which is what carries style and subject. Prompt interpretation and colour follow the template.</string>
     <string name="failed_title">Conversion failed</string>
 

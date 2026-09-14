@@ -1,7 +1,10 @@
 package com.abrah.npuforge
 
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import java.io.File
 
@@ -34,8 +37,19 @@ object Converter {
 
     class Failure(message: String, val log: String = "") : Exception(message)
 
-    /** Where converted models land: `<external files>/models/<name>/`. */
-    fun modelsRoot(context: Context): File = File(context.getExternalFilesDir(null), "models")
+    /**
+     * Where converted models land: **`Download/npuforge/<name>/`**.
+     *
+     * Not the app's own external files directory. That is private to this app,
+     * so a model written there is invisible to every file manager and to the
+     * generator that is supposed to load it -- the conversion succeeded and the
+     * result was unreachable. Downloads is written through MediaStore, which
+     * needs no storage permission on API 29+ and leaves the files where a
+     * person can actually find them.
+     */
+    const val OUTPUT_SUBDIR = "npuforge"
+
+    fun outputLabel(name: String): String = "Download/$OUTPUT_SUBDIR/$name"
 
     private fun nativeExe(context: Context, name: String): File {
         val f = File(context.applicationInfo.nativeLibraryDir, name)
@@ -237,17 +251,51 @@ object Converter {
      * style, so this works, but a converted model is not a complete port of the
      * checkpoint and the UI should not claim otherwise.
      */
-    fun assemble(context: Context, unet: File, name: String): File {
+    fun assemble(context: Context, unet: File, name: String): String {
         if (!Donor.isReady(context)) {
             // Emitting unet.bin alone produces a directory that looks like a
             // model and cannot load. Fail here instead.
             throw Failure("the shared text encoder and VAE are missing")
         }
-        val dir = File(modelsRoot(context), name).apply { mkdirs() }
-        unet.copyTo(File(dir, "unet.bin"), overwrite = true)
-        for (f in Donor.dir(context).listFiles().orEmpty()) {
-            f.copyTo(File(dir, f.name), overwrite = true)
+        val relative = "${Environment.DIRECTORY_DOWNLOADS}/$OUTPUT_SUBDIR/$name"
+        // Re-converting the same name must replace, not accumulate: MediaStore
+        // silently renames a clash to "unet (1).bin", which would leave a
+        // directory holding two UNets and no way to tell which is current.
+        removeExisting(context, relative)
+
+        val files = listOf(unet to "unet.bin") +
+            Donor.dir(context).listFiles().orEmpty().map { it to it.name }
+        for ((src, target) in files) {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, target)
+                put(MediaStore.Downloads.RELATIVE_PATH, relative)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val uri = context.contentResolver
+                .insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: throw Failure("could not create $target in $relative")
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                src.inputStream().use { it.copyTo(out, 1 shl 20) }
+            } ?: throw Failure("could not write $target")
+            context.contentResolver.update(
+                uri,
+                ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) },
+                null, null,
+            )
         }
-        return dir
+        return outputLabel(name)
+    }
+
+    /** Drops any previous conversion under the same Downloads sub-path. */
+    private fun removeExisting(context: Context, relative: String) {
+        try {
+            context.contentResolver.delete(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
+                arrayOf("$relative/%"),
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "could not clear $relative: ${e.message}")
+        }
     }
 }

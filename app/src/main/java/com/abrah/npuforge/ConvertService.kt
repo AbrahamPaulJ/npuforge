@@ -133,14 +133,14 @@ class ConvertService : Service() {
                 val unet = Converter.stageCompile(this@ConvertService, pack, work)
 
                 post(getString(R.string.stage_assemble))
-                val dir = Converter.assemble(this@ConvertService, unet, name)
+                val where = Converter.assemble(this@ConvertService, unet, name)
 
                 // ~3 GB of checkpoint + pack; keeping it would fill the device
                 // after two conversions.
                 ckpt.delete()
                 work.deleteRecursively()
 
-                _state.value = State.Done(dir.absolutePath, (System.currentTimeMillis() - began) / 1000)
+                _state.value = State.Done(where, (System.currentTimeMillis() - began) / 1000)
             } catch (e: Converter.Failure) {
                 Log.e(TAG, "conversion failed: ${e.message}\n${e.log}")
                 _state.value = State.Failed(e.message ?: "failed", e.log)
