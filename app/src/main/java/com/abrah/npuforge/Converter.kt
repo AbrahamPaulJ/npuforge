@@ -125,11 +125,30 @@ object Converter {
         return dst
     }
 
-    private fun run(cmd: List<String>, env: Map<String, String>, cwd: File): String {
+    /**
+     * Runs a tool, reporting progress as it goes.
+     *
+     * Streamed rather than read at the end: the compile is ~95 s during which
+     * the UI would otherwise say nothing at all, and the generator prints a
+     * percentage we can surface. Only the last 200 lines are kept -- the
+     * generator draws progress bars and the full log is megabytes of them.
+     */
+    private fun run(
+        cmd: List<String>,
+        env: Map<String, String>,
+        cwd: File,
+        onLine: (String) -> Unit = {},
+    ): String {
         val pb = ProcessBuilder(cmd).directory(cwd).redirectErrorStream(true)
         pb.environment().putAll(env)
         val p = pb.start()
-        val log = p.inputStream.bufferedReader().readText()
+        val tail = ArrayDeque<String>()
+        p.inputStream.bufferedReader().forEachLine { line ->
+            if (tail.size >= 200) tail.removeFirst()
+            tail.addLast(line)
+            onLine(line)
+        }
+        val log = tail.joinToString(System.lineSeparator())
         val rc = p.waitFor()
         Log.i(TAG, "rc=$rc for ${cmd.first().substringAfterLast('/')}")
         if (rc != 0) throw Failure("${cmd.first().substringAfterLast('/')} failed (rc $rc)", log)
@@ -176,6 +195,7 @@ object Converter {
         ckpt: File,
         work: File,
         loras: List<Pair<File, Float>> = emptyList(),
+        onLine: (String) -> Unit = {},
     ): File {
         val tpl = unpackAssets(context, TEMPLATE_ASSETS, File(work, "template"))
         val exe = nativeExe(context, "libtplconv.so")
@@ -192,14 +212,19 @@ object Converter {
                 ckpt.absolutePath,
                 pack.absolutePath,
             ) + loraArgs,
-            emptyMap(), work,
+            emptyMap(), work, onLine,
         )
         if (!pack.isFile || pack.length() == 0L) throw Failure("tplconv produced no pack")
         return pack
     }
 
     /** Stage 2: weight pack -> context binary. */
-    fun stageCompile(context: Context, pack: File, work: File): File {
+    fun stageCompile(
+        context: Context,
+        pack: File,
+        work: File,
+        onLine: (String) -> Unit = {},
+    ): File {
         // ⚠⚠ THE DSP AND THE CPU NEED THE LIBRARIES IN DIFFERENT PLACES.
         //
         // Measured the hard way, one location at a time:
@@ -264,7 +289,7 @@ object Converter {
                     "${dspLibs.absolutePath};/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp",
                 "QNN_TPL_PACK" to pack.absolutePath,
             ),
-            work,
+            work, onLine,
         )
         val unet = File(outDir, "unet.bin")
         if (!unet.isFile || unet.length() == 0L) throw Failure("the generator produced no unet.bin")

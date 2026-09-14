@@ -35,7 +35,13 @@ class ConvertService : Service() {
 
     sealed interface State {
         data object Idle : State
-        data class Running(val stage: String, val detail: String = "") : State
+        data class Running(
+            val stage: String,
+            val detail: String = "",
+            val step: Int = 0,
+            val steps: Int = 0,
+            val log: List<String> = emptyList(),
+        ) : State
         data class Done(val dir: String, val seconds: Long) : State
         data class Failed(val message: String, val log: String = "") : State
     }
@@ -44,6 +50,7 @@ class ConvertService : Service() {
         private const val TAG = "ConvertService"
         private const val CHANNEL = "convert"
         private const val NOTE_ID = 1
+        private val PERCENT = Regex("""(\d{1,3})%""")
         const val EXTRA_URI = "uri"
         const val EXTRA_NAME = "name"
         const val EXTRA_LORAS = "loras"
@@ -96,9 +103,30 @@ class ConvertService : Service() {
             .setProgress(0, 0, true)
             .build()
 
+    private var step = 0
+    private var steps = 0
+    private val logLines = ArrayDeque<String>()
+
     private fun post(stage: String, detail: String = "") {
-        _state.value = State.Running(stage, detail)
-        getSystemService(NotificationManager::class.java).notify(NOTE_ID, note(stage))
+        _state.value = State.Running(stage, detail, step, steps, logLines.toList())
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTE_ID, note(if (steps > 0) "$step/$steps  $stage" else stage))
+    }
+
+    /** One line of tool output; keeps the last few for the UI. */
+    private fun logLine(stage: String, line: String) {
+        val t = line.trim()
+        if (t.isEmpty()) return
+        // The generator draws progress bars; show the percentage, not the bar.
+        val pct = PERCENT.findAll(t).lastOrNull()?.groupValues?.get(1)
+        if (pct != null) {
+            post(stage, "$pct%")
+            return
+        }
+        if (t.length > 160 || t.startsWith("[")) return
+        if (logLines.size >= 6) logLines.removeFirst()
+        logLines.addLast(t)
+        post(stage, t.take(80))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -128,10 +156,13 @@ class ConvertService : Service() {
         scope.launch {
             val began = System.currentTimeMillis()
             val work = File(cacheDir, "work").apply { deleteRecursively(); mkdirs() }
+            steps = 4 + (if (Donor.isReady(this@ConvertService)) 0 else 1) + loraSpecs.size
+            step = 0
             try {
                 // One-time, ~1.0 GB downloaded for 395 MB kept. Done first so a
                 // missing network fails before 2 GB has been copied around.
                 if (!Donor.isReady(this@ConvertService)) {
+                    step++
                     post(getString(R.string.stage_donor))
                     Donor.ensure(this@ConvertService) { seen, total ->
                         val pct = if (total > 0) " ${seen * 100 / total}%" else ""
@@ -139,22 +170,31 @@ class ConvertService : Service() {
                     }
                 }
 
+                step++
                 post(getString(R.string.stage_import))
                 val ckpt = Converter.importCheckpoint(this@ConvertService, uri) { bytes ->
                     post(getString(R.string.stage_import), "${bytes / 1_000_000} MB")
                 }
 
                 val loraFiles = loraSpecs.mapIndexed { idx, (u, strength) ->
+                    step++
                     post(getString(R.string.stage_lora))
                     Converter.importLora(this@ConvertService, u, idx) to strength
                 }
 
+                step++
                 post(getString(R.string.stage_weights))
-                val pack = Converter.stageWeights(this@ConvertService, ckpt, work, loraFiles)
+                val pack = Converter.stageWeights(this@ConvertService, ckpt, work, loraFiles) {
+                    logLine(getString(R.string.stage_weights), it)
+                }
 
+                step++
                 post(getString(R.string.stage_compile))
-                val unet = Converter.stageCompile(this@ConvertService, pack, work)
+                val unet = Converter.stageCompile(this@ConvertService, pack, work) {
+                    logLine(getString(R.string.stage_compile), it)
+                }
 
+                step++
                 post(getString(R.string.stage_assemble))
                 val where = Converter.assemble(this@ConvertService, unet, name) { f ->
                     post(getString(R.string.stage_assemble), f)

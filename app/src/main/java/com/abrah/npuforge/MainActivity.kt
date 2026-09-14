@@ -20,7 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -62,6 +62,24 @@ private fun ConvertScreen() {
     var modelName by remember { mutableStateOf("") }
     var report by remember { mutableStateOf<CheckpointInfo.Report?>(null) }
     val loras = remember { mutableStateListOf<Triple<Uri, String, String>>() }  // uri, name, strength
+    var nameEdited by remember { mutableStateOf(false) }
+
+    /**
+     * Suggests `<checkpoint>+<lora>@<strength>`.
+     *
+     * The LoRA belongs in the name because it is baked in: two strengths of the
+     * same adapter are two different models, and "dreamshaper" twice in
+     * Downloads tells you nothing about which is which. Stops suggesting the
+     * moment the user types their own.
+     */
+    fun suggestedName(): String {
+        fun clean(v: String) = v.substringBeforeLast(".").take(28)
+            .replace(Regex("[^A-Za-z0-9_.-]"), "_").trim('_')
+        val base = clean(pickedName)
+        val adapters = loras.joinToString("") { (_, n, st) -> "+" + clean(n) + "@" + st }
+        return (base + adapters).take(60)
+    }
+    if (!nameEdited && picked != null) modelName = suggestedName()
     var inspectError by remember { mutableStateOf<String?>(null) }
 
     // Reading the safetensors HEADER is a short read, not a 2 GB copy -- so the
@@ -84,10 +102,8 @@ private fun ConvertScreen() {
         if (uri != null) {
             picked = uri
             pickedName = displayName(context as Activity, uri)
-            if (modelName.isBlank()) {
-                modelName = pickedName.removeSuffix(".safetensors").take(40)
-                    .replace(Regex("[^A-Za-z0-9_.-]"), "_")
-            }
+            nameEdited = false     // a new file gets a new suggestion
+            loras.clear()          // and its own LoRA list
         }
     }
 
@@ -108,10 +124,35 @@ private fun ConvertScreen() {
             is ConvertService.State.Running -> {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        CircularProgressIndicator()
-                        Text(s.stage, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (s.steps > 0) "${s.step}/${s.steps}  ${s.stage}" else s.stage,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        // A real bar when the tool reports a percentage, an
+                        // indeterminate one otherwise -- a fake bar that creeps
+                        // is worse than an honest spinner.
+                        val pct = s.detail.removeSuffix("%").toFloatOrNull()
+                            ?.takeIf { s.detail.endsWith("%") }
+                        if (pct != null) {
+                            LinearProgressIndicator(
+                                progress = { (pct / 100f).coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        } else {
+                            LinearProgressIndicator(Modifier.fillMaxWidth())
+                        }
                         if (s.detail.isNotBlank()) {
-                            Text(s.detail, style = MaterialTheme.typography.bodySmall)
+                            Text(s.detail, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        // One Text per line: no embedded newlines to escape,
+                        // and each line elides independently.
+                        s.log.takeLast(4).forEach { line ->
+                            Text(
+                                line,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
                         }
                         Text(stringResource(R.string.keep_open), style = MaterialTheme.typography.bodySmall)
                     }
@@ -165,7 +206,7 @@ private fun ConvertScreen() {
                     report?.let { CheckpointCard(it) }
                     OutlinedTextField(
                         value = modelName,
-                        onValueChange = { modelName = it },
+                        onValueChange = { modelName = it; nameEdited = true },
                         label = { Text(stringResource(R.string.model_name)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
