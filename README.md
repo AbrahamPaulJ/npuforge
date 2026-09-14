@@ -129,6 +129,33 @@ forwards from each checkpoint key -- reversing it is ambiguous, because
 template. For the style LoRA tested, the UNet half still carried the effect.
 ⚠ Standard kohya LoRA only; LoCon/LoHa/DoRA need their own merge formulas.
 
+## Is borrowing the template's CLIP and VAE a problem? Measured: no
+
+Conversion covers the UNet, so a converted model keeps the **template's** text
+encoder and VAE. The obvious worry is that this mismatch degrades or breaks
+output. It does not, and the test was run on the worst mismatch available -- an
+anime checkpoint whose VAE differs from the template's by up to **8x**:
+
+| UNet | CLIP + VAE | saturated px | result |
+|---|---|---|---|
+| ours (converted) | template | 0.331 | noise |
+| ours (converted) | **the checkpoint's own** | 0.358 | **still noise** |
+| official build | the checkpoint's own | 0.029 | clean |
+| official build | **template (mismatched)** | 0.049 | **still clean** |
+
+Giving a broken UNet its matched CLIP/VAE does not rescue it; giving a good UNet
+a mismatched one does not break it. The two clean rows are visually
+indistinguishable.
+
+Weight-level agreement says the same thing more cheaply -- across checkpoints the
+text encoder and VAE barely move (median 0.13-0.39% relative difference), because
+SD1.5 finetunes train the UNet. **Converting them is not worth building.**
+
+⚠ What this does NOT cover: a converted model inherits the template's *prompt
+interpretation*, so a checkpoint relying on a heavily-trained text encoder --
+or on `clip_skip 2` -- will not behave exactly like it does elsewhere. That is a
+fidelity limit, not a failure.
+
 ## Status
 
 ✅ **Working end to end as an Android app** (2026-09-14, one device). Pick a
