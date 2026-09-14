@@ -1,3 +1,14 @@
+# Gradle / IDE
+.gradle/
+local.properties
+*.iml
+.idea/
+
+# ⛔ Local Dream's backend -- built from CC BY-NC 4.0 source. It is used ONLY by
+# the debug DSP probe and must never be committed to this MIT repo. See NOTICE.
+libstable_diffusion_core.so
+canary_*.bin
+
 # Qualcomm runtime -- redistribution restricted, see NOTICE
 libQnn*.so
 qnn-context-binary-generator
@@ -12,9 +23,12 @@ model_tpl.cpp
 model.cpp
 model.bin
 
-# Build output
+# Build output (reproducible -- docs/BUILD.md)
 tplconv
 tplconv_arm
+libtplconv.so
+libqnnnetrun.so
+*.png
 *.o
 build/
 
@@ -26,3 +40,4 @@ build/
 *.bin
 !template/recipe.bin
 out/
+local.properties

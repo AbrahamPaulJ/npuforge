@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">npuforge</string>
+    <string name="blurb">Converts a Stable Diffusion 1.5 checkpoint into a Qualcomm NPU model on this phone. About two minutes.</string>
+    <string name="pick">Choose a .safetensors checkpoint</string>
+    <string name="model_name">Model name</string>
+    <string name="convert">Convert</string>
+    <string name="again">Convert another</string>
+    <string name="channel_convert">Conversion</string>
+
+    <string name="inside_title">Inside this file: %1$s, %2$d tensors</string>
+    <string name="part_unet">UNet (style, subject)</string>
+    <string name="part_vae">VAE (colour, detail)</string>
+    <string name="part_clip">Text encoder (prompt)</string>
+    <string name="part_ema">Also has %1$d EMA tensors, which conversion ignores.</string>
+    <string name="missing_title">%1$d tensors the template needs are absent, so this cannot convert.</string>
+    <string name="will_swap">Conversion replaces the UNet only. The VAE and text encoder come from DreamShaper, so colour and prompt interpretation follow the template rather than this checkpoint.</string>
+    <string name="stage_donor">Fetching the shared text encoder and VAE (one time)…</string>
+    <string name="stage_import">Copying the checkpoint…</string>
+    <string name="stage_weights">Quantizing weights…</string>
+    <string name="stage_compile">Compiling for this chip…</string>
+    <string name="stage_assemble">Writing the model…</string>
+    <string name="keep_open">Leave the screen on. The compile needs several gigabytes and Android may stop it otherwise.</string>
+
+    <string name="done_title">Done in %1$d s</string>
+    <string name="done_note">The text encoder and VAE come from DreamShaper, not from your checkpoint: conversion covers the UNet, which is what carries style and subject. Prompt interpretation and colour follow the template.</string>
+    <string name="failed_title">Conversion failed</string>
+
+    <string name="caveats">Needs a realistic SD1.5 checkpoint of about 2 GB, and roughly 4 GB of free storage while it works. Anime checkpoints are untested.</string>
+</resources>

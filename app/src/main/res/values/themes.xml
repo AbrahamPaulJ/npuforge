@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The UI is entirely Compose, so this only has to give the Activity a
+         window with no action bar before Compose takes over. Same choice as
+         DreamUI. -->
+    <style name="Theme.Npuforge" parent="android:Theme.Material.NoActionBar" />
+</resources>

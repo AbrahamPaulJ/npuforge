@@ -88,13 +88,36 @@ phone at all.
 
 ## Status
 
-Working end to end on one device. What is done: the template, the weight recipe,
-the pack format, the C++ converter, and the on-device compile. What is not:
+✅ **Working end to end as an Android app** (2026-09-14, one device). Pick a
+`.safetensors`, get a loadable model directory. The app reproduces the
+adb-driven pipeline **byte-for-byte** — same `unet.bin` md5
+(`2fbde3d584de21e88456722f0f2bcad3`).
 
-- **No app yet.** This is a binary you drive over `adb`.
+Before picking a file it reads the safetensors **header** (a short read, not a
+2 GB copy) and shows what the checkpoint contains — UNet, VAE, text encoder —
+which of those conversion keeps, and whether all 686 tensors the recipe needs
+are present. An SDXL, SD2 or diffusers-layout file is refused immediately
+instead of failing two minutes in.
+
+⚠ **Getting QNN to run inside an app took four separate fixes**, each producing
+the same "Device Creation failure". If you touch the packaging or the library
+paths, read `docs/ANDROID.md` first.
+
+What is not done:
+
 - **CLIP/VAE come from the template**, so a converted checkpoint uses the
   template's text encoder. The UNet carries the style, so this is fine for now,
-  but it is the next fidelity step.
+  but it is the next fidelity step. They are downloaded once (~1.0 GB fetched,
+  395 MB kept) rather than bundled.
+- ⚠ **Everything produced is a QAIRT 2.49 build, so it carries the fp16 stamp.**
+  Chips that reject 2.49 models will reject these too. `tplconv` itself is
+  SDK-agnostic — the stamp comes from the template library and the generator —
+  so a 2.28 variant is a rebuild, not a redesign, and needs the 2.28 SDK.
+- **The output lands in npuforge's own external files directory.** Another app
+  cannot read that, so moving a converted model to a generator is still manual.
+- **The target tier is hardcoded** to `_8gen2` (v73, 8 MB VTCM). An on-device
+  converter should compile for the chip it is running on; that is one of the
+  original motivations and is not implemented.
 - **One template**: realistic SD1.5 txt2img, 512×512. An anime checkpoint
   borrowing photoreal activation ranges is untested and is the known hard case.
 - ⛔ **Shipping is gated on the QAIRT redistribution question.** See `NOTICE`.
