@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">npuforge</string>
+    <string name="blurb">Конвертация моделей SD1.5 и SDXL для запуска на процессоре искусственного интеллекта Qualcomm в вашем телефоне.</string>
+    <string name="pick">Выберите модель .safetensors</string>
+    <string name="model_name">Имя модели</string>
+    <string name="convert">Конвертировать</string>
+    <string name="again">Конвертировать еще одну</string>
+    <string name="channel_convert">Конвертация</string>
+    <string name="stop_conversion">Остановить конвертацию</string>
+    <string name="tab_convert">Конвертация</string>
+    <string name="tab_info">Справка</string>
+    <string name="tab_components">Резервные копии</string>
+    <string name="components_title">Резервное копирование общих файлов моделей</string>
+    <string name="components_description">Сохраните загруженные файлы CLIP и VAE, чтобы не скачивать их заново. Эти файлы помогают модели понимать текстовые запросы и декодировать изображения. Восстановите ZIP-архив после переустановки приложения или на другом телефоне. Оригинальный ZIP-архив загрузки также подойдет.</string>
+    <string name="components_ready">Сохранено на этом телефоне</string>
+    <string name="components_missing">Общие файлы еще не загружены</string>
+    <string name="components_backup">Создать копию</string>
+    <string name="components_restore">Восстановить из копии</string>
+    <string name="components_backing_up">Сохранение общих файлов моделей…</string>
+    <string name="components_restoring">Восстановление общих файлов моделей…</string>
+    <string name="components_backup_done">Резервная копия %1$s создана.</string>
+    <string name="components_restore_done">Файлы %1$s восстановлены. Вы можете конвертировать без повторной загрузки.</string>
+
+    <plurals name="inside_title">
+        <item quantity="one">Внутри файла: %1$s, %2$d тензор</item>
+        <item quantity="few">Внутри файла: %1$s, %2$d тензора</item>
+        <item quantity="many">Внутри файла: %1$s, %2$d тензоров</item>
+        <item quantity="other">Внутри файла: %1$s, %2$d тензоров</item>
+    </plurals>
+    <string name="part_unet">Модель генерации изображений (UNet)</string>
+    <string name="part_vae">Кодировщик и декодировщик изображений (VAE)</string>
+    <string name="part_clip">Модуль обработки промптов (CLIP)</string>
+    <string name="part_ema">Также содержит %1$d тензоров EMA (игнорируются при конвертации).</string>
+    <plurals name="missing_title">
+        <item quantity="one">Отсутствует %1$d тензор, необходимый шаблону. Конвертация невозможна.</item>
+        <item quantity="few">Отсутствуют %1$d тензора, необходимых шаблону. Конвертация невозможна.</item>
+        <item quantity="many">Отсутствуют %1$d тензоров, необходимых шаблону. Конвертация невозможна.</item>
+        <item quantity="other">Отсутствуют %1$d тензоров, необходимых шаблону. Конвертация невозможна.</item>
+    </plurals>
+    <string name="will_swap">Основная модель генерации берется из вашего файла. Обработка промптов и декодирование изображений используют общие компоненты CLIP и VAE, поэтому результаты могут отличаться от исходной модели.</string>
+    <string name="sdxl_components">При первой конвертации SDXL загружается около 1 ГБ общих файлов. Последующие конвертации используют их повторно.</string>
+    <string name="stage_donor">Подготовка общих файлов модели (первый запуск)…</string>
+    <string name="stage_import">Копирование вашей модели…</string>
+    <string name="stage_lora">Чтение LoRA…</string>
+    <string name="add_lora">Добавить LoRA</string>
+    <string name="name_blank">Укажите имя модели.</string>
+    <string name="name_long">Слишком длинное имя — не более 80 символов.</string>
+    <string name="name_chars">Не должно содержать / \ : * ? \" &lt; &gt; |</string>
+    <string name="name_dot">Не может начинаться с точки.</string>
+    <string name="name_space">Не допускаются пробелы в начале и конце.</string>
+    <string name="remove">Удалить</string>
+    <string name="lora_note">Адаптеры LoRA объединяются с весами модели во время конвертации. Они не замедляют генерацию изображений, но для каждой комбинации требуется отдельная конвертация. Изменения текстового кодировщика не переносятся, поэтому стилевые LoRA работают эффективнее, чем привязанные к ключевым словам.</string>
+    <string name="stage_weights">Подготовка весов модели…</string>
+    <string name="stage_compile">Компиляция модели для NPU вашего телефона…</string>
+    <string name="stage_assemble">Сохранение готовой модели…</string>
+    <string name="keep_open">Экран остается включенным, пока приложение открыто. Конвертация продолжится, если вы переключитесь на другое приложение.</string>
+    <string name="unrestricted_background">Разрешить работу в фоновом режиме</string>
+    <string name="elapsed">Прошло времени: %1$d мин %2$d сек</string>
+    <string name="phone_ram_used">Память телефона · занято %1$d%%</string>
+    <string name="phone_ram_details">Занято %1$.2f из %2$.2f ГиБ · Доступно %3$.2f ГиБ</string>
+    <string name="conversion_log">Технический журнал · последние 200 строк</string>
+    <string name="pause_scroll">Приостановить автопрокрутку</string>
+    <string name="follow_log">Следовать за выводом</string>
+    <string name="waiting_output">Ожидание вывода…</string>
+
+    <string name="done_title">Готово за %1$d мин %2$d сек</string>
+    <string name="done_where">Сохранено в: %1$s. Откройте приложение для генерации и импортируйте как пользовательскую модель.</string>
+    <string name="done_note">Сконвертированная модель включает общие файлы для чтения промптов и декодирования изображений. Для SD1.5 используются файлы DreamShaper; для SDXL — компоненты, загруженные при первом запуске.</string>
+    <string name="failed_title">Ошибка конвертации</string>
+
+    <string name="caveats">SD1.5: разрешение 512 × 512, для Snapdragon 8 Gen 2. SDXL: 1024 × 1024, для Snapdragon 8 Gen 3. Протестировано на Galaxy S25 Ultra. Другие устройства пока не подтверждены.</string>
+    <string name="export_conversion_report">Экспортировать отчет для отладки</string>
+
+    <!-- Language Selection -->
+    <string name="language">Язык</string>
+    <string name="language_system">Системный язык</string>
+    <string name="language_en">English</string>
+    <string name="language_ru">Русский</string>
+    <string name="language_zh">简体中文</string>
+
+    <!-- Additional UI Labels and Statuses -->
+    <string name="part_status_converted">✓ сконвертировано</string>
+    <string name="part_status_not_converted">✗ не конвертируется</string>
+    <string name="part_status_absent">—</string>
+    <string name="copy_log">Скопировать журнал</string>
+    <string name="log_copied">Журнал скопирован в буфер обмена</string>
+    <string name="ram_status_optimal">Оптимально</string>
+    <string name="ram_status_moderate">Умеренно</string>
+    <string name="ram_status_high">Высокая нагрузка</string>
+    <string name="model_selected">Модель выбрана</string>
+    <string name="lora_adapters">Адаптеры LoRA</string>
+    <string name="lora_weight">Вес: %1$.1f</string>
+    <string name="active_process">Выполняется конвертация</string>
+    <string name="chip_qualcomm_npu">Qualcomm AI NPU</string>
+
+    <!-- Info Screen -->
+    <string name="info_what_title">Назначение</string>
+    <string name="info_what_p1">Конвертирует модели генерации изображений SD1.5 и SDXL для запуска на процессоре Qualcomm AI (NPU) вашего смартфона.</string>
+    <string name="info_what_p2">Приложение содержит подготовленную структуру нейросети. Телефон заполняет ее весами вашей модели и компилирует готовый бинарный файл.</string>
+
+    <string name="info_scope_title">Поддерживаемые форматы</string>
+    <string name="info_scope_b1">• Модели чекпоинтов .safetensors в одном файле</string>
+    <string name="info_scope_b2">• SD1.5: 512 × 512, цель Snapdragon 8 Gen 2 (v73)</string>
+    <string name="info_scope_b3">• SDXL: 1024 × 1024, цель Snapdragon 8 Gen 3 (v75)</string>
+    <string name="info_scope_b4">• QAIRT 2.50; UNet SDXL использует веса INT8 и активации fp16</string>
+    <string name="info_scope_b5">• Общие энкодер и декодер VAE включены для режимов img2img и txt2img</string>
+
+    <string name="info_converted_title">Что конвертируется и что заимствуется</string>
+    <string name="info_converted_p1">Конвертация заменяет модуль UNet из вашего чекпоинта. Для SD1.5 общий текстовый энкодер DreamShaper и VAE загружаются один раз.</string>
+    <string name="info_converted_p2">Для SDXL общие компоненты загружаются один раз из репозитория SDXL-OnDevice-Conversion от Mr-J-369 (~1 ГБ). Приложение сохраняет текстовые энкодеры MNN и VAE энкодер/декодер QNN для повторного использования.</string>
+    <string name="info_converted_p3">Текущие компоненты SDXL используют sdxl-vae-fp16-fix от madebyollin, QAIRT 2.50 и VAE 1024 × 1024 v75. Интерпретация текстовых запросов и цветопередача зависят от этих общих компонентов.</string>
+
+    <string name="info_compatibility_title">Совместимость чекпоинтов</string>
+    <string name="info_compatibility_p1">Модели CyberRealistic, DreamShaper 8 и AbsoluteReality успешно конвертируются и работают. В тесте модели MistoonAnime был получен шум, несмотря на успешную компиляцию.</string>
+    <string name="info_compatibility_p2">Шаблон использует предварительно откалиброванные диапазоны активаций. Их применимость зависит от конкретного чекпоинта; результат MistoonAnime не означает неработоспособность всех аниме-моделей.</string>
+
+    <string name="info_lora_title">LoRA</string>
+    <string name="info_lora_p1">Адаптеры объединяются с весами во время конвертации, поэтому генерация не замедляется. Несколько адаптеров объединяются за один проход.</string>
+    <string name="info_lora_p2">Поддерживаются: стандартные LoRA формата kohya (lora_down / lora_up / alpha).</string>
+    <string name="info_lora_p3">Не поддерживаются: форматы diffusers/PEFT, LoCon, LyCORIS, LoHa, DoRA, IA3. Конвертер выведет понятное сообщение об ошибке вместо создания поврежденной модели.</string>
+    <string name="info_lora_p4">Протестированы только модули внимания; свёрточные адаптеры должны работать, но пока не верифицированы.</string>
+    <string name="info_lora_p5">Текстовая часть LoRA отбрасывается, поэтому стилевые адаптеры работают значительно лучше адаптеров с ключевыми словами.</string>
+    <string name="info_lora_p6">Сила адаптера жестко впекается в модель: изменение силы требует повторной конвертации.</string>
+
+    <string name="info_requirements_title">Требования к устройству</string>
+    <string name="info_requirements_b1">• Архитектура arm64, Android 13 или новее</string>
+    <string name="info_requirements_b2">• В замерах SD1.5 пиковое потребление ОЗУ составило около 4.8 ГБ</string>
+    <string name="info_requirements_b3">• Для работы SD1.5 требуется около 4 ГБ свободного места</string>
+    <string name="info_requirements_b4">• Размер файла SD1.5 около 1.3 ГБ; протестированный архив SDXL — около 3.5 ГБ</string>
+    <string name="info_requirements_b5">• Тестовая конвертация SDXL O=3 завершилась за 7 минут 17 секунд</string>
+    <string name="info_requirements_b6">• SDXL использует временные файлы для экономии памяти, поэтому требуется дополнительное место на диске</string>
+    <string name="info_requirements_b7">• Пиковое потребление памяти для SDXL пока не измерено</string>
+
+    <string name="info_troubleshooting_title">Диагностика проблем</string>
+    <string name="info_troubleshooting_p1">Пятнистый перенасыщенный шум обычно указывает на несовпадение динамических диапазонов модели с калибровкой шаблона.</string>
+    <string name="info_troubleshooting_p2">Загрузка модели зависит от процессора устройства и версии рантайма QNN в генераторе.</string>
+    <string name="info_troubleshooting_p3">Неожиданная интерпретация промптов может быть связана с общим модулем CLIP.</string>
+    <string name="info_troubleshooting_p4">Дефекты цвета или деталей требуют отдельного анализа; внешний вид сам по себе не указывает на причину.</string>
+
+    <string name="info_tested_title">Протестировано на устройствах</string>
+    <string name="info_tested_p1">Одно устройство: Samsung Galaxy S25 Ultra (SM8750, Hexagon v79). Конвертация и генерация SD1.5 и SDXL работают стабильно.</string>
+    <string name="info_tested_p2">Сгенерировано в Aura за 15 секунд при 1024 × 1024, 8 шагов, CFG 1, LCM/Karras. Единичный замер, не бенчмарк.</string>
+</resources>
