@@ -5,6 +5,7 @@ claude-yolo.bat
 # Gradle / IDE
 .gradle/
 .kotlin/
+__pycache__/
 local.properties
 *.iml
 .idea/
@@ -15,6 +16,8 @@ libstable_diffusion_core.so
 canary_*.bin
 
 # Qualcomm runtime -- redistribution restricted, see NOTICE
+app/src/main/jniLibs/
+app/src/debug/jniLibs/
 libQnn*.so
 qnn-context-binary-generator
 qnn-*

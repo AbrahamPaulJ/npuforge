@@ -1,7 +1,14 @@
 # npuforge
 
-**Convert a Stable Diffusion 1.5 checkpoint into a Qualcomm NPU model on the phone
-itself, in under two minutes, with no PC.**
+**Convert SD1.5 and SDXL checkpoints into Qualcomm NPU models on the phone.**
+
+SDXL INT8 conversion and generation now work on the tested Galaxy S25 Ultra:
+**437 seconds total conversion at O=3**, then **15 seconds** for a 1024 × 1024
+image in Aura (8 steps, CFG 1, LCM/Karras). These are individual phone results,
+not a cross-device benchmark. [SDXL findings and configuration](docs/SDXL.md)
+record the memory fix, O=1 comparison and required local artifacts.
+
+The measurements below describe the original **SD1.5** pipeline.
 
 Today, putting a new SD1.5 checkpoint on an NPU means a developer running a
 multi-hour conversion on a workstation: ~50 min of calibration, ~20 min of ONNX
@@ -184,8 +191,8 @@ language, so the person holding the phone reads the same caveats this repo does.
 **What is not done — and it matters.** Two of the limits look like defects when
 you meet them blind: the output carries QAIRT 2.49's **fp16 stamp** (some chips
 *newer* than the target refuse to load it), the tier is hardcoded to `_8gen2`,
-and **anime checkpoints convert cleanly into noise** because they leave the
-template's borrowed activation ranges. All three are measured, with causes and
+and **the tested MistoonAnime checkpoint rendered noise**, with evidence pointing
+to a mismatch with the template's borrowed activation ranges. All three are measured, with causes and
 dead hypotheses, in **`docs/LIMITS.md`**; what is planned about them is in
 **`ROADMAP.md`**.
 

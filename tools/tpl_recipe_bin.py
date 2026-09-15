@@ -17,7 +17,7 @@ Format (little-endian throughout):
                             3 i32_scalar, 4 i32_axis_bias, 5 i32_axis_zero
         u8  ndims           1, 2 or 4
         i8  axis            -1 when absent
-        i8  head            -1 when absent, else 0..7
+        i8  head            -1 when absent, else the head index; dims imply its width
         u8  nperm           0 when absent
         u8  perm[4]         only the first nperm are meaningful
         u32 dims[4]         only the first ndims are meaningful
@@ -33,6 +33,7 @@ but a stable order keeps the output byte-comparable against the PC's pack.
 import json
 import struct
 import sys
+from pathlib import Path
 
 RULES = {
     "template": 0,
@@ -51,7 +52,7 @@ def s(v):
 
 
 def main(src, dst):
-    entries = json.load(open(src))["entries"]
+    entries = json.loads(Path(src).read_text())["entries"]
     out = [b"TPLRCP1\0", struct.pack("<I", len(entries))]
     for e in entries:
         dims = e["dims"]
@@ -80,7 +81,7 @@ def main(src, dst):
         out.append(s(e.get("source")))
         out.append(s(e.get("weight")))
     blob = b"".join(out)
-    open(dst, "wb").write(blob)
+    Path(dst).write_bytes(blob)
     counts = {}
     for e in entries:
         counts[e["rule"]] = counts.get(e["rule"], 0) + 1
