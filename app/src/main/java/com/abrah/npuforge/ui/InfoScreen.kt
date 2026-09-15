@@ -22,10 +22,9 @@ fun InfoScreen() {
     ) {
         Section(
             "What it does",
-            "Converts SD1.5 and SDXL checkpoints into Qualcomm NPU models on this phone.",
-            "It ships a template that already carries the expensive " +
-                "part -- the calibrated activation ranges -- so the phone only has to " +
-                "re-quantize the weights and compile.",
+            "Converts SD1.5 and SDXL image models to run on your phone’s Qualcomm AI processor.",
+            "The app includes a prepared model structure. Your phone fills it with " +
+                "your model’s weights and builds the final file.",
         )
 
         Section(
@@ -78,8 +77,8 @@ fun InfoScreen() {
             "• Earlier SD1.5 conversion measured about 4.8 GB of RAM at peak",
             "• SD1.5 needs about 4 GB of working storage",
             "• SD1.5 output is roughly 1.3 GB; the tested SDXL ZIP was about 3.5 GB",
-            "• Tested SDXL O=3 conversion completed in 437 seconds",
-            "• SDXL uses temporary file-backed compiler memory and needs additional free storage",
+            "• Tested SDXL O=3 conversion completed in 7 minutes 17 seconds",
+            "• SDXL uses temporary files to reduce RAM use, so it needs extra free storage",
             "• Peak SDXL phone RAM has not been measured",
         )
 
@@ -88,9 +87,8 @@ fun InfoScreen() {
             "Saturated, blotchy noise can indicate that the checkpoint does not fit " +
                 "the template's activation ranges, as in the MistoonAnime test.",
             "Model loading depends on the target chip and the QNN runtime in your generator.",
-            "Good image, but the prompt is interpreted oddly: that is the borrowed text " +
-                "encoder.",
-            "Colours slightly off, detail soft: that is the borrowed VAE.",
+            "Unexpected prompt results can involve the shared prompt reader (CLIP).",
+            "Colour or detail problems need investigation; appearance alone does not identify the cause.",
         )
 
         Section(

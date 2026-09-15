@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">npuforge</string>
-    <string name="blurb">Converts SD1.5 and SDXL checkpoints into Qualcomm NPU models on this phone.</string>
-    <string name="pick">Choose a .safetensors checkpoint</string>
+    <string name="blurb">Convert SD1.5 and SDXL image models to run on your phone’s Qualcomm AI processor.</string>
+    <string name="pick">Choose a .safetensors model</string>
     <string name="model_name">Model name</string>
     <string name="convert">Convert</string>
     <string name="again">Convert another</string>
@@ -9,23 +9,34 @@
     <string name="stop_conversion">Stop conversion</string>
     <string name="tab_convert">Convert</string>
     <string name="tab_info">Info</string>
+    <string name="tab_components">Backups</string>
+    <string name="components_title">Back up shared model files</string>
+    <string name="components_description">Save the downloaded CLIP and VAE files so you do not have to download them again. These files help the model understand prompts and read or create images. Restore the ZIP after reinstalling or on another phone. The original download ZIP works too.</string>
+    <string name="components_ready">Saved on this phone</string>
+    <string name="components_missing">Shared files not downloaded yet</string>
+    <string name="components_backup">Save backup</string>
+    <string name="components_restore">Restore backup</string>
+    <string name="components_backing_up">Saving shared model files…</string>
+    <string name="components_restoring">Restoring shared model files…</string>
+    <string name="components_backup_done">%1$s shared files backed up.</string>
+    <string name="components_restore_done">%1$s shared files restored. You can convert without downloading them again.</string>
 
     <plurals name="inside_title">
         <item quantity="one">Inside this file: %1$s, %2$d tensor</item>
         <item quantity="other">Inside this file: %1$s, %2$d tensors</item>
     </plurals>
-    <string name="part_unet">UNet (style, subject)</string>
-    <string name="part_vae">VAE (colour, detail)</string>
-    <string name="part_clip">Text encoder (prompt)</string>
+    <string name="part_unet">Image generation model (UNet)</string>
+    <string name="part_vae">Image reader and decoder (VAE)</string>
+    <string name="part_clip">Prompt reader (CLIP)</string>
     <string name="part_ema">Also has %1$d EMA tensors, which conversion ignores.</string>
     <plurals name="missing_title">
         <item quantity="one">%1$d tensor the template needs is absent, so this cannot convert.</item>
         <item quantity="other">%1$d tensors the template needs are absent, so this cannot convert.</item>
     </plurals>
-    <string name="will_swap">Conversion replaces the UNet only. Text encoders and VAE are shared separately, so prompt interpretation and colour may differ from this checkpoint.</string>
-    <string name="sdxl_components">On your first SDXL conversion, the shared text encoders and both VAE models download automatically (about 1 GB). They are saved for later conversions.</string>
-    <string name="stage_donor">Importing shared text encoders and VAE (one time)…</string>
-    <string name="stage_import">Copying the checkpoint…</string>
+    <string name="will_swap">The main image model comes from your file. Prompt reading and image decoding use shared CLIP and VAE files, so results may differ from the original model.</string>
+    <string name="sdxl_components">The first SDXL conversion downloads about 1 GB of shared files. Later conversions reuse them.</string>
+    <string name="stage_donor">Preparing shared model files (first use)…</string>
+    <string name="stage_import">Copying your model…</string>
     <string name="stage_lora">Reading LoRA…</string>
     <string name="add_lora">Add LoRA</string>
     <string name="name_blank">Give the model a name.</string>
@@ -34,24 +45,25 @@
     <string name="name_dot">Cannot start with a dot.</string>
     <string name="name_space">No leading or trailing spaces.</string>
     <string name="remove">Remove</string>
-    <string name="lora_note">LoRAs are merged into the weights, so they cost nothing at generation time — but each combination is its own model. The text-encoder half is not applied, so style LoRAs work better than trigger-word ones.</string>
-    <string name="stage_weights">Quantizing weights…</string>
-    <string name="stage_compile">Compiling the NPU model…</string>
-    <string name="stage_assemble">Packing the model…</string>
-    <string name="keep_open">The screen stays awake while this app is visible. Conversion continues in the foreground service when you switch apps.</string>
-    <string name="unrestricted_background">Allow unrestricted background work</string>
-    <string name="elapsed">Elapsed: %1$d s</string>
-    <string name="phone_ram_used">Phone RAM · %1$d%% used</string>
-    <string name="phone_ram_details">%1$.2f / %2$.2f GiB used · %3$.2f GiB available</string>
-    <string name="conversion_log">Conversion log · latest 200 lines</string>
+    <string name="lora_note">LoRAs are combined with the model during conversion. They do not slow down image generation, but each combination needs its own conversion. Changes to the text encoder are not included, so style LoRAs may work better than ones that depend on trigger words.</string>
+    <string name="stage_weights">Preparing model weights…</string>
+    <string name="stage_compile">Building the model for your phone…</string>
+    <string name="stage_assemble">Saving the converted model…</string>
+    <string name="keep_open">The screen stays on while the app is open. Conversion continues if you switch apps.</string>
+    <string name="unrestricted_background">Allow conversion in the background</string>
+    <string name="elapsed">Time elapsed: %1$d min %2$d sec</string>
+    <string name="phone_ram_used">Phone memory · %1$d%% used</string>
+    <string name="phone_ram_details">%1$.2f of %2$.2f GiB used · %3$.2f GiB available</string>
+    <string name="conversion_log">Technical log · latest 200 lines</string>
     <string name="pause_scroll">Pause auto-scroll</string>
     <string name="follow_log">Follow latest output</string>
-    <string name="waiting_output">Waiting for tool output…</string>
+    <string name="waiting_output">Waiting for the next update…</string>
 
-    <string name="done_title">Done in %1$d s</string>
-    <string name="done_where">Saved to %1$s. Import it in your generator as a custom model.</string>
-    <string name="done_note">The UNet comes from your checkpoint. SD1.5 uses the shared DreamShaper text encoder and VAE; SDXL uses the separately downloaded text encoders and both VAE models.</string>
+    <string name="done_title">Done in %1$d min %2$d sec</string>
+    <string name="done_where">Saved to %1$s. Open your image app and import it as a custom model.</string>
+    <string name="done_note">Your converted model includes shared files for reading prompts and decoding images. SD1.5 uses DreamShaper files; SDXL uses the files downloaded on first use.</string>
     <string name="failed_title">Conversion failed</string>
 
-    <string name="caveats">SD1.5: 512 × 512, Snapdragon 8 Gen 2 target. SDXL: 1024 × 1024, Snapdragon 8 Gen 3 target, INT8 UNet weights. Both model families have working conversion and generation on the tested Galaxy S25 Ultra; other devices remain unverified.</string>
+    <string name="caveats">SD1.5: 512 × 512 images, built for Snapdragon 8 Gen 2. SDXL: 1024 × 1024 images, built for Snapdragon 8 Gen 3. Both have worked on a Galaxy S25 Ultra. Other phones are not yet confirmed.</string>
+    <string name="export_conversion_report">Save full troubleshooting log</string>
 </resources>

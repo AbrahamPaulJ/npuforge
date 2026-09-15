@@ -54,6 +54,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -70,6 +71,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.abrah.npuforge.ui.InfoScreen
+import com.abrah.npuforge.ui.ComponentsScreen
+import java.io.File
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
@@ -124,9 +128,15 @@ private fun AppScreen() {
                 text = { Text(stringResource(R.string.tab_convert)) })
             Tab(selected = tab == 1, onClick = { focus.clearFocus(); tab = 1 },
                 text = { Text(stringResource(R.string.tab_info)) })
+            Tab(selected = tab == 2, onClick = { focus.clearFocus(); tab = 2 },
+                text = { Text(stringResource(R.string.tab_components)) })
         }
         savedTabs.SaveableStateProvider(tab) {
-            if (tab == 0) ConvertScreen() else InfoScreen()
+            when (tab) {
+                0 -> ConvertScreen()
+                1 -> InfoScreen()
+                else -> ComponentsScreen { tab = 0 }
+            }
         }
     }
 }
@@ -135,6 +145,28 @@ private fun AppScreen() {
 private fun ConvertScreen() {
     val context = LocalContext.current
     val state by ConvertService.state.collectAsState()
+    val exportScope = rememberCoroutineScope()
+    var exportSource by rememberSaveable { mutableStateOf("") }
+    var exportError by remember { mutableStateOf<String?>(null) }
+    val latestReport = remember(state) {
+        File(context.filesDir, "conversion-reports").listFiles()?.maxByOrNull { it.lastModified() }
+    }
+    val exportReport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if (uri != null) exportScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    File(exportSource).inputStream().use { input ->
+                        context.contentResolver.openOutputStream(uri)!!.use { output -> input.copyTo(output) }
+                    }
+                }
+                exportError = null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                exportError = e.message ?: e.javaClass.simpleName
+            }
+        }
+    }
     val activityManager = remember(context) { context.getSystemService(ActivityManager::class.java) }
     var memory by remember(activityManager) {
         mutableStateOf(ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo))
@@ -248,6 +280,14 @@ private fun ConvertScreen() {
             }
         }
 
+        if (latestReport != null) {
+            OutlinedButton(onClick = {
+                exportSource = latestReport.path
+                exportReport.launch(latestReport.name)
+            }) { Text(stringResource(R.string.export_conversion_report)) }
+        }
+        exportError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
         when (val s = state) {
             is ConvertService.State.Running -> {
                 var elapsed by remember(s.startedAt) {
@@ -265,7 +305,7 @@ private fun ConvertScreen() {
                             if (s.steps > 0) "${s.step}/${s.steps}  ${s.stage}" else s.stage,
                             style = MaterialTheme.typography.titleMedium,
                         )
-                        Text(stringResource(R.string.elapsed, elapsed), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.elapsed, elapsed / 60, elapsed % 60), style = MaterialTheme.typography.bodySmall)
                         // A real bar when the tool reports a percentage, an
                         // indeterminate one otherwise -- a fake bar that creeps
                         // is worse than an honest spinner.
@@ -290,7 +330,7 @@ private fun ConvertScreen() {
             is ConvertService.State.Done -> {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.done_title, s.seconds),
+                        Text(stringResource(R.string.done_title, s.seconds / 60, s.seconds % 60),
                             style = MaterialTheme.typography.titleMedium)
                         Text(stringResource(R.string.done_where, s.dir),
                             style = MaterialTheme.typography.bodySmall,
@@ -317,7 +357,7 @@ private fun ConvertScreen() {
                 }
             }
 
-            ConvertService.State.Idle -> {
+            ConvertService.State.Idle, is ConvertService.State.ComponentsDone -> {
                 if (!unrestricted) {
                     OutlinedButton(onClick = {
                         batteryAccess.launch(Intent(
@@ -370,7 +410,7 @@ private fun ConvertScreen() {
             is ConvertService.State.Running -> s.log.joinToString("\n")
             is ConvertService.State.Done -> s.log
             is ConvertService.State.Failed -> s.log
-            ConvertService.State.Idle -> null
+            ConvertService.State.Idle, is ConvertService.State.ComponentsDone -> null
         }
         if (log != null) {
             val logScroll = rememberScrollState()

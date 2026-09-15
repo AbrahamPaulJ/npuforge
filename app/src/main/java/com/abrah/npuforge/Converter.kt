@@ -7,6 +7,8 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import java.io.File
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
@@ -86,11 +88,22 @@ object Converter {
         cmd: List<String>,
         env: Map<String, String>,
         cwd: File,
+        report: ConversionReport,
         onLine: (String) -> Unit,
     ): String = coroutineScope {
         val pb = ProcessBuilder(cmd).directory(cwd).redirectErrorStream(true)
         pb.environment().putAll(env)
+        report.record("command=${cmd.joinToString(" ")}; cwd=$cwd; environment=$env")
         val p = pb.start()
+        // Android UNIXProcess exposes its PID in toString(), not Java 9 Process.pid().
+        val pid = Regex("pid=(\\d+)").find(p.toString())?.groupValues?.get(1)?.toLongOrNull()
+        report.record("Started pid=$pid")
+        val monitor = launch(Dispatchers.IO) {
+            while (true) {
+                report.snapshot(pid)
+                delay(5000)
+            }
+        }
         val tail = ArrayDeque<String>()
         try {
             val output = launch(Dispatchers.IO) {
@@ -98,6 +111,7 @@ object Converter {
                     lines.forEach { line ->
                         if (tail.size >= 200) tail.removeFirst()
                         tail.addLast(line)
+                        report.record(line)
                         Log.i(TAG, line)
                         onLine(line)
                     }
@@ -105,14 +119,30 @@ object Converter {
             }
             val rc = runInterruptible(Dispatchers.IO) { p.waitFor() }
             output.join()
+            monitor.cancelAndJoin()
+            report.snapshot()
+            val signal = when (rc) {
+                134 -> "SIGABRT (abort)"
+                135 -> "SIGBUS (bus error)"
+                137 -> "SIGKILL (killed; not proof of OOM)"
+                139 -> "SIGSEGV (segmentation fault)"
+                else -> ""
+            }
+            val outcome = "pid=$pid exit=$rc $signal"
+            report.record(outcome)
+            onLine(outcome)
+            if (rc != 0 && pid != null) report.exitDetails(pid.toInt())
             val log = tail.joinToString(System.lineSeparator())
             Log.i(TAG, "rc=$rc for ${cmd.first().substringAfterLast('/')}")
-            if (rc != 0) throw Failure("${cmd.first().substringAfterLast('/')} failed (rc $rc)", log)
+            if (rc != 0) throw Failure("${cmd.first().substringAfterLast('/')} failed (rc $rc) $signal", log)
             log
         } finally {
             // A cancelled service must release the compiler and its native memory.
             p.destroyForcibly()
-            withContext(NonCancellable + Dispatchers.IO) { p.waitFor() }
+            withContext(NonCancellable + Dispatchers.IO) {
+                p.waitFor()
+                monitor.cancelAndJoin()
+            }
         }
     }
 
@@ -152,6 +182,7 @@ object Converter {
         ckpt: File,
         work: File,
         model: CheckpointInfo.Model,
+        report: ConversionReport,
         loras: List<Pair<File, Float>> = emptyList(),
         onLine: (String) -> Unit = {},
     ): File {
@@ -175,7 +206,7 @@ object Converter {
                 ckpt.absolutePath,
                 pack.absolutePath,
             ) + loraArgs,
-            emptyMap(), work, onLine,
+            emptyMap(), work, report, onLine,
         )
         if (!pack.isFile || pack.length() == 0L) throw Failure("tplconv produced no pack")
         return pack
@@ -187,6 +218,7 @@ object Converter {
         pack: File,
         work: File,
         model: CheckpointInfo.Model,
+        report: ConversionReport,
         onLine: (String) -> Unit = {},
     ): File {
         // ⚠⚠ THE DSP AND THE CPU NEED THE LIBRARIES IN DIFFERENT PLACES.
@@ -211,6 +243,7 @@ object Converter {
 
         // ⚠ absolute on-device path, see the class comment
         val cfg = File(tpl, "htp_config.json")
+        report.record("QNN graph configuration: ${cfg.readText()}")
         val backend = File(work, "htp_backend.json")
         backend.writeText(
             """{"backend_extensions":{"shared_library_path":""" +
@@ -253,7 +286,7 @@ object Converter {
                     "${dspLibs.absolutePath};/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp")
                 put("QNN_TPL_PACK", pack.absolutePath)
             },
-            work, onLine,
+            work, report, onLine,
         )
         val unet = File(outDir, "unet.bin")
         if (!unet.isFile || unet.length() == 0L) throw Failure("the generator produced no unet.bin")

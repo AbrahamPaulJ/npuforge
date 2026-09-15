@@ -15,8 +15,8 @@ android {
         // Android 13 is the app's minimum for its Snapdragon 8 Gen 2+ audience.
         minSdk = 33
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.2"
+        versionCode = 3
+        versionName = "0.2.1"
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -106,6 +106,7 @@ abstract class CompileCompilerHeap @javax.inject.Inject constructor(
     private val process: ExecOperations,
 ) : DefaultTask() {
     @get:InputFile abstract val source: RegularFileProperty
+    @get:InputFile abstract val cppSource: RegularFileProperty
     @get:InputFile abstract val symbols: RegularFileProperty
     @get:InputFile abstract val compiler: RegularFileProperty
     @get:InputFile abstract val ndkRevision: RegularFileProperty
@@ -115,13 +116,22 @@ abstract class CompileCompilerHeap @javax.inject.Inject constructor(
     fun compile() {
         val output = outputDirectory.get().file("arm64-v8a/libcompiler_heap.so").asFile
         output.parentFile.mkdirs()
+        val cObject = temporaryDir.resolve("compiler_heap.o")
         process.exec {
             commandLine(
                 compiler.get().asFile,
-                "-O2", "-std=c11", "-fPIC", "-shared", "-fno-builtin", "-Wall", "-Wextra",
+                "-O2", "-std=c11", "-fPIC", "-fno-builtin", "-Wall", "-Wextra",
+                "-c", source.get().asFile, "-o", cObject,
+            )
+        }
+        process.exec {
+            commandLine(
+                "${compiler.get().asFile.absolutePath}++",
+                "-O2", "-std=c++17", "-fPIC", "-shared", "-fno-builtin", "-Wall", "-Wextra",
+                "-static-libstdc++", "-Wl,--exclude-libs,ALL",
                 "-Wl,-z,max-page-size=16384", "-Wl,-z,common-page-size=16384",
                 "-Wl,-z,defs", "-Wl,--version-script=${symbols.get().asFile}",
-                source.get().asFile, "-ldl", "-o", output,
+                cObject, cppSource.get().asFile, "-ldl", "-o", output,
             )
         }
     }
@@ -129,6 +139,7 @@ abstract class CompileCompilerHeap @javax.inject.Inject constructor(
 
 val compileCompilerHeap = tasks.register<CompileCompilerHeap>("compileCompilerHeap") {
     source.set(rootProject.layout.projectDirectory.file("native/compiler_heap.c"))
+    cppSource.set(rootProject.layout.projectDirectory.file("native/compiler_new.cpp"))
     symbols.set(rootProject.layout.projectDirectory.file("native/compiler_heap.map"))
     ndkRevision.set(converterNdk.map { it.file("source.properties") })
     compiler.set(converterNdk.map {

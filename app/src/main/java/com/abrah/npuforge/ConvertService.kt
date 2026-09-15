@@ -49,6 +49,7 @@ class ConvertService : Service() {
         ) : State
         data class Done(val dir: String, val seconds: Long, val log: String = "") : State
         data class Failed(val message: String, val log: String = "") : State
+        data class ComponentsDone(val message: String) : State
     }
 
     companion object {
@@ -62,6 +63,8 @@ class ConvertService : Service() {
         const val EXTRA_LORAS = "loras"
         const val EXTRA_MODEL = "model"
         const val EXTRA_COMPONENTS = "components"
+        const val ACTION_BACKUP = "com.abrah.npuforge.BACKUP_COMPONENTS"
+        const val ACTION_RESTORE = "com.abrah.npuforge.RESTORE_COMPONENTS"
 
         private val _state = MutableStateFlow<State>(State.Idle)
         val state: StateFlow<State> = _state.asStateFlow()
@@ -132,10 +135,12 @@ class ConvertService : Service() {
     private var steps = 0
     private var startedAt = 0L
     private val logLines = ArrayDeque<String>()
+    private var report: ConversionReport? = null
 
     private fun post(stage: String, detail: String = "") {
         job.ensureActive()
         if ((_state.value as? State.Running)?.stage != stage) {
+            report?.record("stage=$stage")
             logLines.addLast(stage)
         }
         while (logLines.size > 200) logLines.removeFirst()
@@ -194,18 +199,23 @@ class ConvertService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        val firstStage = getString(when (intent.action) {
+            ACTION_BACKUP -> R.string.components_backing_up
+            ACTION_RESTORE -> R.string.components_restoring
+            else -> R.string.stage_import
+        })
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTE_ID, note(getString(R.string.stage_import)),
+            startForeground(NOTE_ID, note(firstStage),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
-            startForeground(NOTE_ID, note(getString(R.string.stage_import)))
+            startForeground(NOTE_ID, note(firstStage))
         }
 
         startedAt = SystemClock.elapsedRealtime()
         logLines.clear()
         step = 0
         steps = 0
-        post(getString(R.string.stage_import))
+        post(firstStage)
         conversion = scope.launch {
             var result: State = State.Idle
             val work = File(cacheDir, "work")
@@ -214,6 +224,25 @@ class ConvertService : Service() {
             wakeLock.acquire()
             try {
                 withContext(Dispatchers.IO) {
+                    val diagnostic = ConversionReport(this@ConvertService, "$name (${model.name})")
+                    report = diagnostic
+                    if (intent.action == ACTION_BACKUP || intent.action == ACTION_RESTORE) {
+                        val progress: (Long, Long) -> Unit = { bytes, total ->
+                            val percent = if (total > 0) " ${bytes * 100 / total}%" else ""
+                            post(firstStage, "${bytes / 1_000_000} MB$percent")
+                        }
+                        if (intent.action == ACTION_BACKUP) {
+                            Donor.backup(this@ConvertService, model, uri, progress)
+                        } else {
+                            Donor.ensure(this@ConvertService, model, uri, progress)
+                        }
+                        result = State.ComponentsDone(getString(
+                            if (intent.action == ACTION_BACKUP) R.string.components_backup_done
+                            else R.string.components_restore_done, model.name,
+                        ))
+                        return@withContext
+                    }
+                    diagnostic.record("LoRA strengths=${loraSpecs.map { it.second }}")
                     work.deleteRecursively()
                     work.mkdirs()
                     val donorReady = Donor.isReady(this@ConvertService, model)
@@ -245,13 +274,13 @@ class ConvertService : Service() {
 
                     step++
                     post(getString(R.string.stage_weights))
-                    val pack = Converter.stageWeights(this@ConvertService, ckpt, work, model, loraFiles) {
+                    val pack = Converter.stageWeights(this@ConvertService, ckpt, work, model, diagnostic, loraFiles) {
                         logLine(getString(R.string.stage_weights), it)
                     }
 
                     step++
                     post(getString(R.string.stage_compile))
-                    val unet = Converter.stageCompile(this@ConvertService, pack, work, model) {
+                    val unet = Converter.stageCompile(this@ConvertService, pack, work, model, diagnostic) {
                         logLine(getString(R.string.stage_compile), it)
                     }
 
@@ -267,17 +296,23 @@ class ConvertService : Service() {
                     )
                 }
             } catch (e: CancellationException) {
+                report?.record("Conversion cancelled")
                 throw e
             } catch (e: Converter.Failure) {
+                report?.record(e.stackTraceToString())
                 Log.e(TAG, "conversion failed: ${e.message}\n${e.log}")
                 result = State.Failed(e.message ?: "failed", e.log)
             } catch (e: Exception) {
+                report?.record(e.stackTraceToString())
                 Log.e(TAG, "conversion failed", e)
                 result = State.Failed(e.message ?: e.javaClass.simpleName, logLines.joinToString("\n"))
             } finally {
                 try {
                     withContext(NonCancellable + Dispatchers.IO) {
                         if (!work.deleteRecursively()) Log.w(TAG, "Could not remove conversion work files")
+                        report?.record("Conversion finished: ${result.javaClass.simpleName}")
+                        report?.close()
+                        report = null
                     }
                 } finally {
                     wakeLock.release()

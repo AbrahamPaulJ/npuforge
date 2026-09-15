@@ -2,11 +2,19 @@ package com.abrah.npuforge
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Log
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 /**
  * Shared components for the UNet-only conversion pipeline.
@@ -32,16 +40,15 @@ object Donor {
      * @param onProgress bytes of the archive consumed so far, and its total
      *   (-1 when the server does not say).
      */
-    fun ensure(
+    suspend fun ensure(
         context: Context,
         model: CheckpointInfo.Model,
         archive: Uri?,
         onProgress: (Long, Long) -> Unit,
     ) {
-        val out = File(context.filesDir, model.donorDirectory).apply { mkdirs() }
-        // A part-written donor is worse than none: it passes isReady() on the
-        // files that landed and fails at render time on the ones that did not.
-        for (f in out.listFiles().orEmpty()) f.delete()
+        val operation = currentCoroutineContext()
+        val out = File(context.filesDir, model.donorDirectory)
+        val staging = Files.createTempDirectory(context.filesDir.toPath(), "components-").toFile()
 
         val url = when (model) {
             CheckpointInfo.Model.SD15 -> URL_
@@ -67,15 +74,17 @@ object Donor {
             var seen = 0L
             val counting = object : java.io.FilterInputStream(input) {
                 override fun read(b: ByteArray, off: Int, len: Int): Int {
+                    operation.ensureActive()
                     val n = super.read(b, off, len)
                     if (n > 0) {
+                        val previous = seen / (16 * 1024 * 1024)
                         seen += n
-                        onProgress(seen, total)
+                        if (seen / (16 * 1024 * 1024) != previous) onProgress(seen, total)
                     }
                     return n
                 }
             }
-            var kept = 0
+            val kept = mutableSetOf<String>()
             ZipInputStream(counting.buffered(1 shl 20)).use { zin ->
                 while (true) {
                     val e = zin.nextEntry ?: break
@@ -84,18 +93,71 @@ object Donor {
                         zin.closeEntry()
                         continue
                     }
-                    File(out, base).outputStream().use { zin.copyTo(it, 1 shl 20) }
+                    File(staging, base).outputStream().use { zin.copyTo(it, 1 shl 20) }
                     zin.closeEntry()
-                    kept++
+                    kept.add(base)
                     Log.i(TAG, "extracted $base")
                 }
             }
-            if (kept != model.components.size) {
-                for (f in out.listFiles().orEmpty()) f.delete()
-                throw Converter.Failure("archive had $kept of ${model.components.size} expected files")
+            if (kept != model.components || model.components.any { File(staging, it).length() == 0L }) {
+                throw Converter.Failure("archive had ${kept.size} of ${model.components.size} expected nonempty files")
             }
+            operation.ensureActive()
+            out.mkdirs()
+            for (name in model.components) {
+                Files.move(File(staging, name).toPath(), File(out, name).toPath(), ATOMIC_MOVE, REPLACE_EXISTING)
+            }
+            onProgress(seen, total)
         } finally {
             conn?.disconnect()
+            if (!staging.deleteRecursively()) Log.w(TAG, "Could not remove component import staging")
         }
+    }
+
+    suspend fun backup(
+        context: Context,
+        model: CheckpointInfo.Model,
+        archive: Uri,
+        onProgress: (Long, Long) -> Unit,
+    ) {
+        val operation = currentCoroutineContext()
+        val directory = File(context.filesDir, model.donorDirectory)
+        val total = model.components.sumOf { File(directory, it).length() }
+        var copied = 0L
+        try {
+            context.contentResolver.openOutputStream(archive, "wt")!!.use { output ->
+                ZipOutputStream(output.buffered(1 shl 20)).use { zip ->
+                    // These model files are already compact; avoid expensive recompression.
+                    zip.setLevel(0)
+                    val buffer = ByteArray(1 shl 20)
+                    for (name in model.components) {
+                        operation.ensureActive()
+                        zip.putNextEntry(ZipEntry(name))
+                        File(directory, name).inputStream().use { input ->
+                            while (true) {
+                                operation.ensureActive()
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                zip.write(buffer, 0, count)
+                                val previous = copied / (16 * 1024 * 1024)
+                                copied += count
+                                if (copied / (16 * 1024 * 1024) != previous) onProgress(copied, total)
+                            }
+                        }
+                        zip.closeEntry()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            try {
+                if (!DocumentsContract.deleteDocument(context.contentResolver, archive)) {
+                    Log.w(TAG, "Could not remove incomplete component backup")
+                }
+            } catch (cleanup: Exception) {
+                Log.w(TAG, "Could not remove incomplete component backup", cleanup)
+            }
+            throw e
+        }
+        onProgress(copied, total)
     }
 }

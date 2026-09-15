@@ -93,16 +93,28 @@ increase inference memory; its isolated cost has not been measured.
 ## Storage-backed compiler allocations
 
 `native/compiler_heap.c` is preloaded only into the SDXL compiler subprocess.
-It backs allocations of at least 64 KiB with unlinked, preallocated files using
+It backs allocations of at least 8 KiB with unlinked, preallocated files using
 `MAP_SHARED`. Small allocations continue through libc. Aligned requests also
 use backing when their alignment reaches the cutoff. Direct SDK mappings and
 GPU/NPU-owned buffers are not intercepted.
 
 The kernel can reclaim and reload file-backed pages. This requires free storage
 and incurs I/O; it does not create physical RAM or eliminate OOM. Ownership
-lookup uses 4,096 hash buckets. One idle mapping per size class from 64 KiB
-through 1 MiB is retained for reuse, totaling less than 2 MiB. Freed mappings
-otherwise release their backing; process exit releases remaining unlinked files.
+lookup uses 4,096 hash buckets. Blocks from 8 KiB through 1 MiB share 8 MiB
+slabs with shared metadata, instead of one file and metadata mapping per block.
+Freed blocks return to their slab; an empty slab releases both mappings and its
+backing. Larger or over-page-aligned allocations keep individual mappings.
+Process exit releases all remaining unlinked files.
+
+A vivo V2307A / SM8650 tester report captured SIGABRT with exactly 65,530
+memory mappings, including 53,610 Scudo secondary mappings and 8,057 compiler
+backing mappings. That matches Linux's default `vm.max_map_count`, strongly
+indicating mapping exhaustion; this report did not capture the device's actual
+limit or abort message. Immediately before the signal, compiler RssAnon was
+8,128,600 KiB and VmSwap was 8,113,184 KiB. The new report records mapping count,
+the kernel limit when readable, and the staged QNN configuration. Slab allocation
+and the lower cutoff address mapping proliferation and smaller anonymous
+allocations; conversion on the affected device remains to be verified.
 
 The initial linear ownership list consumed 93.71% of sampled CPU time in `free`.
 The indexed version reduced `free` to 1.07% in a later short sample. These are
@@ -138,3 +150,23 @@ The phone run is the validation for this change. No additional host conversion,
 benchmark, build or phone deployment was performed while recording these
 findings. Other phones, CFG > 1, SDXL LoRA, repeated quality comparisons and
 inference peak memory remain unverified by the recorded runs.
+
+### Vivo repeat failure, 15 September 2026
+
+The 10:51 UTC report from NPUForge 0.2.1 (3) confirms that the slab build
+still aborted. It reached 65,530 process mappings: 64,563 were Scudo
+secondary mappings, while only 503 were compiler backing files. The slab
+change reduced our mappings but did not resolve the remaining allocations.
+
+The preload library now exports C++ new/delete entry points, including array,
+aligned, sized-delete and nothrow variants, alongside the C allocator APIs.
+A small native probe on the connected Samsung verified that QAIRT 2.50
+libQnnHtpPrepare.so resolves its malloc, new and new[] relocations to the
+preload library. This does not establish the Vivo's original binding or
+prove that its full conversion now completes; that device test is pending.
+
+The 9.1 MB report included all 65,530 mappings from the crash handler. The
+handler now emits registers and process status without dumping every map.
+Periodic reports keep total, Scudo-secondary and storage-backed mapping
+counts, compact memory/thread status, OOM scores and available RAM/storage.
+Version code and name remain 3 and 0.2.1.

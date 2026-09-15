@@ -14,12 +14,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <signal.h>
+#include <sys/syscall.h>
+#include <sys/statvfs.h>
+#include <ucontext.h>
 #include <time.h>
 #include <unistd.h>
 
 #define MIB (1024UL * 1024UL)
-#define DISK_THRESHOLD (64UL * 1024UL)
+#define DISK_THRESHOLD (8UL * 1024UL)
 #define POOL_MAX MIB
+#define SLAB_BYTES (8UL * MIB)
+
+typedef struct Slab Slab;
 
 typedef struct Allocation {
     struct Allocation *next;
@@ -29,8 +36,19 @@ typedef struct Allocation {
     size_t backing_size;
     size_t size;
     int disk;
-    int pool_bin;
+    Slab *slab;
 } Allocation;
+
+struct Slab {
+    Slab *next;
+    Allocation *available;
+    void *base;
+    size_t metadata_size;
+    size_t free_count;
+    size_t capacity;
+    int bin;
+    Allocation entries[];
+};
 
 static void *(*libc_malloc)(size_t);
 static void (*libc_free)(void *);
@@ -43,16 +61,84 @@ static _Thread_local int resolving;
 static _Atomic int ready;
 static _Atomic unsigned long sequence;
 static Allocation *allocations[4096];
-// One idle mapping per size class: 64, 128, 256, 512 and 1024 KiB.
-// Reuse costs no open/unlink/fallocate/mmap, and retains less than 2 MiB total.
-static Allocation *idle_mappings[5];
+// 8 KiB through 1 MiB blocks share 8 MiB mappings and metadata. A separate
+// file and metadata mmap per allocation exhausted the tester's 65,530 VMAs.
+static Slab *slabs[8];
 static Allocation *deferred_frees;
 static int directory_fd = -1;
 static size_t page_size;
 static size_t disk_bytes;
 static size_t peak_disk_bytes;
 static size_t disk_count;
+static size_t disk_mappings;
 static time_t last_report;
+
+
+static struct sigaction previous_signals[NSIG];
+
+// The crash path uses stack buffers and async-signal-safe syscalls only: no
+// malloc, stdio formatting, unwinder, or allocator mutex after a native fault.
+static void crash_value(const char *label, uintptr_t value) {
+    char line[128];
+    size_t n = 0;
+    while (*label && n < 100) line[n++] = *label++;
+    line[n++] = '='; line[n++] = '0'; line[n++] = 'x';
+    for (int shift = (int)(sizeof(value) * 8) - 4; shift >= 0; shift -= 4)
+        line[n++] = "0123456789abcdef"[(value >> shift) & 15];
+    line[n++] = '\n';
+    write(STDERR_FILENO, line, n);
+}
+
+static void compiler_crash(int signal, siginfo_t *info, void *context) {
+    static const char title[] = "\n[compiler crash] native signal; register values below are hexadecimal\n";
+    write(STDERR_FILENO, title, sizeof(title) - 1);
+    crash_value("signal", (uintptr_t)signal);
+    crash_value("si_code", (uintptr_t)(intptr_t)info->si_code);
+    crash_value("si_errno", (uintptr_t)info->si_errno);
+    crash_value("fault_address", (uintptr_t)info->si_addr);
+    crash_value("pid", (uintptr_t)getpid());
+    crash_value("tid", (uintptr_t)syscall(SYS_gettid));
+#if defined(__aarch64__)
+    const ucontext_t *registers = context;
+    crash_value("pc", registers->uc_mcontext.pc);
+    crash_value("lr", registers->uc_mcontext.regs[30]);
+    crash_value("sp", registers->uc_mcontext.sp);
+    crash_value("fp", registers->uc_mcontext.regs[29]);
+#else
+    (void)context;
+#endif
+    static const char status_path[] = "/proc/self/status";
+    write(STDERR_FILENO, status_path, sizeof(status_path) - 1);
+    write(STDERR_FILENO, "\n", 1);
+    int fd = open(status_path, O_RDONLY | O_CLOEXEC);
+    if (fd >= 0) {
+        char buffer[4096];
+        ssize_t bytes;
+        while ((bytes = read(fd, buffer, sizeof(buffer))) > 0) {
+            ssize_t sent = 0;
+            while (sent < bytes) {
+                ssize_t count = write(STDERR_FILENO, buffer + sent, (size_t)(bytes - sent));
+                if (count <= 0) break;
+                sent += count;
+            }
+        }
+        close(fd);
+    }
+    // Restore Android's original disposition and re-deliver to this thread so
+    // debuggerd/tombstones and the actual signal exit status remain intact.
+    sigaction(signal, &previous_signals[signal], NULL);
+    syscall(SYS_tgkill, getpid(), syscall(SYS_gettid), signal);
+}
+
+__attribute__((constructor)) static void install_crash_capture(void) {
+    const int signals[] = {SIGABRT, SIGBUS, SIGSEGV, SIGILL, SIGFPE};
+    struct sigaction action = {0};
+    action.sa_sigaction = compiler_crash;
+    action.sa_flags = SA_SIGINFO;
+    sigemptyset(&action.sa_mask);
+    for (size_t i = 0; i < sizeof(signals) / sizeof(signals[0]); ++i)
+        sigaction(signals[i], &action, &previous_signals[signals[i]]);
+}
 
 // All allocation APIs use this index. File mappings are page-aligned, so mix
 // the address before selecting a bucket instead of using its zero low bits.
@@ -100,7 +186,7 @@ static void initialize(void) {
     atomic_store_explicit(&ready, 1, memory_order_release);
     resolving = 0;
     static const char message[] =
-        "[compiler heap] active: 64 KiB cutoff, indexed lookup, reusable backing up to 1 MiB\n";
+        "[compiler heap] active: C/C++ allocation hooks, 8 KiB cutoff, shared 8 MiB slabs up to 1 MiB\n";
     write(STDERR_FILENO, message, sizeof(message) - 1);
 }
 
@@ -117,20 +203,32 @@ static void *mapped_allocate(size_t size, size_t alignment, int disk) {
     if (disk && alignment <= page_size && bytes <= POOL_MAX) {
         pool_bin = 0;
         length = DISK_THRESHOLD;
-        while (length < bytes) {
+        while (length < bytes || length < alignment) {
             length *= 2;
             pool_bin++;
         }
     }
-    size_t reservation = length + extra;
+    size_t backing_length = pool_bin >= 0 ? SLAB_BYTES : length;
+    size_t reservation = backing_length + extra;
+    size_t metadata_size = pool_bin >= 0
+        ? (sizeof(Slab) + (SLAB_BYTES / length) * sizeof(Allocation) + page_size - 1) & ~(page_size - 1)
+        : page_size;
+    void *metadata = MAP_FAILED;
+    Slab *slab = NULL;
     Allocation *entry = NULL;
     int fd = -1;
+    const char *operation = "metadata mmap";
     void *base = MAP_FAILED;
     void *pointer = MAP_FAILED;
     if (pool_bin >= 0) {
         pthread_mutex_lock(&allocations_lock);
-        entry = idle_mappings[pool_bin];
-        idle_mappings[pool_bin] = NULL;
+        slab = slabs[pool_bin];
+        while (slab && !slab->available) slab = slab->next;
+        if (slab) {
+            entry = slab->available;
+            slab->available = entry->next;
+            slab->free_count--;
+        }
         pthread_mutex_unlock(&allocations_lock);
         if (entry) {
             base = entry->base;
@@ -138,21 +236,25 @@ static void *mapped_allocate(size_t size, size_t alignment, int disk) {
             goto register_allocation;
         }
     }
-    entry = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
-                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (entry == MAP_FAILED) return NULL;
+    metadata = mmap(NULL, metadata_size, PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (metadata == MAP_FAILED) goto failed;
     if (disk) {
         char name[80];
         snprintf(name, sizeof(name), ".compiler-heap-%d-%lu", getpid(),
                  atomic_fetch_add_explicit(&sequence, 1, memory_order_relaxed));
+        operation = "openat backing file";
         fd = openat(directory_fd, name, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
         if (fd < 0) goto failed;
         // The mapping retains the backing inode; even SIGKILL leaves no files.
+        operation = "unlinkat backing file";
         if (unlinkat(directory_fd, name, 0) != 0) goto failed;
         // Allocate actual disk space before returning writable memory, so a
         // later page fault cannot discover a sparse file has no backing space.
-        if (fallocate(fd, 0, 0, (off_t)length) != 0) goto failed;
+        operation = "fallocate backing file";
+        if (fallocate(fd, 0, 0, (off_t)backing_length) != 0) goto failed;
     }
+    operation = "mmap backing file";
     if (extra) {
         base = mmap(NULL, reservation, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         if (base == MAP_FAILED) goto failed;
@@ -161,12 +263,43 @@ static void *mapped_allocate(size_t size, size_t alignment, int disk) {
         pointer = mmap(pointer, length, PROT_READ | PROT_WRITE,
                        MAP_FIXED | (disk ? MAP_SHARED : MAP_PRIVATE | MAP_ANONYMOUS), fd, 0);
     } else {
-        base = mmap(NULL, length, PROT_READ | PROT_WRITE,
+        base = mmap(NULL, backing_length, PROT_READ | PROT_WRITE,
                     disk ? MAP_SHARED : MAP_PRIVATE | MAP_ANONYMOUS, fd, 0);
         pointer = base;
     }
     if (pointer == MAP_FAILED) goto failed;
     if (fd >= 0) close(fd);
+    if (pool_bin >= 0) {
+        slab = metadata;
+        slab->base = base;
+        slab->metadata_size = metadata_size;
+        slab->capacity = SLAB_BYTES / length;
+        slab->free_count = slab->capacity - 1;
+        slab->bin = pool_bin;
+        for (size_t i = 0; i < slab->capacity; ++i) {
+            Allocation *slot = &slab->entries[i];
+            slot->pointer = (char *)base + i * length;
+            slot->base = base;
+            slot->slab = slab;
+            if (i > 0) {
+                slot->next = slab->available;
+                slab->available = slot;
+            }
+        }
+        entry = &slab->entries[0];
+        pthread_mutex_lock(&allocations_lock);
+        slab->next = slabs[pool_bin];
+        slabs[pool_bin] = slab;
+        disk_mappings++;
+        pthread_mutex_unlock(&allocations_lock);
+    } else {
+        entry = metadata;
+        if (disk) {
+            pthread_mutex_lock(&allocations_lock);
+            disk_mappings++;
+            pthread_mutex_unlock(&allocations_lock);
+        }
+    }
 
 register_allocation:
     entry->pointer = pointer;
@@ -175,8 +308,7 @@ register_allocation:
     entry->backing_size = length;
     entry->size = size;
     entry->disk = disk;
-    entry->pool_bin = pool_bin;
-    char report[240];
+    char report[384];
     int report_length = 0;
     pthread_mutex_lock(&allocations_lock);
     Allocation **bucket = allocation_bucket(pointer);
@@ -191,8 +323,8 @@ register_allocation:
         if (size >= 64 * MIB || now.tv_sec - last_report >= 5) {
             last_report = now.tv_sec;
             report_length = snprintf(report, sizeof(report),
-                "[compiler heap] allocation %zu KiB; storage-backed %zu MiB live, %zu MiB peak, %zu allocations (not resident RAM)\n",
-                size / 1024, disk_bytes / MIB, peak_disk_bytes / MIB, disk_count);
+                "[compiler heap] allocation %zu KiB; storage-backed %zu MiB live, %zu MiB peak, %zu allocations in %zu backing mappings (capacity, not RSS)\n",
+                size / 1024, disk_bytes / MIB, peak_disk_bytes / MIB, disk_count, disk_mappings);
         }
     }
     pthread_mutex_unlock(&allocations_lock);
@@ -203,11 +335,16 @@ failed:;
     int error = errno;
     if (base != MAP_FAILED) munmap(base, reservation);
     if (fd >= 0) close(fd);
-    munmap(entry, page_size);
+    if (metadata != MAP_FAILED) munmap(metadata, metadata_size);
     if (disk) {
-        char report[120];
+        struct statvfs storage;
+        unsigned long long available = 0;
+        int storage_status = fstatvfs(directory_fd, &storage);
+        if (storage_status == 0) available = (unsigned long long)storage.f_bavail * storage.f_frsize;
+        char report[320];
         int count = snprintf(report, sizeof(report),
-            "[compiler heap] backing allocation failed: bytes=%zu errno=%d\n", size, error);
+            "[compiler heap] backing allocation failed: operation=%s bytes=%zu alignment=%zu page_size=%zu errno=%d (%s) storage_status=%d storage_available=%llu\n",
+            operation, size, alignment, page_size, error, strerror(error), storage_status, available);
         write(STDERR_FILENO, report, (size_t)count);
     }
     errno = ENOMEM;
@@ -231,21 +368,36 @@ void free(void *pointer) {
     Allocation **link = allocation_bucket(pointer);
     while (*link && (*link)->pointer != pointer) link = &(*link)->next;
     Allocation *entry = *link;
-    int cached = 0;
+    Slab *release_slab = NULL;
+    int pooled = 0;
     if (entry) {
         *link = entry->next;
         if (entry->disk) {
             disk_bytes -= entry->backing_size;
             disk_count--;
-            if (entry->pool_bin >= 0 && !idle_mappings[entry->pool_bin]) {
-                idle_mappings[entry->pool_bin] = entry;
-                cached = 1;
+            Slab *slab = entry->slab;
+            if (slab) {
+                pooled = 1;
+                entry->next = slab->available;
+                slab->available = entry;
+                if (++slab->free_count == slab->capacity) {
+                    Slab **owner = &slabs[slab->bin];
+                    while (*owner != slab) owner = &(*owner)->next;
+                    *owner = slab->next;
+                    release_slab = slab;
+                    disk_mappings--;
+                }
+            } else {
+                disk_mappings--;
             }
         }
     }
     pthread_mutex_unlock(&allocations_lock);
     if (entry) {
-        if (!cached) {
+        if (release_slab) {
+            munmap(release_slab->base, SLAB_BYTES);
+            munmap(release_slab, release_slab->metadata_size);
+        } else if (!pooled) {
             munmap(entry->base, entry->mapping_size);
             munmap(entry, page_size);
         }
