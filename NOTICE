@@ -78,3 +78,12 @@ What IS original here
 - The measured results in `README.md`.
 
 These are the parts the MIT licence grants.
+
+Current SDXL shared components (2026-09-15)
+-----------------------------------------
+The app downloads the user-published shared ZIP from
+https://huggingface.co/Mr-J-369/SDXL-OnDevice-Conversion . It contains MNN text
+encoders/embeddings/tokenizer and QAIRT 2.50 v75 QNN VAE encoder/decoder. The VAE
+source is identified as madebyollin/sdxl-vae-fp16-fix. These components are not
+MIT source and are not bundled in this repository. Generated SDXL template
+binaries and packs are also excluded from this source push.

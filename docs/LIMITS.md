@@ -1,31 +1,46 @@
 # Scope and limits — what npuforge converts, and where it fails
 
-Every claim here is measured on one device, a Samsung SM-S938B (SM8750, Hexagon
-v79), during 2026-09-13 and 2026-09-14. Anything not measured is labelled a
-projection. The app's **Info** tab is a plain-language summary of this file; when
-one changes, change the other in the same edit.
+Results are from one Samsung SM-S938B (SM8750, HTP v79), recorded on
+2026-09-13 through 2026-09-15. Historical SD1.5 findings are retained below;
+[SDXL.md](SDXL.md) records the new SDXL pipeline and its validation limits.
 
-## In scope
+## Current scope
 
-| | |
-|---|---|
-| architecture | Stable Diffusion **1.5**, single-file `.safetensors` |
-| task | txt2img, **512×512**, 4-channel |
-| converted | the **UNet** only |
-| adapters | standard kohya LoRA, merged at conversion time, stackable |
-| output | a QAIRT **2.49** context binary for the **`_8gen2` tier** (v73, 8 MB VTCM) |
-| time | ~117 s + a few seconds per LoRA |
+| | SD1.5 | SDXL |
+|---|---|---|
+| input | single-file .safetensors | single-file .safetensors |
+| image size | 512 × 512 | 1024 × 1024 |
+| converted component | UNet | UNet, W8A16 |
+| target | v73, 8 MB VTCM | v75 / soc57, 8 MB VTCM |
+| current runtime | QAIRT 2.50.0.260828 | QAIRT 2.50.0.260828 |
+| shared components | downloaded DreamShaper CLIP/VAE | downloaded MNN CLIPs and QNN VAE encoder/decoder |
+| conversion measurement | original run: 117 s | user-reported O=3 total: 437 s |
 
-A checkpoint is checked before conversion starts, from the safetensors **header**
-(`CheckpointInfo.kt`): SDXL, SD2 and diffusers-layout files are refused outright,
-and all 686 tensors the recipe needs are confirmed present. That check costs a
-short read rather than a 2 GB copy, so a bad file fails in a second instead of
-two minutes in.
+Header inspection selects the model family and checks the selected recipe's
+source names. SD2 and diffusers-layout files remain unsupported. Standard kohya
+UNet LoRA merging remains implemented; SDXL LoRA has not been validated by the
+recorded full-model phone runs.
 
-## ⚠ The output may not load on a phone that is newer than the target
+SDXL O=1 and O=3 outputs both generated recognizable images in Aura at
+1024 × 1024, 8 steps, CFG 1, LCM/Karras. The individual runs took 20 and 15
+seconds respectively, with different seeds. User-observed 41% RAM during O=3
+conversion is a snapshot, not a peak. SDXL temporary file backing consumes
+additional storage; SD1.5 storage/RAM figures below do not describe SDXL.
 
-Two independent reasons, and neither is visible before the model is downloaded
-and tried:
+The app keeps the visible screen awake and holds a foreground service/wake lock
+through conversion. These do not make a process immune to allocation failure.
+The SDXL allocator plus disabled source-destructive reuse enabled the recorded
+successful runs. Neither cross-device support nor a universal memory bound is
+established.
+
+## Historical QAIRT 2.49 compatibility findings
+
+The following findings concern the original SD1.5 QAIRT 2.49 experiments.
+They do not establish the same stamp behavior in the current 2.50 build.
+The current SD1.5 v73 and SDXL v75 targets are fixed, so a newer chip name alone
+does not establish compatibility.
+
+Two reasons were investigated:
 
 1. **The fp16 stamp.** QAIRT 2.49 writes an fp16 requirement into every context
    binary it produces. Some Qualcomm chips — including some *newer* than 8 Gen 2,
@@ -48,7 +63,7 @@ and tried:
 So "8 Gen 2 or newer" is necessary but **not sufficient**, and a load failure is
 the first symptom to attribute here rather than to the conversion.
 
-## ⚠ Anime checkpoints convert cleanly and render noise
+## Checkpoint-specific failure: MistoonAnime
 
 MistoonAnime converted with exit 0, produced a loadable model, ran at the correct
 speed, and rendered saturated noise on every prompt.
@@ -81,8 +96,11 @@ version reports the number rather than inventing a cutoff.
   CLIP/VAE leaves it clean (0.049 vs 0.029). The failure is in the converted
   UNet.
 
-What is left is range borrowing, and the fix is a second template calibrated on
-anime data — a PC job of ~50 min calibration plus a ~2 h 20 m quantize.
+The evidence points to borrowed activation ranges for this checkpoint. It does
+not establish that all anime checkpoints fail. CyberRealistic, DreamShaper 8
+and AbsoluteReality have working conversions. `CHECKPOINT-FAMILIES.md` records
+why the broader photoreal-versus-anime classification is not established;
+checkpoint-specific calibration or range changes still need validation.
 
 ## The text encoder and VAE are borrowed, on purpose
 
@@ -140,27 +158,27 @@ template — so style adapters carry over better than trigger-word ones.
 adapters are used inverted); above 2 a merge tends to leave the template's
 activation ranges and land in the noise regime above.
 
-## Device requirements
+## SD1.5 device measurements
 
 | | |
 |---|---|
 | CPU | arm64 |
-| Android | 12+ (`minSdk 31`) |
+| Android | 13+ (`minSdk 33`) |
 | RAM | peak **~4.8 GB** during the compile; phone `MemAvailable` bottomed at 0.87 GB with normal apps open on a 12 GB device. **8 GB phones are unproven.** |
 | storage | ~4 GB free while running; ~1.3 GB per finished model |
 
 The compile is the heavy step, not the weight stage: `tplconv` peaks at
 **1.98 GB** (against the Python reference's 5.07 GB).
 
-⚠ Leave the screen on. The compile is a foreground service, but Android will
-still kill a multi-gigabyte job on a sleeping device.
+The app manages its screen-awake and foreground lifetime. Memory pressure can
+still cause compilation to fail.
 
 ## Reading a failure
 
 | symptom | cause |
 |---|---|
 | model will not load in the generator at all | fp16 stamp, or the chip is below v73 |
-| saturated, blotchy noise on every prompt, statistics near-identical **across different prompts** | the checkpoint left the template's activation ranges (anime / heavy merge) |
+| saturated, blotchy noise on every prompt, statistics near-identical **across different prompts** | possible mismatch with the template's activation ranges; observed for MistoonAnime |
 | clean image, prompt read oddly | the borrowed text encoder |
 | clean image, colour slightly off or detail soft | the borrowed VAE |
 | conversion refused before it starts | wrong architecture, or missing tensors — the reason is on the checkpoint card |

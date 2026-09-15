@@ -3,19 +3,19 @@
      conversion, so the end-to-end path can be tested without a human tapping
      through the SAF picker.
 
-     ⚠ This source set is NOT part of release or of any build handed to someone
-     else, so the exported service never ships. Putting the flag here rather than
-     behind a runtime check is the point: test-only behaviour that lives in the
-     shipping path is how a debug affordance becomes a security hole. -->
+     DUMP restricts these debug entry points to privileged callers such as ADB
+     shell. Ordinary apps cannot start them, including in shared debug APKs. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <application>
         <service
             android:name=".ConvertService"
             android:exported="true"
+            android:permission="android.permission.DUMP"
             tools:replace="android:exported" />
         <!-- Debug-only DSP reachability probe; see ProbeService. -->
         <service android:name=".ProbeService" android:exported="true"
+            android:permission="android.permission.DUMP"
             android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

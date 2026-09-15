@@ -7,6 +7,14 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
 import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -33,15 +41,10 @@ object Converter {
 
     private const val TAG = "Converter"
 
-    /** Everything the device needs that is not the user's checkpoint. */
-    private val TEMPLATE_ASSETS = "template"
-
-    data class Progress(val stage: String, val detail: String = "", val fraction: Float = -1f)
-
     class Failure(message: String, val log: String = "") : Exception(message)
 
     /**
-     * Where converted models land: **`Download/npuforge/<name>/`**.
+     * Where converted models land: **`Download/npuforge/<name>.zip`**.
      *
      * Not the app's own external files directory. That is private to this app,
      * so a model written there is invisible to every file manager and to the
@@ -52,68 +55,14 @@ object Converter {
      */
     const val OUTPUT_SUBDIR = "npuforge"
 
-    fun outputLabel(name: String): String = "Download/$OUTPUT_SUBDIR/$name.zip"
-
-    private fun nativeExe(context: Context, name: String): File {
-        val f = File(context.applicationInfo.nativeLibraryDir, name)
-        if (!f.exists()) throw Failure("$name is missing from nativeLibraryDir")
-        // Packaged read-only; exec permission comes from the directory, not us.
-        return f
-    }
-
-    /**
-     * Unpacks an asset directory into app storage, skipping files already there
-     * at the right size.
-     *
-     * Size, not a hash: these are our own assets and cannot change without the
-     * APK changing, so the cheap check is the correct one. A truncated unpack
-     * from a killed process is what the size catches.
-     */
-    private fun unpackAssets(context: Context, dir: String, into: File): File {
-        into.mkdirs()
-        val names = context.assets.list(dir).orEmpty()
-        if (names.isEmpty()) throw Failure("no assets under '$dir'")
-        for (name in names) {
-            val out = File(into, name)
-            val want = context.assets.open("$dir/$name").use { it.available().toLong() }
-            if (out.exists() && out.length() == want) continue
-            context.assets.open("$dir/$name").use { input ->
-                out.outputStream().use { input.copyTo(it) }
-            }
-        }
-        return into
-    }
-
-    /**
-     * Copies the user's checkpoint out of SAF into a real path.
-     *
-     * ⚠ Unavoidable: tplconv mmaps the file by path, and a `content://` URI has
-     * none. It costs ~2 GB of storage for the duration of the conversion.
-     */
-    fun importCheckpoint(context: Context, uri: Uri, onBytes: (Long) -> Unit): File {
-        val dst = copyIn(context, uri, "ckpt.safetensors", onBytes)
-        if (dst.length() < 1_000_000_000L) {
-            throw Failure("that file is ${dst.length() / 1_000_000} MB; an SD1.5 checkpoint is ~2 GB")
-        }
-        return dst
-    }
-
-    /**
-     * Copies a LoRA out of SAF. Same reason as the checkpoint -- tplconv opens
-     * files by path -- but these are tens of MB, not gigabytes.
-     */
-    fun importLora(context: Context, uri: Uri, index: Int): File =
-        copyIn(context, uri, "lora_$index.safetensors") {}
-
-    private fun copyIn(context: Context, uri: Uri, name: String, onBytes: (Long) -> Unit): File {
-        val dst = File(context.cacheDir, name)
-        context.contentResolver.openInputStream(uri)
-            ?: throw Failure("cannot open the selected file")
+    /** Copies checkpoint or LoRA data into this conversion's work directory. */
+    suspend fun importFile(context: Context, uri: Uri, dst: File, onBytes: (Long) -> Unit): File {
         context.contentResolver.openInputStream(uri)!!.use { input ->
             dst.outputStream().use { out ->
                 val buf = ByteArray(1 shl 20)
                 var total = 0L
                 while (true) {
+                    currentCoroutineContext().ensureActive()
                     val n = input.read(buf)
                     if (n <= 0) break
                     out.write(buf, 0, n)
@@ -133,30 +82,38 @@ object Converter {
      * percentage we can surface. Only the last 200 lines are kept -- the
      * generator draws progress bars and the full log is megabytes of them.
      */
-    private fun run(
+    private suspend fun run(
         cmd: List<String>,
         env: Map<String, String>,
         cwd: File,
-        onLine: (String) -> Unit = {},
-    ): String {
+        onLine: (String) -> Unit,
+    ): String = coroutineScope {
         val pb = ProcessBuilder(cmd).directory(cwd).redirectErrorStream(true)
         pb.environment().putAll(env)
         val p = pb.start()
         val tail = ArrayDeque<String>()
-        p.inputStream.bufferedReader().forEachLine { line ->
-            if (tail.size >= 200) tail.removeFirst()
-            tail.addLast(line)
-            onLine(line)
+        try {
+            val output = launch(Dispatchers.IO) {
+                p.inputStream.bufferedReader().useLines { lines ->
+                    lines.forEach { line ->
+                        if (tail.size >= 200) tail.removeFirst()
+                        tail.addLast(line)
+                        Log.i(TAG, line)
+                        onLine(line)
+                    }
+                }
+            }
+            val rc = runInterruptible(Dispatchers.IO) { p.waitFor() }
+            output.join()
+            val log = tail.joinToString(System.lineSeparator())
+            Log.i(TAG, "rc=$rc for ${cmd.first().substringAfterLast('/')}")
+            if (rc != 0) throw Failure("${cmd.first().substringAfterLast('/')} failed (rc $rc)", log)
+            log
+        } finally {
+            // A cancelled service must release the compiler and its native memory.
+            p.destroyForcibly()
+            withContext(NonCancellable + Dispatchers.IO) { p.waitFor() }
         }
-        val log = tail.joinToString(System.lineSeparator())
-        val rc = p.waitFor()
-        Log.i(TAG, "rc=$rc for ${cmd.first().substringAfterLast('/')}")
-        if (rc != 0) throw Failure("${cmd.first().substringAfterLast('/')} failed (rc $rc)", log)
-        // On success too: this is where "lora <file>: N modules matched" lives,
-        // and a LoRA that silently matched nothing is exactly the failure that
-        // looks like success.
-        log.lineSequence().filter { it.isNotBlank() }.forEach { Log.i(TAG, it) }
-        return log
     }
 
 
@@ -190,15 +147,21 @@ object Converter {
     }
 
     /** Stage 1: checkpoint -> weight pack. */
-    fun stageWeights(
+    suspend fun stageWeights(
         context: Context,
         ckpt: File,
         work: File,
+        model: CheckpointInfo.Model,
         loras: List<Pair<File, Float>> = emptyList(),
         onLine: (String) -> Unit = {},
     ): File {
-        val tpl = unpackAssets(context, TEMPLATE_ASSETS, File(work, "template"))
-        val exe = nativeExe(context, "libtplconv.so")
+        val tpl = File(work, "template").apply { mkdirs() }
+        for (name in context.assets.list(model.templateDirectory).orEmpty()) {
+            context.assets.open("${model.templateDirectory}/$name").use { input ->
+                File(tpl, name).outputStream().use { input.copyTo(it) }
+            }
+        }
+        val exe = File(context.applicationInfo.nativeLibraryDir, "libtplconv.so")
         val pack = File(work, "out.pack")
         // Merged into the weights before quantizing, not applied at runtime:
         // UPDATEABLE_STATIC costs 2.8x inference on this hardware. The result is
@@ -219,10 +182,11 @@ object Converter {
     }
 
     /** Stage 2: weight pack -> context binary. */
-    fun stageCompile(
+    suspend fun stageCompile(
         context: Context,
         pack: File,
         work: File,
+        model: CheckpointInfo.Model,
         onLine: (String) -> Unit = {},
     ): File {
         // ⚠⚠ THE DSP AND THE CPU NEED THE LIBRARIES IN DIFFERENT PLACES.
@@ -242,16 +206,11 @@ object Converter {
         val libs = File(context.applicationInfo.nativeLibraryDir)
         val dspLibs = stageDspLibs(context, libs)
         val tpl = File(work, "template")
-        val exe = nativeExe(context, "libqnncontextgen.so")
+        val exe = File(libs, "libqnncontextgen.so")
         val outDir = File(work, "out").apply { mkdirs() }
 
         // ⚠ absolute on-device path, see the class comment
-        val cfg = File(work, "htp_config.json")
-        cfg.writeText(
-            """{"graphs":[{"vtcm_mb":8,"graph_names":["model"],"O":3.0}],""" +
-                """"devices":[{"dsp_arch":"v73","soc_model":43,""" +
-                """"cores":[{"perf_profile":"burst","rpc_control_latency":100}]}]}"""
-        )
+        val cfg = File(tpl, "htp_config.json")
         val backend = File(work, "htp_backend.json")
         backend.writeText(
             """{"backend_extensions":{"shared_library_path":""" +
@@ -267,8 +226,13 @@ object Converter {
                 "--output_dir", outDir.absolutePath,
                 "--binary_file", "unet",
                 "--config_file", backend.absolutePath,
+                "--log_level", "info",
             ),
-            mapOf(
+            buildMap {
+                if (model == CheckpointInfo.Model.SDXL) {
+                    put("LD_PRELOAD", File(libs, "libcompiler_heap.so").absolutePath)
+                    put("QNN_COMPILER_HEAP_DIR", work.absolutePath)
+                }
                 // ⚠⚠ /vendor/lib64 is NOT optional. libQnnHtpV<arch>Stub.so links
                 // against the vendor FastRPC client libcdsprpc.so, which is not
                 // in an app's default linker namespace -- dlopen fails, the
@@ -276,7 +240,7 @@ object Converter {
                 // "Device Creation failure". As shell it resolves, which is why
                 // every /data/local/tmp run worked. The project's own
                 // run_base.sh has had these paths all along.
-                "LD_LIBRARY_PATH" to "${libs.absolutePath}:/system/lib64:/vendor/lib64:/vendor/lib64/egl",
+                put("LD_LIBRARY_PATH", "${libs.absolutePath}:/system/lib64:/vendor/lib64:/vendor/lib64/egl")
                 // ⚠ The app's own directory is deliberately NOT here. The DSP
                 // reads this path from its own side and cannot open app-private
                 // storage, so naming it produced "Device Creation failure" --
@@ -285,10 +249,10 @@ object Converter {
                 // variable not at all; the vendor paths are what the DSP needs.
                 // The DSP reads this path itself, so it names filesDir -- NOT
                 // nativeLibraryDir, which it cannot open.
-                "ADSP_LIBRARY_PATH" to
-                    "${dspLibs.absolutePath};/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp",
-                "QNN_TPL_PACK" to pack.absolutePath,
-            ),
+                put("ADSP_LIBRARY_PATH",
+                    "${dspLibs.absolutePath};/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp")
+                put("QNN_TPL_PACK", pack.absolutePath)
+            },
             work, onLine,
         )
         val unet = File(outDir, "unet.bin")
@@ -304,18 +268,19 @@ object Converter {
      * style, so this works, but a converted model is not a complete port of the
      * checkpoint and the UI should not claim otherwise.
      */
-    fun assemble(context: Context, unet: File, name: String, onFile: (String) -> Unit): String {
-        if (!Donor.isReady(context)) {
-            // Emitting unet.bin alone produces a directory that looks like a
-            // model and cannot load. Fail here instead.
-            throw Failure("the shared text encoder and VAE are missing")
-        }
+    suspend fun assemble(
+        context: Context,
+        unet: File,
+        name: String,
+        model: CheckpointInfo.Model,
+        onFile: (String) -> Unit,
+    ): String {
         // One zip, not seven loose files: it is what a generator's import
         // expects, and seven 150-900 MB files strewn through Downloads is
         // nobody's idea of a result. Entry names are flat basenames because
         // that is what importers key on.
         val files = listOf(unet to "unet.bin") +
-            Donor.dir(context).listFiles().orEmpty().map { it to it.name }
+            model.components.map { File(File(context.filesDir, model.donorDirectory), it) to it }
 
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, "$name.zip")
@@ -323,50 +288,55 @@ object Converter {
             put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/$OUTPUT_SUBDIR")
             put(MediaStore.Downloads.IS_PENDING, 1)
         }
-        // Re-converting the same name must replace, not accumulate: MediaStore
-        // silently renames a clash to "name (1).zip".
-        removeExisting(context, "$name.zip")
+        // MediaStore assigns a distinct name on collisions, preserving existing exports.
         val uri = context.contentResolver
             .insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
             ?: throw Failure("could not create $name.zip in Downloads")
 
-        try {
+        return try {
+            val displayName = context.contentResolver.query(
+                uri, arrayOf(MediaStore.Downloads.DISPLAY_NAME), null, null, null,
+            )!!.use { cursor ->
+                cursor.moveToFirst()
+                cursor.getString(0)
+            }
             context.contentResolver.openOutputStream(uri)?.use { raw ->
                 ZipOutputStream(raw.buffered(1 shl 20)).use { zip ->
                     // ⚠ No compression on purpose. These are quantized weights and
                     // context binaries -- deflate saves almost nothing and would
                     // add a minute of CPU to a 1.27 GB archive on a phone.
                     zip.setLevel(Deflater.NO_COMPRESSION)
+                    if (model == CheckpointInfo.Model.SDXL) {
+                        for ((entryName, text) in mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")) {
+                            zip.putNextEntry(ZipEntry(entryName))
+                            zip.write(text.toByteArray(Charsets.UTF_8))
+                            zip.closeEntry()
+                        }
+                    }
                     for ((src, entryName) in files) {
                         onFile(entryName)
                         zip.putNextEntry(ZipEntry(entryName))
-                        src.inputStream().use { it.copyTo(zip, 1 shl 20) }
+                        src.inputStream().use { input ->
+                            val buffer = ByteArray(1 shl 20)
+                            while (true) {
+                                currentCoroutineContext().ensureActive()
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                zip.write(buffer, 0, count)
+                            }
+                        }
                         zip.closeEntry()
                     }
                 }
             } ?: throw Failure("could not open $name.zip for writing")
+            currentCoroutineContext().ensureActive()
+            context.contentResolver.update(
+                uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null,
+            )
+            "Download/$OUTPUT_SUBDIR/$displayName"
         } catch (e: Exception) {
-            // A half-written archive passes a file-exists check and fails at
-            // import, which is a worse outcome than no file.
             context.contentResolver.delete(uri, null, null)
             throw e
-        }
-        context.contentResolver.update(
-            uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null,
-        )
-        return outputLabel(name)
-    }
-
-    /** Drops any previous archive of the same name. */
-    private fun removeExisting(context: Context, display: String) {
-        try {
-            context.contentResolver.delete(
-                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} = ?",
-                arrayOf("%${Environment.DIRECTORY_DOWNLOADS}/$OUTPUT_SUBDIR%", display),
-            )
-        } catch (e: Exception) {
-            Log.w(TAG, "could not clear $display: ${e.message}")
         }
     }
 }

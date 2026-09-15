@@ -1,7 +1,6 @@
 # npuforge — project index
 
-Convert an SD1.5 `.safetensors` into a Qualcomm NPU model **on the phone**, in
-~117 s, with no PC. A standalone converter: it writes models that any generator
+Convert SD1.5 and SDXL `.safetensors` into Qualcomm NPU models **on the phone**. A standalone converter: it writes models that any generator
 can import, and is deliberately not a feature of any one generator.
 
 📌 **START HERE: `HANDOFF.md`.** It is rewritten every session and says what
@@ -9,32 +8,19 @@ state things are in and what to do next. This file is only an index.
 
 ## Status
 
-✅ **Working end to end as an Android app** (2026-09-14, one device): pick a
-checkpoint, optionally stack LoRAs, get `Download/npuforge/<name>.zip` that a
-generator can import. The app's output renders **byte-identical PNGs** to both
-the adb-driven and the PC-built pipelines.
-
-| | |
-|---|---|
-| weight stage (`tplconv`) | **24 s**, 1.98 GB peak RSS |
-| compile (`qnn-context-binary-generator`) | **93 s**, ~4.8 GB peak |
-| shipped template bundle | 43 KB pack + 397 KB recipe + 9.7 MB library |
-| output model | ~1.3 GB zip |
-| verified on | exactly **one** phone: SM-S938B / SM8750 / HTP v79 |
-
-⚠ Known limits that look like bugs: the 2.49 **fp16 stamp** (some newer chips
-refuse to load the output), the hardcoded **`_8gen2`** tier, and **anime
-checkpoints converting cleanly into noise**. All three are measured and
-explained in `docs/LIMITS.md`; the app's Info tab is the user-facing copy of it.
-
-⛔ **Not shippable yet** — the QAIRT redistribution question in `NOTICE` decides
-whether it can be distributed at all.
+SD1.5 and SDXL conversion and generation work on the tested Galaxy S25 Ultra.
+Current runtime: QAIRT 2.50.0.260828. SDXL uses O=3, the storage-backed compiler
+allocator and disabled source-destructive reuse. Recorded O=3 total conversion:
+437 seconds; Aura generation: 15 seconds at 1024 × 1024, 8 steps, CFG 1.
+See `docs/SDXL.md` for exact settings and limitations, and `NOTICE` for third-party
+artifact provenance. SDK/model binaries are still excluded from this source repo.
 
 ## Read on demand
 
 | Doc | Read it when |
 |---|---|
 | `HANDOFF.md` | **always, first** — live state, next step, what not to redo |
+| `docs/SDXL.md` | SDXL template contract, compiler OOM investigation, successful phone results and shared component download |
 | `docs/LIMITS.md` | **before saying what this supports**, or when a conversion produced something wrong. Scope, the fp16 stamp, the anime failure and its dead hypotheses, LoRA support matrix, how to read a failure |
 | `ROADMAP.md` | planning. Also lists what is **parked by decision** (2.28 build, anime template) and what was **rejected on measurement** — check before proposing anything |
 | `docs/CHECKPOINT-FAMILIES.md` | **before planning a second template, a second resolution, or changing whose CLIP/VAE ships**. Which SD1.5 checkpoints exist and where they came from, the 0.9 MB span probe, why "photoreal vs anime" may be the wrong split, and what another resolution costs |
@@ -57,7 +43,7 @@ whether it can be distributed at all.
 | `template/` | `recipe.bin`, `tpl_trim.pack`, `sources.txt` (686 LDM keys) |
 | `app/src/main/java/com/abrah/npuforge/Converter.kt` | the staged pipeline: weights → compile → DSP libs → zip via MediaStore |
 | `…/ConvertService.kt` | foreground service, progress parsing, `--esa` LoRA extras so adb can drive it |
-| `…/CheckpointInfo.kt` | header-only inspection; refuses SDXL/SD2/diffusers before a 2 GB copy |
+| `…/CheckpointInfo.kt` | header-only SD1.5/SDXL selection; SD2/diffusers remain unsupported |
 | `…/MainActivity.kt`, `…/ui/InfoScreen.kt` | Compose UI; Info tab mirrors `docs/LIMITS.md` |
 | `app/src/debug/…/ProbeService.kt` | DSP reachability probe, debug source set only |
 
@@ -131,7 +117,7 @@ are Qualcomm's, some because their licence is incompatible with this one
 - The app's `jniLibs` and `assets/template/libqnn_model.so` are **gitignored**, so
   a fresh clone does not build a working APK until they are put back. That is a
   licence boundary, not an oversight — `docs/BUILD.md` and `NOTICE`.
-- Build: JDK 17 + Android SDK 35, `./gradlew.bat assembleDebug` (or `./gradlew`).
+- Build: JDK 21 daemon + Android SDK 37 / NDK r29 on Linux, `./gradlew.bat assembleDebug` (or `./gradlew`).
 - adb: always pass `-s <serial>` — there is usually more than one transport when
   a phone is on both USB and TCP. Check `adb shell settings get global wifi_on`
   before a large push, and verify every push by md5: `adb push` reports bytes

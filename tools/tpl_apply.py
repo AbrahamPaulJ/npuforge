@@ -12,7 +12,7 @@ Quantization rules, each verified against the converter's output (tpl_rules.py/d
   uint8 scalar (linear, norms):   lo=min(0,w) hi=max(0,w); s = f32((hi-lo)/255);
                                   o = round(lo/s);               q = rha(f32 w / f32 s) - o
   int32 per-axis (conv biases):   s_c = f32(in_scale * s_w_c) using the NEW weight scale;
-                                  q = rha(f32 b / f32 s_c)  (the 768 added q/k/v biases are 0)
+                                  q = rha(f32 b / f32 s_c)  (injected q/k/v biases are 0)
   int32 scalar (linear/norm bias):s = f32(max|b| / 2^31);        q = rha(f32 b / f32 s)
 where rha = round half AWAY from zero applied to the float32 quotient, then clipped.
 This is the whole algorithm the on-device port must reproduce.
@@ -23,18 +23,18 @@ import struct
 import sys
 
 import numpy as np
+from pathlib import Path
 from safetensors.numpy import load_file
 
 sys.path.insert(0, __import__("os").path.dirname(__file__))
 from tpl_pack import write_pack  # noqa: E402
 
-HEADS = 8
 NP = {"QNN_DATATYPE_SFIXED_POINT_8": np.int8, "QNN_DATATYPE_UFIXED_POINT_8": np.uint8,
       "QNN_DATATYPE_SFIXED_POINT_32": np.int32, "QNN_DATATYPE_UFIXED_POINT_16": np.uint16}
 
 
 def read_pack(path):
-    buf = open(path, "rb").read()
+    buf = Path(path).read_bytes()
     assert buf[:8] == b"TPLPACK1"
     c = 8
     (n,) = struct.unpack_from("<I", buf, c); c += 4
@@ -89,7 +89,7 @@ def finalize(cpp, raw_json, out):
 def src_of(sd, e):
     v = sd[e["source"]].astype(np.float32)
     if e["head"] is not None:
-        d = v.shape[0] // HEADS
+        d = int(np.prod(e["dims"])) // (v.size // v.shape[0])
         v = v[e["head"] * d:(e["head"] + 1) * d]
     if e["perm"] == "reshape":
         return np.ascontiguousarray(v.reshape(e["dims"]))
@@ -98,7 +98,7 @@ def src_of(sd, e):
 
 
 def apply(recipe, template_pack, ckpt, out):
-    R = json.load(open(recipe))
+    R = json.loads(Path(recipe).read_text())
     tpl = {n: (p, b) for n, p, b in read_pack(template_pack)}
     sd = load_file(ckpt)
     wscale = {}          # weight binvar -> new per-channel scales (float32)

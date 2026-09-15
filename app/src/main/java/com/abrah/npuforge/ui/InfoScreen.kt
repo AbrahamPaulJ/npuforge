@@ -13,14 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/**
- * What this app does, what it does not, and where it is known to fail.
- *
- * Written plainly and kept honest on purpose. Every limitation here was
- * measured rather than assumed, and several of them look like bugs when you
- * meet them unprepared -- a model that will not load on a newer phone, or an
- * anime checkpoint that converts "successfully" into noise.
- */
+/** Conversion scope and the measurements available for each model family. */
 @Composable
 fun InfoScreen() {
     Column(
@@ -29,58 +22,39 @@ fun InfoScreen() {
     ) {
         Section(
             "What it does",
-            "Converts a Stable Diffusion 1.5 checkpoint into a Qualcomm NPU model on " +
-                "this phone, in about two minutes. On a PC the same job takes hours: " +
-                "roughly 50 minutes of calibration and a 2 h 20 m quantize.",
-            "It avoids that by shipping a template that already carries the expensive " +
+            "Converts SD1.5 and SDXL checkpoints into Qualcomm NPU models on this phone.",
+            "It ships a template that already carries the expensive " +
                 "part -- the calibrated activation ranges -- so the phone only has to " +
                 "re-quantize the weights and compile.",
         )
 
         Section(
             "Scope",
-            "• Realistic SD 1.5 checkpoints, in single-file .safetensors form",
-            "• 512 x 512, text-to-image",
-            "• The UNet only (see below)",
-            "• Output is a QAIRT 2.49 context binary built for the 8 Gen 2 tier",
-        )
-
-        Warning(
-            "⚠ The model may not load on every phone",
-            "The output is built with QAIRT 2.49, which stamps an fp16 requirement into " +
-                "the context binary. Some chips reject that and refuse to load the " +
-                "model -- including some NEWER than 8 Gen 2. It is a property of the " +
-                "toolchain, not of your phone, and it cannot be configured away.",
-            "Building under QAIRT 2.28 instead removes the stamp, at no measured cost " +
-                "to quality. That is the known fix and it is not implemented here yet.",
-            "Separately, the graph targets the 8 Gen 2 tier (v73, 8 MB VTCM), so " +
-                "Snapdragon 888 (v68) and 8 Gen 1 (v69) cannot load it either.",
-            "So \"8 Gen 2 or newer\" is necessary but NOT sufficient. If a converted " +
-                "model fails to load, this is the first thing to suspect.",
+            "• Single-file .safetensors checkpoints",
+            "• SD1.5: 512 × 512, Snapdragon 8 Gen 2 target (v73)",
+            "• SDXL: 1024 × 1024, Snapdragon 8 Gen 3 target (v75)",
+            "• QAIRT 2.50; SDXL UNet uses INT8 weights and 16-bit activations",
+            "• Shared VAE encoder and decoder are included for image-to-image and text-to-image",
         )
 
         Section(
             "What is converted, and what is borrowed",
-            "Conversion replaces the UNet -- which is what carries style, subject and " +
-                "anatomy. The text encoder and VAE come from the built-in template, not " +
-                "from your checkpoint.",
-            "Measured: across checkpoints these two barely differ (0.13-0.39% median), " +
-                "and pairing a good UNet with a deliberately mismatched text encoder and " +
-                "VAE produced visually identical output. So this is a fidelity limit, " +
-                "not a correctness problem.",
-            "What it does cost: prompt interpretation follows the template. A checkpoint " +
-                "that relies on a heavily trained text encoder, or on clip skip 2, will " +
-                "not behave exactly as it does elsewhere.",
+            "Conversion replaces the UNet from your checkpoint. SD1.5 downloads the " +
+                "shared DreamShaper text encoder and VAE once.",
+            "For SDXL, the shared components download once from Mr-J-369's " +
+                "SDXL-OnDevice-Conversion repository (about 1 GB). The app saves its " +
+                "MNN text encoders and QNN VAE encoder/decoder for reuse.",
+            "The current SDXL components use madebyollin/sdxl-vae-fp16-fix, QAIRT 2.50 " +
+                "and the 1024 × 1024 v75 VAE. Prompt interpretation and colour follow " +
+                "these shared components.",
         )
 
         Warning(
-            "⚠ Anime checkpoints do not work yet",
-            "They convert without error and render as saturated noise. The cause is " +
-                "measured: the template's activation ranges come from a photoreal " +
-                "checkpoint, and an anime model's weights diverge far past them -- up to " +
-                "49x on individual tensors, against 1.02-1.12x for photoreal ones.",
-            "This is not fixable by retrying. It needs a template built from anime " +
-                "calibration data, which does not exist yet.",
+            "Checkpoint compatibility",
+            "CyberRealistic, DreamShaper 8 and AbsoluteReality have working conversions. " +
+                "MistoonAnime produced noise in the documented test despite converting successfully.",
+            "The template reuses calibrated activation ranges. Their suitability varies " +
+                "by checkpoint; the MistoonAnime result does not establish that all anime models fail.",
         )
 
         Section(
@@ -100,17 +74,20 @@ fun InfoScreen() {
 
         Section(
             "What it needs from your phone",
-            "• arm64, Android 12 or newer",
-            "• About 4.8 GB of free RAM at peak -- 8 GB devices are unproven",
-            "• About 4 GB of free storage while it runs",
-            "• Each finished model is roughly 1.3 GB",
+            "• arm64, Android 13 or newer",
+            "• Earlier SD1.5 conversion measured about 4.8 GB of RAM at peak",
+            "• SD1.5 needs about 4 GB of working storage",
+            "• SD1.5 output is roughly 1.3 GB; the tested SDXL ZIP was about 3.5 GB",
+            "• Tested SDXL O=3 conversion completed in 437 seconds",
+            "• SDXL uses temporary file-backed compiler memory and needs additional free storage",
+            "• Peak SDXL phone RAM has not been measured",
         )
 
         Section(
             "How to tell what went wrong",
-            "Saturated, blotchy noise means the checkpoint sits outside the template's " +
-                "range -- most likely an anime or heavily merged model.",
-            "A model that will not load at all points at the fp16 stamp or the chip tier.",
+            "Saturated, blotchy noise can indicate that the checkpoint does not fit " +
+                "the template's activation ranges, as in the MistoonAnime test.",
+            "Model loading depends on the target chip and the QNN runtime in your generator.",
             "Good image, but the prompt is interpreted oddly: that is the borrowed text " +
                 "encoder.",
             "Colours slightly off, detail soft: that is the borrowed VAE.",
@@ -118,8 +95,10 @@ fun InfoScreen() {
 
         Section(
             "Tested on",
-            "One device: Samsung Galaxy S25 Ultra (SM8750, Hexagon v79). Everything " +
-                "above was measured there. Behaviour on other chips is projection.",
+            "One device: Samsung Galaxy S25 Ultra (SM8750, Hexagon v79). SD1.5 and " +
+                "SDXL conversion and generation both worked on this phone.",
+            "The SDXL O=3 output generated in Aura in 15 seconds at 1024 × 1024, " +
+                "8 steps, CFG 1, LCM/Karras. This is one run, not a cross-device benchmark.",
         )
     }
 }

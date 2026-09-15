@@ -17,7 +17,8 @@ import numpy as np
 from safetensors.numpy import load_file
 
 sys.path.insert(0, __import__("os").path.dirname(__file__))
-from tpl_recipe import NP, HEADS  # noqa: E402
+from tpl_recipe import NP  # noqa: E402
+from tpl_apply import src_of  # noqa: E402
 
 cpp, binf, ckpt, rj = sys.argv[1:5]
 R = json.load(open(rj))
@@ -32,17 +33,6 @@ sd = load_file(ckpt)
 
 def f32(x):
     return np.float32(x)
-
-
-def src_of(e):
-    v = sd[e["source"]].astype(np.float32)
-    if e["head"] is not None:
-        d = v.shape[0] // HEADS
-        v = v[e["head"] * d:(e["head"] + 1) * d]
-    if e["perm"] == "reshape":
-        return v.reshape(e["dims"])
-    v = v.reshape(v.shape + (1,) * (len(e["dims"]) - v.ndim))
-    return np.transpose(v, e["perm"])
 
 
 # ---- find each bias's consumer: parse addNode blocks for (input, weight, bias) triples
@@ -75,7 +65,7 @@ for e in entries:
     q = np.frombuffer(raws[b], dtype=NP[e["dtype"]]).reshape(e["dims"])
     cls = "%s/%s/%s" % (e["dtype"][14:], e["enc"], "src" if e["source"] else "nosrc")
     if e["dtype"].endswith("SFIXED_POINT_8") and e["enc"] == "axis":
-        W = src_of(e).astype(np.float64)
+        W = src_of(sd, e).astype(np.float64)
         ax = e["axis"]
         red = tuple(i for i in range(W.ndim) if i != ax)
         mx = np.abs(W).max(axis=red)
@@ -89,7 +79,7 @@ for e in entries:
             qq = np.clip(fn(W / s_t.astype(np.float64).reshape(shape)), -128, 127).astype(np.int8)
             check(cls, "bytes " + name, np.array_equal(qq, q), b)
     elif e["dtype"].endswith("UFIXED_POINT_8") and e["enc"] == "scalar" and e["source"]:
-        W = src_of(e).astype(np.float64)
+        W = src_of(sd, e).astype(np.float64)
         s_t, o_t = f32(P[0][0]), P[0][1]
         lo, hi = min(0.0, W.min()), max(0.0, W.max())
         s = f32((hi - lo) / 255.0)
@@ -114,7 +104,7 @@ for e in entries:
             s = np.repeat(s, s_t.size)
         check(cls, "in_scale*w_scale", np.array_equal(s, s_t), "%s got %r want %r" % (b, s[:1], s_t[:1]))
         if e["source"]:
-            B = src_of(e).astype(np.float64)
+            B = src_of(sd, e).astype(np.float64)
             qq = np.clip(np.round(B / s_t.astype(np.float64)), -2**31, 2**31 - 1).astype(np.int32)
             check(cls, "bytes round(b/s)", np.array_equal(qq, q), b)
         else:

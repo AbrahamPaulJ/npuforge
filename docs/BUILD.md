@@ -1,47 +1,75 @@
 # Building and running npuforge
 
-Everything here was run on WSL Ubuntu with QAIRT 2.49 and the **Linux** NDK r27c.
+The current Android project uses AGP 9.4.0, Gradle 9.7.1, Kotlin Compose plugin
+2.4.20, Android SDK 37 and NDK 29.0.14206865. The Gradle daemon toolchain is
+JetBrains JDK 21; application bytecode targets Java 17. Native Gradle tasks
+currently use the Linux x86_64 NDK toolchain.
 
 ## What you must supply
 
-Neither is in this repo (see `NOTICE`):
+A source checkout does not contain all runtime/model artifacts (see `NOTICE`):
 
-- **QAIRT SDK 2.49** — for `qnn-model-lib-generator` (host) and, on the device,
-  `qnn-context-binary-generator` plus `libQnnHtp.so`, `libQnnHtpPrepare.so`,
-  `libQnnHtpV<arch>.so`, `libQnnHtpV<arch>Skel.so`, `libQnnHtpV<arch>Stub.so`,
-  `libQnnSystem.so`, `libQnnHtpNetRunExtensions.so`.
-- **Android NDK r27c, Linux build.** ⚠ The Windows NDKs cannot serve this:
-  `Android.mk` hardcodes `toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-objcopy`.
+- **QAIRT SDK 2.50.0.260828** for the current Android runtime and SDXL template.
+  Supply its Android context generator as
+  `app/src/main/jniLibs/arm64-v8a/libqnncontextgen.so`, plus the QNN HTP,
+  Prepare, System, NetRunExtensions, target stub and DSP skel libraries.
+  Follow [ANDROID.md](ANDROID.md) for runtime placement and packaging.
+- In `app/src/main/assets/template/`, supply `libqnn_model.so` and copy the
+  SD1.5 `template/recipe.bin` and `template/tpl_trim.pack` from the repository.
+- In `app/src/main/assets/template_sdxl/`, supply the matching SDXL
+  `libqnn_model.so`, `recipe.bin` and `tpl_trim.pack`. The source list and
+  O=3 configuration are tracked. These generated SDXL artifacts are not
+  distributed by this source push; a fresh clone needs them before conversion.
+- The shared SDXL CLIP/VAE ZIP downloads at runtime from
+  [Mr-J-369/SDXL-OnDevice-Conversion](https://huggingface.co/Mr-J-369/SDXL-OnDevice-Conversion).
+  It contains shared components, not the missing UNet template artifacts.
+
+Gradle builds the first-party converter and compiler allocator. SDK and model
+binaries remain gitignored. The older SD1.5 measurements below came from the
+original QAIRT 2.49 template; they are not measurements of every current build.
 
 ## 1. The converter binary
 
-```sh
-# host, for testing against the Python reference
-c++ -O2 -std=c++17 -ffp-contract=off -o tplconv native/tplconv.cpp
+Android builds compile `native/tplconv.cpp` through the `:app:compileTplconv`
+task using NDK r29 (`29.0.14206865`) on Linux. The resulting executable is
+registered through AGP's generated JNI sources API and packaged as
+`lib/arm64-v8a/libtplconv.so` for both debug and release builds. No prebuilt
+`libtplconv.so` belongs in `app/src/main/jniLibs`.
 
-# device
-$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang++ \
-    -O2 -std=c++17 -ffp-contract=off -static-libstdc++ -o tplconv_arm native/tplconv.cpp
+```sh
+./gradlew :app:assembleDebug
 ```
 
-No dependencies beyond libc++ and POSIX `mmap`.
+The task statically links libc++, retains `-ffp-contract=off`, and sets both
+`max-page-size` and `common-page-size` to 16384. This replaces the original
+4 KB-aligned prebuilt converter. Keep native library extraction enabled: the
+converter is an executable launched from `nativeLibraryDir`.
 
-⚠⚠ **`-ffp-contract=off` is not optional.** clang fuses multiply-add into FMA
-by default on aarch64, and that rounds differently from a separate multiply and
-add. Plain conversion is unaffected, but the **LoRA merge** accumulates
-`up @ down` and diverges: the phone produced a different pack from x86 and the
-renders drifted 29 dB apart after 20 steps. With contraction off, the ARM build
-on the phone reproduces the x86 pack md5 **exactly**. Cross-architecture
-bit-reproducibility is what makes the byte gate meaningful -- without this flag
-the gate only ever validated the host build.
+For host comparisons against the Python reference:
 
-## 2. The pack-loading library (9.7 MB, regenerate — it is gitignored)
+```sh
+c++ -O2 -std=c++17 -ffp-contract=off -o tplconv native/tplconv.cpp
+```
+
+No dependencies beyond libc++ and POSIX `mmap` for `tplconv`.
+
+`:app:compileCompilerHeap` also builds `native/compiler_heap.c` into
+`libcompiler_heap.so` for debug and release. Its symbol map, `-fno-builtin` and
+16 KB linker alignment are part of the tested integration. It is preloaded
+only into the SDXL QNN compiler. See [SDXL.md](SDXL.md) for its operation.
+
+
+`-ffp-contract=off` is essential to the existing LoRA merge arithmetic. Without
+it, fused multiply-add can round differently across host and device builds.
+The source and weight recipe are unchanged by the alignment fix.
+
+## 2. The pack-loading library (generated, gitignored)
 
 From the template's patched `model_tpl.cpp` (produced by `tools/tpl_patch.py`
 against the QAIRT converter's `model.cpp`):
 
 ```sh
-export ANDROID_NDK_ROOT=$HOME/android-ndk-r27c
+export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/29.0.14206865"
 python $QNN_SDK_ROOT/bin/x86_64-linux-clang/qnn-model-lib-generator \
     -c model_tpl.cpp -t aarch64-android -o lib_arm
 ```

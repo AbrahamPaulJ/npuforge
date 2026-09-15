@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 """Phase 1 (docs/ON-DEVICE-CONVERT.md): derive the weight RECIPE for a template.
 
-    tpl_recipe.py discover <model.cpp> <model.bin> <checkpoint.safetensors> <recipe.json>
+    tpl_recipe.py discover <model.cpp> <model.bin> <checkpoint.safetensors> <recipe.json> [--head-dim 64]
 
 For every STATIC pack entry, dequantize the template's own bytes and find, numerically,
 the checkpoint tensor it came from plus the transform:
   * source   : an LDM key (model.diffusion_model.*), optionally a row slice
-               [h*D:(h+1)*D] (the export's 8-way per-head attention split)
+               [h*D:(h+1)*D] (eight heads for SD1.5; --head-dim 64 for SDXL)
   * layout   : trailing singleton dims + an axis permutation
   * quant    : which formula reproduces the template's encoding (checked, not assumed)
 Entries with no checkpoint source are recorded as TEMPLATE constants (bytes kept).
@@ -15,6 +15,7 @@ Nothing here guesses names: the ONNX/converter names for norms are anonymous
 (onnx__Mul_*), so matching is by value. A match needs elementwise agreement within
 one quantization step, and the chosen source must be unique.
 """
+import argparse
 import itertools
 import json
 import sys
@@ -22,7 +23,7 @@ import tarfile
 from collections import Counter, defaultdict
 
 import numpy as np
-from safetensors.numpy import load_file
+from safetensors import safe_open
 
 sys.path.insert(0, __import__("os").path.dirname(__file__))
 from tpl_parse import parse  # noqa: E402
@@ -31,7 +32,6 @@ NP = {"QNN_DATATYPE_SFIXED_POINT_8": np.int8, "QNN_DATATYPE_UFIXED_POINT_8": np.
       "QNN_DATATYPE_SFIXED_POINT_32": np.int32, "QNN_DATATYPE_UFIXED_POINT_16": np.uint16,
       "QNN_DATATYPE_INT_32": np.int32, "QNN_DATATYPE_FLOAT_32": np.float32,
       "QNN_DATATYPE_UINT_32": np.uint32}
-HEADS = 8
 
 
 def dequant(t, raw):
@@ -50,27 +50,25 @@ def fp(a, k=129):
     return v[np.linspace(0, v.size - 1, k).astype(np.int64)]
 
 
-def load_sources(path):
-    sd = load_file(path)
-    src = {}
-    for k, v in sd.items():
-        if k.startswith("model.diffusion_model."):
-            src[k] = v.astype(np.float32)
-    del sd
+def load_sources(path, head_dim):
+    with safe_open(path, framework="np") as sd:
+        src = {k: sd.get_tensor(k).astype(np.float32) for k in sd.keys()
+               if k.startswith("model.diffusion_model.")}
     cands = defaultdict(list)            # size -> [(key, slice h or None)]
     for k, v in src.items():
         cands[v.size].append((k, None))
-        if v.ndim == 2 and k.split(".")[-2] in ("to_q", "to_k", "to_v") and v.shape[0] % HEADS == 0:
-            for h in range(HEADS):
-                cands[v.size // HEADS].append((k, h))
+        if v.ndim == 2 and k.split(".")[-2] in ("to_q", "to_k", "to_v"):
+            d = v.shape[0] // 8 if head_dim is None else head_dim
+            for h in range(v.shape[0] // d):
+                cands[d * v.shape[1]].append((k, h))
     return src, cands
 
 
-def get(src, key, h):
+def get(src, key, h, size):
     v = src[key]
     if h is None:
         return v
-    d = v.shape[0] // HEADS
+    d = size // (v.size // v.shape[0])
     return v[h * d:(h + 1) * d]
 
 
@@ -92,14 +90,14 @@ def step(t):
     return max(p[0] for p in t["pairs"])
 
 
-def discover(cpp, binf, ckpt, out):
+def discover(cpp, binf, ckpt, out, head_dim=None):
     tensors = parse(cpp)
     raws = {}
     with tarfile.open(binf) as tar:
         for m in tar.getmembers():
             if m.isfile() and m.name.endswith(".raw"):
                 raws[m.name.rsplit("/", 1)[-1][:-4]] = tar.extractfile(m).read()
-    src, cands = load_sources(ckpt)
+    src, cands = load_sources(ckpt, head_dim)
     print("pack entries %d, checkpoint UNet tensors %d" % (len(tensors), len(src)))
     fps = {}
     recipe, unmatched, ambiguous = [], [], []
@@ -109,13 +107,15 @@ def discover(cpp, binf, ckpt, out):
         tol = 0.51 * step(t) + 1e-7 * (np.abs(T).max() + 1e-12)
         best = []
         ft = fp(T)
-        for key, h in cands.get(T.size, []):
-            ck = (key, h)
-            if ck not in fps:
-                fps[ck] = fp(get(src, key, h))
-            if np.abs(fps[ck] - ft).max() > 2 * tol + 1e-6:
-                continue
-            for perm, S in layouts(get(src, key, h), t["dims"]):
+        candidates = cands.get(T.size, [])
+        if candidates and T.size not in fps:
+            fps[T.size] = np.array([fp(get(src, key, h, T.size)) for key, h in candidates])
+        indices = np.flatnonzero(
+            ~(np.abs(fps[T.size] - ft).max(axis=1) > 2 * tol + 1e-6)
+        ) if candidates else []
+        for index in indices:
+            key, h = candidates[index]
+            for perm, S in layouts(get(src, key, h, T.size), t["dims"]):
                 err = float(np.abs(S.astype(np.float64) - T).max())
                 if err <= tol:
                     best.append((err, key, h, perm))
@@ -145,7 +145,8 @@ def discover(cpp, binf, ckpt, out):
         print("  AMBIGUOUS %-50s %s" % (b[:50], ks))
     reused = [k for k, n in used.items() if n > 1]
     print("sources used more than once: %d %s" % (len(reused), reused[:4]))
-    unused = [k for k in src if (k, None) not in used and not any((k, h) in used for h in range(HEADS))]
+    used_sources = {key for key, head in used}
+    unused = [k for k in src if k not in used_sources]
     print("checkpoint tensors never used: %d %s" % (len(unused), unused[:6]))
     print("perms:", Counter(str(r.get("perm")) + " " + r["dtype"][14:] for r in recipe if r["source"]).most_common(8))
     json.dump({"entries": recipe, "pairs": {t["binvar"]: t["pairs"] for t in tensors}}, open(out, "w"))
@@ -153,7 +154,10 @@ def discover(cpp, binf, ckpt, out):
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "discover":
-        discover(*sys.argv[2:6])
-    else:
-        sys.exit(__doc__)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", choices=["discover"])
+    for name in ("cpp", "binf", "ckpt", "out"):
+        parser.add_argument(name)
+    parser.add_argument("--head-dim", type=int, help="Fixed attention head width; default: SD1.5's eight heads")
+    args = parser.parse_args()
+    discover(args.cpp, args.binf, args.ckpt, args.out, args.head_dim)

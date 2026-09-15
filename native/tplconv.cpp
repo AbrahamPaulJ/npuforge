@@ -489,8 +489,8 @@ struct LoraSet {
     void apply(const std::string& key, std::vector<float>& w) const {
         auto it = byKey.find(key);
         if (it == byKey.end()) return;
-        // ⚠ Cached: the recipe reads an attention weight once per HEAD, so a
-        // q/k/v tensor is fetched 8 times. Recomputing the rank-R product each
+        // ⚠ Cached: the recipe reads an attention weight once per HEAD, so each
+        // q/k/v tensor is fetched repeatedly. Recomputing the rank-R product each
         // time made the merge cost more than the whole rest of the conversion.
         auto c = cache.find(key);
         if (c != cache.end()) { w = c->second; return; }
@@ -527,7 +527,7 @@ struct LoraSet {
     mutable std::unordered_map<std::string, std::vector<float>> cache;
 };
 
-// tpl_apply.src_of: fp16 -> f32, optional 8-way head slice, then a permute with
+// tpl_apply.src_of: fp16 -> f32, optional recipe-sized head slice, then a permute with
 // trailing singleton padding. Returns data laid out as `dims`.
 // Set once in main. A global rather than a parameter only because src_of has
 // several call sites and this is a single-threaded CLI.
@@ -541,8 +541,8 @@ std::vector<float> src_of(const Safetensors& st, const Entry& e) {
     // it splits any base weight.
     if (g_loras) g_loras->apply(e.source, v);
     if (e.head >= 0) {
-        size_t d = (size_t)shape[0] / 8;
         size_t stride = v.size() / (size_t)shape[0];
+        size_t d = e.count() / stride;
         std::vector<float> cut(d * stride);
         memcpy(cut.data(), v.data() + (size_t)e.head * d * stride, d * stride * sizeof(float));
         v.swap(cut);

@@ -22,13 +22,29 @@ import java.io.InputStream
  *     Conversion covers the UNet alone, so a checkpoint with a baked-in VAE
  *     loses it. Better to show that before two minutes of work than to explain
  *     it afterwards.
- *  2. **Refuse what cannot work, early.** The recipe names 686 exact tensors. If
+ *  2. **Refuse what cannot work, early.** Each recipe names its exact tensors. If
  *     any is absent the conversion fails partway through; checking the header
- *     turns that into an instant, specific answer — and catches SDXL, SD2 and
+ *     turns that into an instant, specific answer — and catches SD2 and
  *     diffusers-layout files, which otherwise look plausible right up until they
  *     do not.
  */
 object CheckpointInfo {
+
+    enum class Model(
+        val templateDirectory: String,
+        val donorDirectory: String,
+        val components: Set<String>,
+    ) {
+        SD15("template", "donor", setOf(
+            "clip_v2.mnn", "pos_emb.bin", "token_emb.bin", "tokenizer.json",
+            "vae_encoder.bin", "vae_decoder.bin",
+        )),
+        SDXL("template_sdxl", "donor_sdxl", setOf(
+            "clip.mnn", "clip_2.mnn", "clip_2.mnn.weight", "tokenizer.json",
+            "pos_emb.bin", "token_emb.bin", "pos_emb_2.bin", "token_emb_2.bin",
+            "vae_encoder.bin", "vae_decoder.bin",
+        )),
+    }
 
     private const val UNET = "model.diffusion_model."
     private const val VAE = "first_stage_model."
@@ -48,6 +64,7 @@ object CheckpointInfo {
         /** Empty when every tensor the recipe needs is present. */
         val missing: List<String>,
         val architecture: String,
+        val model: Model,
         val fatal: String? = null,
     ) {
         val convertible: Boolean get() = fatal == null && missing.isEmpty()
@@ -97,24 +114,25 @@ object CheckpointInfo {
             }
         }
 
-        val required = context.assets.open("template/sources.txt").use {
+        val model = if (sdxlClip || "${UNET}label_emb.0.0.weight" in names) Model.SDXL else Model.SD15
+        val required = context.assets.open("${model.templateDirectory}/sources.txt").use {
             it.bufferedReader().readLines().filter(String::isNotBlank)
         }
         val missing = required.filterNot { it in names }
 
-        // Order matters: report the most specific cause, not "686 tensors missing".
+        // Report the specific architecture problem before missing tensor names.
         val fatal = when {
             unetN == 0 && names.any { it.startsWith("down_blocks.") || it.startsWith("mid_block.") } ->
                 "This is a diffusers-layout folder file, not a single-file checkpoint."
-            sdxlClip || missing.size == required.size && unetN > 0 ->
-                "This is not an SD1.5 UNet — the template only fits SD1.5."
+            missing.size == required.size && unetN > 0 ->
+                "This UNet does not match the SD1.5 or SDXL template."
             unetN == 0 ->
                 "No UNet found (no model.diffusion_model.* tensors)."
             else -> null
         }
 
         val arch = when {
-            sdxlClip -> "SDXL"
+            model == Model.SDXL -> "SDXL"
             fatal != null -> "unrecognised"
             missing.isEmpty() -> "SD 1.5"
             else -> "SD 1.5 variant"
@@ -129,6 +147,7 @@ object CheckpointInfo {
             dtypes = dtypes,
             missing = missing,
             architecture = arch,
+            model = model,
             fatal = fatal,
         )
     }

@@ -1,26 +1,33 @@
 <resources>
     <string name="app_name">npuforge</string>
-    <string name="blurb">Converts a Stable Diffusion 1.5 checkpoint into a Qualcomm NPU model on this phone. About two minutes.</string>
+    <string name="blurb">Converts SD1.5 and SDXL checkpoints into Qualcomm NPU models on this phone.</string>
     <string name="pick">Choose a .safetensors checkpoint</string>
     <string name="model_name">Model name</string>
     <string name="convert">Convert</string>
     <string name="again">Convert another</string>
     <string name="channel_convert">Conversion</string>
+    <string name="stop_conversion">Stop conversion</string>
     <string name="tab_convert">Convert</string>
     <string name="tab_info">Info</string>
 
-    <string name="inside_title">Inside this file: %1$s, %2$d tensors</string>
+    <plurals name="inside_title">
+        <item quantity="one">Inside this file: %1$s, %2$d tensor</item>
+        <item quantity="other">Inside this file: %1$s, %2$d tensors</item>
+    </plurals>
     <string name="part_unet">UNet (style, subject)</string>
     <string name="part_vae">VAE (colour, detail)</string>
     <string name="part_clip">Text encoder (prompt)</string>
     <string name="part_ema">Also has %1$d EMA tensors, which conversion ignores.</string>
-    <string name="missing_title">%1$d tensors the template needs are absent, so this cannot convert.</string>
-    <string name="will_swap">Conversion replaces the UNet only. The VAE and text encoder come from DreamShaper, so colour and prompt interpretation follow the template rather than this checkpoint.</string>
-    <string name="stage_donor">Fetching the shared text encoder and VAE (one time)…</string>
+    <plurals name="missing_title">
+        <item quantity="one">%1$d tensor the template needs is absent, so this cannot convert.</item>
+        <item quantity="other">%1$d tensors the template needs are absent, so this cannot convert.</item>
+    </plurals>
+    <string name="will_swap">Conversion replaces the UNet only. Text encoders and VAE are shared separately, so prompt interpretation and colour may differ from this checkpoint.</string>
+    <string name="sdxl_components">On your first SDXL conversion, the shared text encoders and both VAE models download automatically (about 1 GB). They are saved for later conversions.</string>
+    <string name="stage_donor">Importing shared text encoders and VAE (one time)…</string>
     <string name="stage_import">Copying the checkpoint…</string>
     <string name="stage_lora">Reading LoRA…</string>
     <string name="add_lora">Add LoRA</string>
-    <string name="lora_strength">Strength</string>
     <string name="name_blank">Give the model a name.</string>
     <string name="name_long">Too long — keep it under 80 characters.</string>
     <string name="name_chars">Cannot contain / \ : * ? \" &lt; &gt; |</string>
@@ -29,14 +36,22 @@
     <string name="remove">Remove</string>
     <string name="lora_note">LoRAs are merged into the weights, so they cost nothing at generation time — but each combination is its own model. The text-encoder half is not applied, so style LoRAs work better than trigger-word ones.</string>
     <string name="stage_weights">Quantizing weights…</string>
-    <string name="stage_compile">Compiling for this chip…</string>
+    <string name="stage_compile">Compiling the NPU model…</string>
     <string name="stage_assemble">Packing the model…</string>
-    <string name="keep_open">Leave the screen on. The compile needs several gigabytes and Android may stop it otherwise.</string>
+    <string name="keep_open">The screen stays awake while this app is visible. Conversion continues in the foreground service when you switch apps.</string>
+    <string name="unrestricted_background">Allow unrestricted background work</string>
+    <string name="elapsed">Elapsed: %1$d s</string>
+    <string name="phone_ram_used">Phone RAM · %1$d%% used</string>
+    <string name="phone_ram_details">%1$.2f / %2$.2f GiB used · %3$.2f GiB available</string>
+    <string name="conversion_log">Conversion log · latest 200 lines</string>
+    <string name="pause_scroll">Pause auto-scroll</string>
+    <string name="follow_log">Follow latest output</string>
+    <string name="waiting_output">Waiting for tool output…</string>
 
     <string name="done_title">Done in %1$d s</string>
     <string name="done_where">Saved to %1$s. Import it in your generator as a custom model.</string>
-    <string name="done_note">The text encoder and VAE come from DreamShaper, not from your checkpoint: conversion covers the UNet, which is what carries style and subject. Prompt interpretation and colour follow the template.</string>
+    <string name="done_note">The UNet comes from your checkpoint. SD1.5 uses the shared DreamShaper text encoder and VAE; SDXL uses the separately downloaded text encoders and both VAE models.</string>
     <string name="failed_title">Conversion failed</string>
 
-    <string name="caveats">Needs a realistic SD1.5 checkpoint of about 2 GB, and roughly 4 GB of free storage while it works. Anime checkpoints are untested.</string>
+    <string name="caveats">SD1.5: 512 × 512, Snapdragon 8 Gen 2 target. SDXL: 1024 × 1024, Snapdragon 8 Gen 3 target, INT8 UNet weights. Both model families have working conversion and generation on the tested Galaxy S25 Ultra; other devices remain unverified.</string>
 </resources>

@@ -1,0 +1,5 @@
+LIBC {
+    global: malloc; calloc; realloc; reallocarray; free;
+            posix_memalign; memalign; aligned_alloc; malloc_usable_size;
+    local: *;
+};
