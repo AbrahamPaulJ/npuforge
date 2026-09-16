@@ -1,40 +1,66 @@
-# Current state — 2026-09-15
+# Developer overview
 
-SDXL INT8 conversion and generation work end to end on the tested Galaxy S25
-Ultra. The current SDXL configuration is O=3 with both source-destructive
-reuse options disabled and the storage-backed compiler allocator enabled.
+npuforge converts SD1.5 and SDXL checkpoints into importable Qualcomm NPU model
+bundles on Android. Start with [README.md](README.md) for the project overview
+and [docs/BUILD.md](docs/BUILD.md) for dependencies and build instructions.
 
-- O=1: compiler exited 0 in about 254 seconds; Aura generated in 20 seconds.
-- O=3: user reported 437 seconds total conversion; Aura generated in 15 seconds.
-- Both images: 1024 × 1024, 8 steps, CFG 1, LCM/Karras. Seeds differed.
-- User observed 41% RAM during O=3 conversion; this is not a peak measurement.
-- SD1.5, LoRA merging and its separate template remain present.
+## Current implementation
 
-The evidence, exact settings, failed approaches, allocation mechanism and
-remaining limitations are recorded in [docs/SDXL.md](docs/SDXL.md).
+- Both families use the selected checkpoint's UNet, text encoder weights and
+  embeddings, VAE encoder and VAE decoder. SDXL has two text encoders. New
+  conversions do not download or consume shared component weights.
+- The app writes MNN text encoders and compiles QNN UNet/VAE contexts. Graph
+  templates and tokenizer assets are prepared separately and bundled with the
+  app; conversion does not recalibrate the UNet for each checkpoint.
+- QAIRT 2.50.0.260828 targets are fixed: SD1.5 v73 and SDXL v75/soc57,
+  both with 8 MB VTCM. SDXL retains O=3 with source-destructive reuse disabled.
+- The SDXL compiler subprocess uses storage-backed allocation, including
+  compact small-object slabs. Active conversion files live under
+  `noBackupFilesDir/conversion-work` and are explicitly cleaned up.
+- UNet LoRA merging supports standard kohya attention, ResNet, convolution,
+  sampling and embedding-layer mappings. Unmatched tensors produce a warning;
+  matched layers are merged. Retained merged weights are capped at 128 MiB.
+  Text-encoder LoRA and BF16 input remain unsupported.
 
-## Implementation
+## Evidence and remaining scope
 
-- QAIRT 2.50.0.260828; SD1.5 v73, SDXL v75/soc57. Targets are fixed.
-- `native/compiler_heap.c` owns SDXL compiler allocation backing, with indexed
-  ownership lookup, a 64 KiB cutoff and less than 2 MiB of idle reuse storage.
-- `Converter.kt` sets the allocator environment only for SDXL, selects the
-  model-specific template, and exports the Aura model markers.
-- `ConvertService.kt` owns conversion, foreground lifetime, cancellation and
-  child cleanup. Main UI includes live RAM, elapsed time and selectable logs.
-- Shared SDXL CLIP/VAE components now download from Mr-J-369/SDXL-OnDevice-Conversion
-  once, reusing the existing cache. Explicit local service imports remain supported.
-  SDK/model assets remain outside source control. Download flow needs a phone test.
-- Android uses AGP 9.4.0, Gradle 9.7.1, Kotlin Compose plugin 2.4.20, SDK 37,
-  minSdk 33, NDK 29.0.14206865. Gradle builds the converter and allocator on Linux.
+Phone results include SD1.5/SDXL generation on a Galaxy S25 Ultra, a successful
+Pony CLIP-only diagnostic and full-component Illustrious output. The latest
+test APK also received a successful field report after allocator, workspace
+and LoRA compatibility fixes. No post-fix device-specific logs accompany that
+confirmation; it does not establish universal Vivo/Nubia compatibility.
 
-## Working constraints
+[docs/LIMITS.md](docs/LIMITS.md) defines current support and measurement scope.
+[docs/SDXL-INVESTIGATION.md](docs/SDXL-INVESTIGATION.md) separates historical
+failure evidence, source changes and reported results. Broader checkpoint
+coverage, the new SD1.5 component path and image-to-image need further phone
+results. BF16 work is deferred.
 
-The user builds and installs through Android Studio. Do not install, deploy or
-launch APKs on their phone. Do not start PC model conversion, extra validation
-jobs, benchmarks or tests. Preserve the successful configuration during further
-work. A source push does not publish model assets, SDK binaries or an APK release.
+## Source navigation
 
-Historical build/lint checks preceded the final configuration change. The O=3
-APK was built and tested by the user. Documentation/UI result text and the automatic shared-component download were
-updated for the source push without another build or device run.
+| Area | Entry point |
+|---|---|
+| Android conversion lifecycle | `app/src/main/java/com/abrah/npuforge/ConvertService.kt` |
+| Native process staging and export | `app/src/main/java/com/abrah/npuforge/Converter.kt` |
+| Model family and component requirements | `app/src/main/java/com/abrah/npuforge/CheckpointInfo.kt` |
+| Weight conversion and UNet LoRA | `native/tplconv.cpp`, `tools/tpl_apply.py`, `tools/lora_merge.py` |
+| CLIP component writer | `native/componentconv.cpp`, `tools/clip_recipe.py` |
+| VAE template authoring | `tools/vae_template.py` |
+| Compiler allocation backing | `native/compiler_heap.c`, `native/compiler_heap.map` |
+| Regression coverage | `tests/` |
+
+## Development conventions
+
+- Preserve native/Python weight-pack parity and `-ffp-contract=off`.
+  QNN context binaries are not byte-reproducible; a different checksum alone
+  does not establish a numerical regression.
+- Keep compatibility decisions tied to evidence. Do not turn unmatched LoRA
+  tensors or an uncalibrated quality heuristic into a blanket rejection.
+- Use focused host tests and build/lint checks for changed paths. Device
+  deployment and expensive full-model experiments are separate activities.
+- Keep SDK binaries, generated models, checkpoints, local reports and private
+  device identifiers outside source control. [NOTICE](NOTICE) records the
+  third-party provenance and distribution restrictions.
+
+See [ROADMAP.md](ROADMAP.md) for proposed work and [CLAUDE.md](CLAUDE.md) for
+the documentation index.

@@ -1,195 +1,159 @@
-# Scope and limits — what npuforge converts, and where it fails
+# Scope and limitations
 
-Results are from one Samsung SM-S938B (SM8750, HTP v79), recorded on
-2026-09-13 through 2026-09-15. Historical SD1.5 findings are retained below;
-[SDXL.md](SDXL.md) records the new SDXL pipeline and its validation limits.
+This page distinguishes implemented behavior from measured device results.
+The current implementation includes the compiler, workspace and LoRA fixes
+reported working in test APK 3. That latest confirmation did not include
+post-fix device-specific logs, so it does not establish support for every
+Vivo/Nubia device or checkpoint.
 
-## Current scope
+## Current conversion contract
 
 | | SD1.5 | SDXL |
 |---|---|---|
-| input | single-file .safetensors | single-file .safetensors |
-| image size | 512 × 512 | 1024 × 1024 |
-| converted component | UNet | UNet, W8A16 |
-| target | v73, 8 MB VTCM | v75 / soc57, 8 MB VTCM |
-| current runtime | QAIRT 2.50.0.260828 | QAIRT 2.50.0.260828 |
-| shared components | downloaded DreamShaper CLIP/VAE | downloaded MNN CLIPs and QNN VAE encoder/decoder |
-| conversion measurement | original run: 117 s | user-reported O=3 total: 437 s |
+| Input | Single-file `.safetensors`, supported LDM layout | Single-file `.safetensors`, supported SDXL-base layout |
+| Input weight dtypes | F16/F32 | F16/F32 |
+| Image size | 512 × 512 | 1024 × 1024 |
+| Checkpoint-owned components | UNet, CLIP and embeddings, VAE encoder and decoder | UNet, CLIP-L/CLIP-G and embeddings, VAE encoder and decoder |
+| Fixed compiler target | v73, 8 MB VTCM | v75 / soc57, 8 MB VTCM |
+| Runtime | QAIRT 2.50.0.260828 | QAIRT 2.50.0.260828 |
+| Full-component phone evidence | New component path still needs a specific phone result | Reported successful Illustrious conversion and generation |
 
-Header inspection selects the model family and checks the selected recipe's
-source names. SD2 and diffusers-layout files remain unsupported. Standard kohya
-UNet LoRA merging remains implemented; SDXL LoRA has not been validated by the
-recorded full-model phone runs.
+The graph templates and tokenizer are shared; component weights come from the
+selected checkpoint. New conversions do not download donor CLIP/VAE weights.
+Both VAE graphs are included, even for a text-to-image workload that uses only
+the decoder. Legacy component backup/restore is separate from conversion.
 
-SDXL O=1 and O=3 outputs both generated recognizable images in Aura at
-1024 × 1024, 8 steps, CFG 1, LCM/Karras. The individual runs took 20 and 15
-seconds respectively, with different seeds. User-observed 41% RAM during O=3
-conversion is a snapshot, not a peak. SDXL temporary file backing consumes
-additional storage; SD1.5 storage/RAM figures below do not describe SDXL.
+SD2, diffusers-layout checkpoints, BF16 inputs and arbitrary architectures are
+unsupported. Required component names, shapes and dtypes must match the bundled
+graphs. Standard architecture compatibility does not guarantee image quality:
+the UNet retains the template's calibration rather than being recalibrated for
+each checkpoint. VAE internal arithmetic is FP16 despite float32 external I/O;
+a checkpoint requiring float32 VAE arithmetic may not work faithfully.
 
-The app keeps the visible screen awake and holds a foreground service/wake lock
-through conversion. These do not make a process immune to allocation failure.
-The SDXL allocator plus disabled source-destructive reuse enabled the recorded
-successful runs. Neither cross-device support nor a universal memory bound is
-established.
+See [SD1.5 components](SD15-COMPONENTS.md),
+[SDXL components](SDXL-COMPONENTS.md) and [SDXL.md](SDXL.md) for contracts.
+
+## LoRA behavior
+
+Adapters are merged into UNet weights before quantization. Their strength is
+baked into the exported model, with no separate adapter computation at
+inference. Multiple adapters can be stacked; each strength combination produces
+a separate exported model. The app's strength slider spans −1.0 to 2.0.
+
+| Implemented | Outside current support |
+|---|---|
+| Standard kohya `lora_down`, `lora_up`, optional `alpha` | General PEFT/diffusers adapter file layouts |
+| Attention, ResNet, input/output convolution, down/up sampling and time/additional embedding mappings | Arbitrary adapter naming schemes |
+| Linear and convolution down weights with a 1×1 up kernel | Spatial up kernels and format-specific LoCon/LyCORIS/LoHa/DoRA/IA3 arithmetic |
+| F16/F32 adapters | BF16 adapters |
+| UNet merging | Text-encoder LoRA, including checkpoint-owned CLIPs |
+
+Kohya adapters may use module names derived from diffusers; that naming support
+is distinct from accepting a PEFT/diffusers adapter file format. DMD2-related
+ResNet and sampling mappings are implemented. Native and Python tests cover
+those mappings with both F16 and F32 weights.
+
+**Extra unmatched or unsupported tensors warn; they do not reject the whole
+adapter.** Recognized UNet layers continue to merge. Text-encoder modules are
+reported and skipped. An adapter with no matched UNet pairs still fails, as do
+invalid shapes that cannot be multiplied. A mixed-format file may therefore
+produce a partial merge; warning-only behavior is not full support for its
+unsupported features.
+
+The merged-weight cache retains at most 128 MiB of payloads. Temporary merge
+buffers and source mappings are additional memory; this is not a process-wide
+RAM cap. Evicted tensors are recomputed with the same arithmetic.
+
+Historical nubia NX789J reports include successful DMD2 F16/F32 conversion and
+generation before the component update. The latest test build also received a
+successful report after mapping and compatibility fixes. Controlled comparisons
+of adapter effect and broader adapter coverage remain outstanding.
+
+## Device and resource limits
+
+- Android 13+ (`minSdk 33`) and ARM64 are required.
+- Compiler targets are fixed. A phone's brand, advertised RAM or newer chip
+  number does not establish DSP/context compatibility.
+- SDXL compilation uses storage-backed allocations, including small-object
+  pooling. Available storage and I/O performance matter alongside physical RAM.
+  Backing allocation totals are not resident-memory measurements.
+- Active conversion inputs, backing files and outputs live under the app's
+  `noBackupFilesDir/conversion-work`, outside Android's reclaimable cache.
+  The service removes them explicitly after conversion.
+- A foreground service, renewable wake lock and visible-screen keep-awake
+  support long conversions. They do not prevent every allocation failure or
+  process termination.
+
+### Recorded measurements
+
+| Measurement | Scope |
+|---|---|
+| 117 seconds total conversion | Original SD1.5 pipeline on Samsung SM-S938B; predates checkpoint-owned component conversion |
+| Approximately 4.8 GB peak compile RAM, 0.87 GB minimum `MemAvailable` | Historical SD1.5 run on the same 12 GB-class phone with normal apps open |
+| 1.98 GB native weight-stage peak vs 5.07 GB Python | Historical SD1.5 comparison |
+| Approximately 4 GB free working storage; 1.3 GB finished model | Historical SD1.5 pipeline; not current full-pipeline or SDXL requirements |
+| 437 seconds total conversion, 15 seconds generation | Reported SDXL O=3 MOP run at 1024 × 1024, 8 steps, CFG 1, LCM/Karras; shared-component pipeline |
+| 45.8 seconds generation | Full-component `waiIllustriousSDXL_v170`, 1024 × 1024, 30 steps, CFG 7 |
+
+The reported 41% phone RAM during the SDXL O=3 run was a snapshot, not a peak.
+Neither a universal RAM bound nor reliable operation on 8 GB devices has been
+established. Earlier Vivo/Nubia failures and the latest fixes are detailed in
+[the investigation](SDXL-INVESTIGATION.md).
+
+## Historical checkpoint-quality findings
+
+### MistoonAnime: SD1.5 UNet mismatch
+
+The historical MistoonAnime conversion exited successfully and loaded, but
+rendered saturated noise. Checkpoint weight spans relative to the DreamShaper 8
+template differed substantially:
+
+| Checkpoint | Maximum weight-span ratio | Historical output |
+|---|---:|---|
+| DreamShaper 8 | 1.000 | Recognizable |
+| AbsoluteReality | 1.020 | Recognizable |
+| CyberRealistic | 1.117 | Recognizable |
+| DreamShaper + rank-128 watercolour LoRA at 0.8 | 1.061 | Recognizable |
+| MistoonAnime | 49.4 | Noise |
+
+A component-swap experiment kept the faulty UNet noisy with its own CLIP/VAE
+(saturated-pixel fractions 0.358 vs 0.331), while a working UNet stayed clean
+with the substituted components (0.049 vs 0.029). This localized that failure
+to the UNet and supports an activation-range mismatch. Weight-span ratios alone
+are not a calibrated acceptance threshold or proof that all anime models fail.
+
+The source VAE separately contained 516 non-finite values in
+`decoder.up.3.block.0.conv1.weight`, with norm 2,858,648 versus 78.4 in ft-mse.
+Checkpoint-owned conversion cannot repair those source weights. Historical
+CLIP comparisons of only CyberRealistic and MistoonAnime showed median relative
+differences of 0.204% and 0.363% from stock SD1.5; those small differences did
+not justify substituting CLIPs for every family.
+
+See [CHECKPOINT-FAMILIES.md](CHECKPOINT-FAMILIES.md) for the full measurements.
+
+### Pony and Illustrious: SDXL components
+
+A Pony diagnostic replaced only its seven CLIP files with checkpoint-owned
+weights. Hash checks preserved the baseline UNet, both VAEs, tokenizer and model
+markers. The reported successful output supports CLIP substitution as the
+cause of that failure. The later full-component Illustrious result establishes
+another working checkpoint; it does not isolate CLIP versus VAE effects or
+establish compatibility with every derivative.
 
 ## Historical QAIRT 2.49 compatibility findings
 
-The following findings concern the original SD1.5 QAIRT 2.49 experiments.
-They do not establish the same stamp behavior in the current 2.50 build.
-The current SD1.5 v73 and SDXL v75 targets are fixed, so a newer chip name alone
-does not establish compatibility.
+Earlier SD1.5 experiments found an FP16 requirement in QAIRT 2.49 contexts that
+some chips rejected. An 11-variant configuration sweep retained it; a 2.28
+rebuild removed it. A five-prompt comparison recorded mean `extreme_frac`
+0.0197 for 2.28 versus 0.0193 for 2.49, with approximately 12% greater latency.
 
-Two reasons were investigated:
+These findings concern those SDK builds. They do not establish the same
+behavior for current QAIRT 2.50. A load failure requires the actual device,
+context and runtime diagnostics; “8 Gen 2 or newer” is not a support guarantee.
 
-1. **The fp16 stamp.** QAIRT 2.49 writes an fp16 requirement into every context
-   binary it produces. Some Qualcomm chips — including some *newer* than 8 Gen 2,
-   e.g. SM8735 — reject it. It is stamped by the SDK, not demanded by the graph,
-   and it **cannot be configured away**: an 11-variant sweep of the whole HTP
-   backend-extension schema left the signature intact.
-   **The fix is known and is a rebuild, not a redesign**: the same graph built
-   under QAIRT **2.28** loses the stamp at **no measured quality cost** (mean
-   `extreme_frac` 0.0197 vs 2.49's 0.0193 on a 5-prompt set), at about **12%**
-   more latency. It needs the 2.28 SDK, which is behind a Qualcomm login and is
-   not currently on this machine. See `ROADMAP.md`.
-   `tplconv` itself is SDK-agnostic — the stamp comes from the template library
-   and the generator — so this is a template rebuild plus a second bundled
-   runtime.
-2. **The tier is hardcoded.** The graph compiles for `_8gen2` (v73, 8 MB VTCM),
-   so v68 (Snapdragon 888) and v69 (8 Gen 1) cannot load it at all. An on-device
-   converter *should* compile for the chip it is running on — that was one of the
-   original motivations and it is not implemented.
+## Interpreting results
 
-So "8 Gen 2 or newer" is necessary but **not sufficient**, and a load failure is
-the first symptom to attribute here rather than to the conversion.
-
-## Checkpoint-specific failure: MistoonAnime
-
-MistoonAnime converted with exit 0, produced a loadable model, ran at the correct
-speed, and rendered saturated noise on every prompt.
-
-**Cause, measured:** the template's activation ranges come from a photoreal
-checkpoint (DreamShaper 8), and an anime checkpoint's weights leave them. The
-per-tensor ratio of checkpoint weight span to template weight span:
-
-| checkpoint | max ratio | converts |
-|---|---|---|
-| DreamShaper 8 (the template's own) | 1.000 | ✅ |
-| AbsoluteReality | 1.02 | ✅ |
-| CyberRealistic | 1.117 | ✅ |
-| DreamShaper + rank-128 watercolour LoRA @0.8 | 1.061 | ✅ |
-| **MistoonAnime** | **49.4** | ❌ noise |
-
-Three-for-three as a predictor, and the gap between 1.2 and 49 is **untested** —
-so this is a usable smell test, not a calibrated threshold. A guard that refuses
-to convert above some ratio is cheap to add and is on the roadmap; the honest
-version reports the number rather than inventing a cutoff.
-
-**Dead hypotheses, so they are not re-run:**
-
-- *"The checkpoint is corrupt."* It is not. Its UNet weights are healthy; the
-  NaNs it contains are in the **VAE**, and NaNs in an fp16 SD1.5 merge's VAE are
-  common and authentic. This was over-called once and retracted after measuring.
-- *"The borrowed CLIP/VAE break it."* Ruled out by a 2×2 (`README.md`): giving the
-  broken UNet the checkpoint's **own** CLIP and VAE leaves it noise (0.358 vs
-  0.331 saturated pixels), and giving a good UNet the **mismatched** template
-  CLIP/VAE leaves it clean (0.049 vs 0.029). The failure is in the converted
-  UNet.
-
-The evidence points to borrowed activation ranges for this checkpoint. It does
-not establish that all anime checkpoints fail. CyberRealistic, DreamShaper 8
-and AbsoluteReality have working conversions. `CHECKPOINT-FAMILIES.md` records
-why the broader photoreal-versus-anime classification is not established;
-checkpoint-specific calibration or range changes still need validation.
-
-## The text encoder and VAE are borrowed, on purpose
-
-A converted model keeps the **template's** CLIP and VAE. This was measured before
-it was accepted:
-
-- The **text encoder** barely moves, across the whole population. Median relative
-  difference against stock SD1.5's CLIP: **0.204%** (CyberRealistic) and
-  **0.363%** (MistoonAnime) — anime included, because SD1.5 finetunes train the
-  UNet.
-- **Photoreal checkpoints' VAEs are the same file.** CyberRealistic's baked VAE
-  *is* `vae-ft-mse-840000-ema-pruned`, to **0.021%**. Baking that file is what
-  checkpoint authors do.
-- The 2×2 above shows a deliberate mismatch is visually indistinguishable.
-
-⚠ **The VAE half of that does not generalise, and an earlier version of this
-section overstated it.** MistoonAnime's baked VAE is **207%** from base SD1.5's,
-**213%** from ft-mse and **212%** from the anime VAE `kl-f8-anime2` — 0 of its 248
-tensors are within 1% of ft-mse. It is not a style choice but fp16 overflow in a
-merge: `decoder.up.3.block.0.conv1.weight` has norm 2,858,648 against ft-mse's
-78.4, 516 non-finite values, and a span of 59,200 against fp16's 65,504 ceiling.
-For such a checkpoint the borrowed VAE is an **improvement**, not a compromise —
-the converted model gets a decoder the source file no longer has.
-`docs/CHECKPOINT-FAMILIES.md` §5.
-
-**Cost:** prompt interpretation follows the template. A checkpoint that leans on
-a heavily-trained text encoder, or on `clip_skip 2`, will not behave exactly as
-it does elsewhere. That is a fidelity limit, not a failure — and converting CLIP
-and the VAE is therefore **not worth building** at present.
-
-## LoRA
-
-Merged into the weights before quantization, so there is **no inference cost** —
-the result is an ordinary model. Runtime LoRA was measured and rejected:
-`UPDATEABLE_STATIC` tensors cost **2.8×** inference (83 ms/pass → 281), and it is
-a cliff, not a slope — 24 tensors cost the same as 768.
-
-| supported | not supported |
-|---|---|
-| kohya `lora_down` / `lora_up` / `alpha` | diffusers / PEFT layout |
-| several stacked in one pass | LoCon, LyCORIS, LoHa, DoRA, IA3 |
-| linear and 1×1/k×k conv shapes | — |
-
-Only **attention** modules have been exercised (192/192 on the tested adapter);
-conv adapters are implemented and unverified. An unsupported file is reported,
-not silently half-merged.
-
-⚠ **The text-encoder half (`lora_te_*`) is dropped** — CLIP comes from the
-template — so style adapters carry over better than trigger-word ones.
-
-⚠ **Strength is baked in.** Each (checkpoint × LoRA set × strength) is its own
-~1.3 GB model. Storage, not time, is the practical limit.
-
-⚠ The slider is bounded **−1.0 … 2.0**. Negative is deliberate (detail-tweaker
-adapters are used inverted); above 2 a merge tends to leave the template's
-activation ranges and land in the noise regime above.
-
-## SD1.5 device measurements
-
-| | |
-|---|---|
-| CPU | arm64 |
-| Android | 13+ (`minSdk 33`) |
-| RAM | peak **~4.8 GB** during the compile; phone `MemAvailable` bottomed at 0.87 GB with normal apps open on a 12 GB device. **8 GB phones are unproven.** |
-| storage | ~4 GB free while running; ~1.3 GB per finished model |
-
-The compile is the heavy step, not the weight stage: `tplconv` peaks at
-**1.98 GB** (against the Python reference's 5.07 GB).
-
-The app manages its screen-awake and foreground lifetime. Memory pressure can
-still cause compilation to fail.
-
-## Reading a failure
-
-| symptom | cause |
-|---|---|
-| model will not load in the generator at all | fp16 stamp, or the chip is below v73 |
-| saturated, blotchy noise on every prompt, statistics near-identical **across different prompts** | possible mismatch with the template's activation ranges; observed for MistoonAnime |
-| clean image, prompt read oddly | the borrowed text encoder |
-| clean image, colour slightly off or detail soft | the borrowed VAE |
-| conversion refused before it starts | wrong architecture, or missing tensors — the reason is on the checkpoint card |
-
-⚠ **Latency proves a graph compiled, never that it computes anything.** The dead
-first template ran at the correct speed (4.0 s vs a known-good 3.9 s), exited 0,
-matched a good binary's IO contract exactly, and produced pure noise. Never
-accept "it ran" as evidence.
-
-## Verified on exactly one device
-
-Everything above is one phone. Behaviour on other chips — including whether the
-fp16 stamp actually blocks them — is projection. That is the single largest gap
-in this record, and no amount of local testing closes it.
+A successful weight stage, compilation and model load are separate from correct
+image generation. Compare images or numerical outputs with a known reference
+using the same checkpoint, conditioning, sampler, prediction type, seed and
+steps. Correct latency alone is not evidence of correct model computation.

@@ -24,7 +24,7 @@ import sys
 
 import numpy as np
 from pathlib import Path
-from safetensors.numpy import load_file
+from safetensors import safe_open
 
 sys.path.insert(0, __import__("os").path.dirname(__file__))
 from tpl_pack import write_pack  # noqa: E402
@@ -77,6 +77,8 @@ def finalize(cpp, raw_json, out):
             e.update(rule="i32_axis_bias" if s else "i32_axis_zero", in_scale=act[inp], weight=w)
         elif d.endswith("SFIXED_POINT_32") and enc == "scalar":
             e["rule"] = "i32_scalar"
+        elif enc == "none" and s and d in ("QNN_DATATYPE_FLOAT_16", "QNN_DATATYPE_FLOAT_32"):
+            e["rule"] = "float16" if d.endswith("16") else "float32"
         else:
             e["rule"] = "template"
         assert e["rule"] == "template" or s or e["rule"] == "i32_axis_zero", e["binvar"]
@@ -93,6 +95,8 @@ def src_of(sd, e):
         v = v[e["head"] * d:(e["head"] + 1) * d]
     if e["perm"] == "reshape":
         return np.ascontiguousarray(v.reshape(e["dims"]))
+    while v.ndim > len(e["dims"]) and v.shape[-1] == 1:
+        v = v.reshape(v.shape[:-1])
     v = v.reshape(v.shape + (1,) * (len(e["dims"]) - v.ndim))
     return np.ascontiguousarray(np.transpose(v, e["perm"]))
 
@@ -100,7 +104,8 @@ def src_of(sd, e):
 def apply(recipe, template_pack, ckpt, out):
     R = json.loads(Path(recipe).read_text())
     tpl = {n: (p, b) for n, p, b in read_pack(template_pack)}
-    sd = load_file(ckpt)
+    with safe_open(ckpt, framework="np") as source:
+        sd = {key: source.get_tensor(key) for key in {e["source"] for e in R["entries"] if e.get("source")}}
     wscale = {}          # weight binvar -> new per-channel scales (float32)
     entries = []
     order = sorted(R["entries"], key=lambda e: e["rule"] in ("i32_axis_bias", "i32_axis_zero"))
@@ -109,6 +114,14 @@ def apply(recipe, template_pack, ckpt, out):
         b, rule = e["binvar"], e["rule"]
         if rule == "template":
             built[b] = tpl[b]
+            continue
+        if rule in ("float16", "float32"):
+            dtype = np.dtype("<f2" if rule == "float16" else "<f4")
+            with np.errstate(over="ignore", invalid="ignore"):
+                values = src_of(sd, e).astype(dtype)
+            if not np.isfinite(values).all():
+                raise ValueError(f"{e['source']}: non-finite or overflowing {rule} weights")
+            built[b] = ([], values.tobytes())
             continue
         # ⚠ Arithmetic ORDER matters for exact bytes (measured, tpl_round*.py):
         #   i8   x = w*127/max, not w/(max/127): a weight at exactly max/2 must give 63.5

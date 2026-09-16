@@ -5,9 +5,19 @@ completed on a Samsung Galaxy S25 Ultra (SM-S938B, SM8750, HTP v79) on
 2026-09-15. The current configuration is O=3 with source-destructive memory
 reuse disabled. SD1.5 retains its separate template and conversion path.
 
-## Recorded phone results
+The current app converts checkpoint-owned CLIP-L, CLIP-G, VAE encoder and VAE
+decoder as well as the UNet. The latest test APK received a successful field
+report after allocator, workspace and LoRA compatibility fixes. No post-fix
+per-device logs accompanied that confirmation.
 
-Checkpoint: `mopMixtureOfPerverts_instaV1`. Shared VAE source:
+[SDXL investigation](SDXL-INVESTIGATION.md) records the Pony CLIP-only and
+full-component Illustrious results, historical Vivo/Nubia failures and the
+changes addressing them. These results do not establish universal device or
+checkpoint compatibility.
+
+## Historical compiler-configuration results
+
+These runs predate checkpoint-owned component conversion. Checkpoint: `mopMixtureOfPerverts_instaV1`. Shared VAE source:
 `madebyollin/sdxl-vae-fp16-fix`, already converted with QAIRT 2.50.
 
 | Run | Conversion measurement | Aura generation |
@@ -26,7 +36,7 @@ not peak RAM. The O=1 allocator log peaked at 11,220 MiB of storage-backed
 allocations; that is allocated file backing, not resident RAM. No continuous
 peak-RAM measurement was captured for either successful run.
 
-## Model contract and shared components
+## Model contract and checkpoint components
 
 - UNet uses W8A16: INT8 weights, 16-bit activations, no INT4 overrides.
 - Batch one; four-channel 128 × 128 latents for 1024 × 1024 images.
@@ -34,18 +44,45 @@ peak-RAM measurement was captured for either successful run.
   `231_masked_v1`; output also carries the `SDXL` marker.
 - QAIRT 2.50.0.260828, v75 / soc_model 57, 8 MB VTCM, burst profile.
   The target is fixed; it is not selected automatically from the phone's chip.
-- Shared components are MNN CLIP-L/CLIP-G, embeddings and tokenizer, plus QNN
-  VAE encoder and decoder. Their weights are borrowed, not converted from the
-  selected checkpoint. Image-to-image with this SDXL output is not yet recorded.
+- New conversions write checkpoint-owned MNN CLIP-L/CLIP-G and embeddings,
+  and compile checkpoint-owned QNN VAE encoder/decoder graphs. Only the standard
+  tokenizer is shared. No SDXL donor download is used.
+- CLIP-L stores FP16 weights; CLIP-G uses the verified MNN INT8 representation.
+  VAE graph arithmetic on HTP is FP16, with float32 planar external tensors.
+  This does not establish compatibility with VAEs requiring float32 arithmetic.
 
-At first SDXL conversion, the app downloads the approximately 1 GB
-[shared component ZIP](https://huggingface.co/Mr-J-369/SDXL-OnDevice-Conversion/resolve/main/sdxl-shared-mnn-clips-qnn250-vae1024-v75.zip).
-It extracts the shared files into its existing SDXL cache. Subsequent conversions
-reuse that cache, including components previously imported locally. The service
-still accepts an explicit local component URI for debug-driven imports.
-The tested exported ZIP was about 3.5 GB. The automatic download was wired after
-the successful phone runs; its endpoint was checked, but the new download flow
-has not yet been tested on the phone.
+The historical successful phone exports used shared components and were about
+3.5 GB. The expanded component pipeline now has a successful user-reported
+Illustrious text-to-image result; image-to-image still needs validation. Legacy shared-component backups are
+retained but are not inputs to new SDXL conversions. See
+[component conversion and authoring](SDXL-COMPONENTS.md).
+
+### Pony CLIP-only test — reported success, 16 September 2026
+
+The diagnostic `v6-Pony-CLIP-test.zip` received a successful phone report. This diagnostic package
+replaced seven CLIP files with Pony's checkpoint-owned weights: `clip.mnn`,
+`clip_2.mnn`, `clip_2.mnn.weight`, both token-embedding files and both
+position-embedding files. SHA-256 checks verified that its UNet, VAE encoder and
+decoder, tokenizer and model markers match the exact baseline phone export.
+
+This supports shared CLIP substitution as the cause of this Pony failure.
+The local exporter passed strict checkpoint loading, reference-encoder
+comparisons and host MNN checks using the emitted embedding files. It preserves
+the existing FP16 CLIP-L and INT8 CLIP-G formats and runtime padding behavior.
+Native on-phone component conversion is implemented separately from this
+diagnostic and was subsequently tested with Illustrious, below. Device
+compilation and adapter coverage remain separate evidence; see
+[the investigation](SDXL-INVESTIGATION.md) for current status.
+
+### Full-component Illustrious test — reported success, 16 September 2026
+
+A successful full app conversion of `waiIllustriousSDXL_v170` was reported,
+with a recognizable generated image. The supplied screenshot records
+1024 × 1024, 30 steps, CFG 7, seed 418928922 and 45.8 seconds on NPU. This
+supports conversion and text-to-image for this checkpoint; it does not isolate
+CLIP versus VAE effects or establish compatibility with every derivative.
+No conversion timing or peak-memory measurement was supplied. Other derivatives
+and image-to-image remain to be validated.
 
 ## Why earlier compilation ran out of memory
 
@@ -92,34 +129,54 @@ increase inference memory; its isolated cost has not been measured.
 
 ## Storage-backed compiler allocations
 
-`native/compiler_heap.c` is preloaded only into the SDXL compiler subprocess.
-It backs allocations of at least 8 KiB with unlinked, preallocated files using
-`MAP_SHARED`. Small allocations continue through libc. Aligned requests also
-use backing when their alignment reaches the cutoff. Direct SDK mappings and
-GPU/NPU-owned buffers are not intercepted.
+`native/compiler_heap.c` is preloaded only into SDXL compiler subprocesses,
+including their VAE and UNet compilation stages. It hooks C and C++ allocation
+APIs and backs ordinary allocations with unlinked, preallocated files using
+`MAP_SHARED`. Direct SDK mappings and GPU/NPU-owned buffers are outside this
+interception path.
 
 The kernel can reclaim and reload file-backed pages. This requires free storage
-and incurs I/O; it does not create physical RAM or eliminate OOM. Ownership
-lookup uses 4,096 hash buckets. Blocks from 8 KiB through 1 MiB share 8 MiB
-slabs with shared metadata, instead of one file and metadata mapping per block.
-Freed blocks return to their slab; an empty slab releases both mappings and its
-backing. Larger or over-page-aligned allocations keep individual mappings.
-Process exit releases all remaining unlinked files.
+and incurs I/O; it does not create physical RAM or eliminate allocation failures.
+The current allocator handles three size ranges:
 
-A vivo V2307A / SM8650 tester report captured SIGABRT with exactly 65,530
-memory mappings, including 53,610 Scudo secondary mappings and 8,057 compiler
-backing mappings. That matches Linux's default `vm.max_map_count`, strongly
-indicating mapping exhaustion; this report did not capture the device's actual
-limit or abort message. Immediately before the signal, compiler RssAnon was
-8,128,600 KiB and VmSwap was 8,113,184 KiB. The new report records mapping count,
-the kernel limit when readable, and the staged QNN configuration. Slab allocation
-and the lower cutoff address mapping proliferation and smaller anonymous
-allocations; conversion on the affected device remains to be verified.
+- Requests below 8 KiB use 32 small-object size classes, starting at 16 bytes,
+  in shared 8 MiB slabs. Compact slot metadata, recycled slots and an address
+  index avoid per-object mappings. At most one empty slab per small size class
+  is retained; additional empty slabs are released.
+- Blocks from 8 KiB through 1 MiB share 8 MiB backing slabs and metadata.
+  Empty slabs release their mappings and backing.
+- Requests outside the supported pooling size/alignment classes use individual
+  mappings.
 
-The initial linear ownership list consumed 93.71% of sampled CPU time in `free`.
-The indexed version reduced `free` to 1.07% in a later short sample. These are
-profile samples, not conversion-speed benchmarks. Keep `-fno-builtin` in the
-allocator build and preserve the `LIBC` symbol versions in `compiler_heap.map`.
+Indexed ownership lookup uses 4,096 buckets. Process exit releases remaining
+unlinked backing files. The build must preserve `-fno-builtin` and the `LIBC`
+symbol versions in `compiler_heap.map`.
+
+The earlier allocator left requests below 8 KiB with libc/Scudo. Vivo reports
+reached exactly 65,530 mappings, mostly Scudo secondary allocations, despite
+having ample advertised RAM. A later Nubia native trace identified a failing
+40-byte C++ allocation. Small-object pooling addresses that remaining path.
+In a host stress test, 300,000 live 40-byte objects used three backing slabs;
+total process mappings rose from 48 to 54. Host behavior does not by itself
+establish successful compilation on every phone.
+
+A subsequent test APK 2 failure occurred during VAE decoder compilation, before
+UNet LoRA merging. The compiler reported `openat` ENOENT for a backing file in
+`cache/work/vae_decoder`, with only 1,136 mappings and ample available storage.
+A host reproduction matched this failure after deleting an allocator's open
+backing directory. Active files now live in
+`noBackupFilesDir/conversion-work`, outside reclaimable cache, and are explicitly
+cleaned by the service. The report cannot identify who removed the original
+cache directory. [Android app-specific storage](https://developer.android.com/training/data-storage/app-specific)
+
+The latest test build received a successful report after this workspace change
+and the LoRA compatibility fix. Per-device post-fix logs and continuous memory
+measurements remain outstanding. See
+[the investigation](SDXL-INVESTIGATION.md) for the complete evidence sequence.
+
+Historical profiling also found that a linear ownership list consumed 93.71%
+of sampled CPU time in `free`; indexing reduced it to 1.07% in a later short
+sample. These are profile samples, not end-to-end speed benchmarks.
 
 ## Template preparation and reproducibility
 
@@ -146,27 +203,22 @@ artifacts described in [BUILD.md](BUILD.md) to produce a working APK. Local
 registration code was built with `-O0 -g0`; those C++ flags are separate from
 QNN's O=3 graph preparation setting.
 
-The phone run is the validation for this change. No additional host conversion,
-benchmark, build or phone deployment was performed while recording these
-findings. Other phones, CFG > 1, SDXL LoRA, repeated quality comparisons and
-inference peak memory remain unverified by the recorded runs.
+## Verification scope
 
-### Vivo repeat failure, 15 September 2026
+The MOP phone runs establish the original compiler configuration on the tested
+Samsung device. The Pony diagnostic separately checked local CLIP export and
+received a successful phone report. Illustrious then supplied a full-component
+SDXL result. Historical Nubia tests established DMD2 F16/F32 conversion and
+recognizable generation before the component update; the latest test build has
+separate reported success after the regression fixes.
 
-The 10:51 UTC report from NPUForge 0.2.1 (3) confirms that the slab build
-still aborted. It reached 65,530 process mappings: 64,563 were Scudo
-secondary mappings, while only 503 were compiler backing files. The slab
-change reduced our mappings but did not resolve the remaining allocations.
+Native/Python tests cover LoRA mapping and merge parity, including ResNet and
+sampling layers, mixed files with unmatched tensors, bounded-cache recomputation
+and F16/F32 weights. Extra unsupported tensors now warn while recognized UNet
+layers merge. Text-encoder LoRA and BF16 remain unsupported.
 
-The preload library now exports C++ new/delete entry points, including array,
-aligned, sized-delete and nothrow variants, alongside the C allocator APIs.
-A small native probe on the connected Samsung verified that QAIRT 2.50
-libQnnHtpPrepare.so resolves its malloc, new and new[] relocations to the
-preload library. This does not establish the Vivo's original binding or
-prove that its full conversion now completes; that device test is pending.
-
-The 9.1 MB report included all 65,530 mappings from the crash handler. The
-handler now emits registers and process status without dumping every map.
-Periodic reports keep total, Scudo-secondary and storage-backed mapping
-counts, compact memory/thread status, OOM scores and available RAM/storage.
-Version code and name remain 3 and 0.2.1.
+Crash diagnostics include signal-time mapping counts, compact process status,
+available RAM/storage and native tombstone summaries when Android retains them.
+These diagnostics help separate resource failures from checkpoint or adapter
+problems. Repeated quality comparisons, image-to-image, inference peak memory
+and a broader device matrix remain open work.

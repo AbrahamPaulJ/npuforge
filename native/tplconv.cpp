@@ -34,9 +34,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <list>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <fcntl.h>
@@ -101,7 +104,7 @@ struct Safetensors {
         if (m.len < 8) die("%s: too small", path);
         uint64_t hlen;
         memcpy(&hlen, m.p, 8);
-        if (hlen + 8 > m.len) die("%s: bad header length", path);
+        if (hlen > m.len - 8) die("%s: bad header length", path);
         std::string h((const char*)m.p + 8, hlen);
         data = m.p + 8 + hlen;
         parse(h);
@@ -186,6 +189,8 @@ struct Safetensors {
                 else if (k == "shape") t.shape = ints(s, i);
                 else if (k == "data_offsets") {
                     auto v = ints(s, i);
+                    if (v.size() != 2 || v[0] < 0 || v[1] < v[0])
+                        die("%s: invalid tensor data offsets", name.c_str());
                     t.begin = (uint64_t)v[0];
                     t.end = (uint64_t)v[1];
                 } else skipval(s, i);
@@ -201,7 +206,17 @@ struct Safetensors {
         const Tensor& t = it->second;
         shape = t.shape;
         size_t n = 1;
-        for (int64_t d : t.shape) n *= (size_t)d;
+        for (int64_t d : t.shape) {
+            if (d <= 0 || (uint64_t)d > std::numeric_limits<size_t>::max() / n)
+                die("%s: invalid tensor shape", name.c_str());
+            n *= (size_t)d;
+        }
+        if (t.end < t.begin || t.end > m.len - (size_t)(data - m.p))
+            die("%s: tensor data exceeds checkpoint", name.c_str());
+        const size_t width = t.dtype == "F16" ? 2 : t.dtype == "F32" ? 4 : 0;
+        if (!width) die("%s: unsupported dtype %s", name.c_str(), t.dtype.c_str());
+        if (n > std::numeric_limits<size_t>::max() / width || t.end - t.begin != n * width)
+            die("%s: tensor byte count does not match shape", name.c_str());
         std::vector<float> out(n);
         const uint8_t* src = data + t.begin;
         if (t.dtype == "F16") {
@@ -280,7 +295,7 @@ struct Safetensors {
 // ------------------------------------------------------------- recipe ----
 
 enum Rule { R_TEMPLATE = 0, R_I8_AXIS = 1, R_U8_ASYM = 2, R_I32_SCALAR = 3,
-            R_I32_AXIS_BIAS = 4, R_I32_AXIS_ZERO = 5 };
+            R_I32_AXIS_BIAS = 4, R_I32_AXIS_ZERO = 5, R_FLOAT16 = 6, R_FLOAT32 = 7 };
 
 struct Entry {
     uint8_t rule = 0, ndims = 0, nperm = 0;
@@ -407,20 +422,87 @@ struct LoraMod {
     float scale;  // strength * alpha / rank
 };
 
-// LDM attention block prefix -> the diffusers prefix kohya would have used.
-std::string diffusers_prefix(const std::string& pre) {
-    int n = -1;
-    if (sscanf(pre.c_str(), "input_blocks.%d.1", &n) == 1 && pre == "input_blocks." + std::to_string(n) + ".1")
-        return "down_blocks_" + std::to_string((n - 1) / 3) + "_attentions_" + std::to_string((n - 1) % 3);
-    if (pre == "middle_block.1") return "mid_block_attentions_0";
-    if (sscanf(pre.c_str(), "output_blocks.%d.1", &n) == 1 && pre == "output_blocks." + std::to_string(n) + ".1")
-        return "up_blocks_" + std::to_string(n / 3) + "_attentions_" + std::to_string(n % 3);
-    return "";
-}
-
 std::string underscored(std::string v) {
     for (char& c : v) if (c == '.') c = '_';
     return v;
+}
+
+std::string resnet_member(const std::string& member) {
+    static const std::pair<const char*, const char*> names[] = {
+        {"in_layers.0", "norm1"}, {"in_layers.2", "conv1"},
+        {"out_layers.0", "norm2"}, {"out_layers.3", "conv2"},
+        {"emb_layers.1", "time_emb_proj"}, {"skip_connection", "conv_shortcut"},
+    };
+    for (const auto& name : names) if (member == name.first) return name.second;
+    return "";
+}
+
+std::string attention_member(const std::string& member) {
+    if (member == "norm" || member == "proj_in" || member == "proj_out" ||
+        member.compare(0, 19, "transformer_blocks.") == 0)
+        return underscored(member);
+    return "";
+}
+
+// SD1.5 and SDXL share two down-path ResNets / three up-path ResNets per
+// block. Convert complete paths so a sampler convolution cannot accidentally
+// acquire an attention alias. DMD2 adapts ResNets and samplers as well as attention.
+std::string diffusers_name(const std::string& body) {
+    static const std::pair<const char*, const char*> direct[] = {
+        {"input_blocks.0.0", "conv_in"}, {"out.0", "conv_norm_out"},
+        {"out.2", "conv_out"}, {"time_embed.0", "time_embedding_linear_1"},
+        {"time_embed.2", "time_embedding_linear_2"},
+        {"label_emb.0.0", "add_embedding_linear_1"},
+        {"label_emb.0.2", "add_embedding_linear_2"},
+    };
+    for (const auto& name : direct) if (body == name.first) return name.second;
+
+    int block = -1, consumed = 0;
+    if (sscanf(body.c_str(), "input_blocks.%d.%n", &block, &consumed) == 1 &&
+        consumed > 0 && block > 0 && block <= 11) {
+        const std::string rest = body.substr((size_t)consumed);
+        const std::string prefix = "down_blocks_" + std::to_string((block - 1) / 3);
+        if (block % 3 == 0)
+            return rest == "0.op" ? prefix + "_downsamplers_0_conv" : "";
+        if (rest.compare(0, 2, "0.") == 0) {
+            const std::string member = resnet_member(rest.substr(2));
+            if (!member.empty()) return prefix + "_resnets_" + std::to_string((block - 1) % 3) + "_" + member;
+        }
+        if (rest.compare(0, 2, "1.") == 0) {
+            const std::string member = attention_member(rest.substr(2));
+            if (!member.empty()) return prefix + "_attentions_" + std::to_string((block - 1) % 3) + "_" + member;
+        }
+    }
+    consumed = 0;
+    if (sscanf(body.c_str(), "output_blocks.%d.%n", &block, &consumed) == 1 &&
+        consumed > 0 && block >= 0 && block <= 11) {
+        const std::string rest = body.substr((size_t)consumed);
+        const std::string prefix = "up_blocks_" + std::to_string(block / 3);
+        // SD1.5's first upsampler is .1.conv; SDXL's is .2.conv.
+        if ((block == 2 || block == 5 || block == 8) && (rest == "1.conv" || rest == "2.conv"))
+            return prefix + "_upsamplers_0_conv";
+        if (rest.compare(0, 2, "0.") == 0) {
+            const std::string member = resnet_member(rest.substr(2));
+            if (!member.empty()) return prefix + "_resnets_" + std::to_string(block % 3) + "_" + member;
+        }
+        if (rest.compare(0, 2, "1.") == 0) {
+            const std::string member = attention_member(rest.substr(2));
+            if (!member.empty()) return prefix + "_attentions_" + std::to_string(block % 3) + "_" + member;
+        }
+    }
+    consumed = 0;
+    if (sscanf(body.c_str(), "middle_block.%d.%n", &block, &consumed) == 1 && consumed > 0) {
+        const std::string rest = body.substr((size_t)consumed);
+        if (block == 0 || block == 2) {
+            const std::string member = resnet_member(rest);
+            if (!member.empty()) return "mid_block_resnets_" + std::to_string(block / 2) + "_" + member;
+        }
+        if (block == 1) {
+            const std::string member = attention_member(rest);
+            if (!member.empty()) return "mid_block_attentions_0_" + member;
+        }
+    }
+    return "";
 }
 
 // For one checkpoint key, every kohya module name that could refer to it.
@@ -431,15 +513,18 @@ std::vector<std::string> kohya_names(const std::string& ldm_key) {
     if (ldm_key.size() < S.size() || ldm_key.compare(ldm_key.size() - S.size(), S.size(), S) != 0) return out;
     std::string body = ldm_key.substr(P.size(), ldm_key.size() - P.size() - S.size());
     out.push_back("lora_unet_" + underscored(body));
-    for (size_t i = 0; i < body.size(); i++) {
-        if (body[i] != '.') continue;
-        std::string dp = diffusers_prefix(body.substr(0, i));
-        if (!dp.empty()) out.push_back("lora_unet_" + dp + "_" + underscored(body.substr(i + 1)));
-    }
+    std::string name = diffusers_name(body);
+    if (!name.empty()) out.push_back("lora_unet_" + name);
     return out;
 }
 
 struct LoraSet {
+    // SDXL's full transformer weights occupy over 8 GiB in float32. Keep only
+    // recent merged tensors: adjacent attention heads reuse q/k/v, while a
+    // tensor encountered again in pass 2 can be recomputed with identical math.
+    explicit LoraSet(size_t cache_limit_bytes = 128 * 1024 * 1024)
+        : cache_limit_bytes(cache_limit_bytes) {}
+
     std::vector<std::unique_ptr<Safetensors>> files;
     std::unordered_map<std::string, std::vector<LoraMod>> byKey;  // LDM key -> mods
 
@@ -455,30 +540,64 @@ struct LoraSet {
                 path = spec.substr(0, colon);
             } catch (...) { path = spec; }
         }
+        if (!std::isfinite(strength)) die("%s: LoRA strength must be finite", path.c_str());
         auto st = std::make_unique<Safetensors>();
         st->load(path.c_str());
         int matched = 0;
+        std::unordered_set<std::string> used;
         for (const std::string& key : all_sources) {
             for (const std::string& kn : kohya_names(key)) {
                 auto d = st->tensors.find(kn + ".lora_down.weight");
                 auto u = st->tensors.find(kn + ".lora_up.weight");
                 if (d == st->tensors.end() || u == st->tensors.end()) continue;
+                const auto& ds = d->second.shape;
+                const auto& us = u->second.shape;
+                if ((ds.size() != 2 && ds.size() != 4) || (us.size() != 2 && us.size() != 4) ||
+                    std::any_of(ds.begin(), ds.end(), [](int64_t n) { return n <= 0; }) ||
+                    std::any_of(us.begin(), us.end(), [](int64_t n) { return n <= 0; }) || ds[0] != us[1])
+                    die("%s: invalid LoRA down/up shapes or rank", kn.c_str());
+                if (us.size() == 4 && (us[2] != 1 || us[3] != 1))
+                    die("%s: spatial LoRA up kernels are unsupported", kn.c_str());
                 size_t rank = (size_t)d->second.shape[0];
                 float alpha = (float)rank;
                 auto a = st->tensors.find(kn + ".alpha");
                 if (a != st->tensors.end()) {
                     std::vector<int64_t> sh;
                     std::vector<float> av = st->get_f32(kn + ".alpha", sh);
-                    if (!av.empty()) alpha = av[0];
+                    if (av.size() != 1 || !std::isfinite(av[0]))
+                        die("%s: LoRA alpha must be one finite value", kn.c_str());
+                    alpha = av[0];
+                    used.insert(kn + ".alpha");
                 }
                 byKey[key].push_back({st.get(), kn + ".lora_down.weight",
                                       kn + ".lora_up.weight", strength * alpha / (float)rank});
+                used.insert(kn + ".lora_down.weight");
+                used.insert(kn + ".lora_up.weight");
                 matched++;
                 break;
             }
         }
-        fprintf(stderr, "lora %s strength %.3f: %d modules matched\n",
-                path.c_str(), strength, matched);
+        int text_modules = 0;
+        std::vector<std::string> unmatched;
+        for (const auto& tensor : st->tensors) {
+            const std::string& name = tensor.first;
+            if (name.compare(0, 7, "lora_te") == 0 || name.compare(0, 13, "text_encoder.") == 0 ||
+                name.compare(0, 15, "text_encoder_2.") == 0) {
+                if (name.find(".lora_down.weight") != std::string::npos ||
+                    name.find(".lora_A.weight") != std::string::npos) text_modules++;
+                continue;
+            }
+            if (!used.count(name)) unmatched.push_back(name);
+        }
+        fprintf(stderr, "lora %s strength %.3f: %d UNet modules matched; "
+                        "%d text-encoder modules DROPPED (text-encoder LoRA merging unsupported); %zu unmatched tensors\n",
+                path.c_str(), strength, matched, text_modules, unmatched.size());
+        if (!unmatched.empty()) {
+            std::sort(unmatched.begin(), unmatched.end());
+            fprintf(stderr, "warning: %s: ignoring %zu unsupported or unmatched adapter tensors "
+                            "(first: '%s'); merging the matched UNet layers\n",
+                    path.c_str(), unmatched.size(), unmatched.front().c_str());
+        }
         if (matched == 0) die("%s matched no tensors -- wrong LoRA format?", path.c_str());
         files.push_back(std::move(st));
     }
@@ -493,7 +612,11 @@ struct LoraSet {
         // q/k/v tensor is fetched repeatedly. Recomputing the rank-R product each
         // time made the merge cost more than the whole rest of the conversion.
         auto c = cache.find(key);
-        if (c != cache.end()) { w = c->second; return; }
+        if (c != cache.end()) {
+            cache_order.splice(cache_order.begin(), cache_order, c->second.recent);
+            w = c->second.weight;
+            return;
+        }
 
         for (const LoraMod& m : it->second) {
             std::vector<int64_t> ds, us;
@@ -521,10 +644,28 @@ struct LoraSet {
         }
         // Match what a merged checkpoint saved as fp16 would hold.
         for (float& x : w) x = Safetensors::half_to_float(Safetensors::float_to_half(x));
-        cache.emplace(key, w);
+        size_t bytes = w.size() * sizeof(float);
+        if (bytes <= cache_limit_bytes) {
+            while (cache_bytes > cache_limit_bytes - bytes) {
+                auto old = cache.find(cache_order.back());
+                cache_bytes -= old->second.weight.size() * sizeof(float);
+                cache.erase(old);
+                cache_order.pop_back();
+            }
+            cache_order.push_front(key);
+            cache.emplace(key, CachedWeight{w, cache_order.begin()});
+            cache_bytes += bytes;
+        }
     }
 
-    mutable std::unordered_map<std::string, std::vector<float>> cache;
+    struct CachedWeight {
+        std::vector<float> weight;
+        std::list<std::string>::iterator recent;
+    };
+    const size_t cache_limit_bytes;
+    mutable size_t cache_bytes = 0;
+    mutable std::list<std::string> cache_order;
+    mutable std::unordered_map<std::string, CachedWeight> cache;
 };
 
 // tpl_apply.src_of: fp16 -> f32, optional recipe-sized head slice, then a permute with
@@ -548,11 +689,19 @@ std::vector<float> src_of(const Safetensors& st, const Entry& e) {
         v.swap(cut);
         shape[0] = (int64_t)d;
     }
-    // Pad the source shape with trailing 1s so it has the recipe's rank.
+    // QNN represents VAE 1x1 attention convolutions as matrices. Only trailing
+    // singleton axes may be removed; all other shape differences are errors.
     std::vector<int64_t> s = shape;
+    while ((int)s.size() > e.ndims && s.back() == 1) s.pop_back();
     while ((int)s.size() < e.ndims) s.push_back(1);
     if ((int)s.size() != e.ndims) die("%s: rank %zu cannot map to %d dims",
                                       e.binvar.c_str(), s.size(), (int)e.ndims);
+    if (e.nperm != e.ndims || v.size() != e.count())
+        die("%s: source size or permutation rank mismatch", e.binvar.c_str());
+    for (int k = 0; k < e.ndims; k++) {
+        if (e.perm[k] >= e.ndims || s[e.perm[k]] != e.dims[k])
+            die("%s: source shape mismatch on axis %d", e.binvar.c_str(), k);
+    }
     // out axis k reads source axis perm[k]  (numpy transpose semantics)
     int64_t sstride[4] = {1, 1, 1, 1};
     for (int i = e.ndims - 1, acc = 1; i >= 0; i--) { sstride[i] = acc; acc *= (int)s[i]; }
@@ -645,6 +794,10 @@ int main(int argc, char** argv) {
                 pe.len = tpl[it->second].len;
                 break;
             }
+            case R_FLOAT16:
+            case R_FLOAT32:
+                pe.len = n * (e.rule == R_FLOAT16 ? 2 : 4);
+                break;
             case R_I8_AXIS: {
                 std::vector<float> W = src_of(st, e);
                 int ax = e.axis;
@@ -760,6 +913,24 @@ int main(int argc, char** argv) {
             case R_TEMPLATE: {
                 const PackEntry& t = tpl[tpl_idx[e.binvar]];
                 fwrite(tplm.p + t.off, 1, (size_t)t.len, f);
+                break;
+            }
+            case R_FLOAT16: {
+                const std::vector<float> values = src_of(st, e);
+                std::vector<uint16_t> halves(n);
+                for (size_t k = 0; k < n; k++) {
+                    halves[k] = Safetensors::float_to_half(values[k]);
+                    if ((halves[k] & 0x7c00) == 0x7c00)
+                        die("%s: non-finite or out-of-range FP16 weight", e.source.c_str());
+                }
+                fwrite(halves.data(), sizeof(uint16_t), n, f);
+                break;
+            }
+            case R_FLOAT32: {
+                const std::vector<float> values = src_of(st, e);
+                for (float value : values)
+                    if (!std::isfinite(value)) die("%s: non-finite FP32 weight", e.source.c_str());
+                fwrite(values.data(), sizeof(float), n, f);
                 break;
             }
             case R_I8_AXIS: {

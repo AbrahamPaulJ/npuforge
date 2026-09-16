@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import javax.inject.Inject
 
 plugins {
     id("com.android.application")
@@ -17,11 +18,14 @@ android {
         targetSdk = 37
         versionCode = 3
         versionName = "0.2.1"
+        // Qualcomm's device compiler and HTP runtime are arm64-only.
+        //noinspection ChromeOsAbiSupport
         ndk { abiFilters += "arm64-v8a" }
     }
 
     buildTypes {
         debug {
+            versionNameSuffix = "-small-pool-lora-test3"
             // Unminified: this is a tool for one person so far, and a readable
             // stack trace is worth more than the megabytes. Revisit if it ships.
             isMinifyEnabled = false
@@ -52,6 +56,7 @@ android {
             // shipped under lib*.so names for exactly this reason.
             useLegacyPackaging = true
             keepDebugSymbols += "**/libtplconv.so"
+            keepDebugSymbols += "**/libcomponentconv.so"
             keepDebugSymbols += "**/libqnncontextgen.so"
             // ⚠⚠ And every QNN library. AGP strips native libs by default, which
             // silently ALTERS them: the packaged libQnnHtpV79Skel.so came out
@@ -68,17 +73,18 @@ android {
 }
 
 // Owns compilation of the executable that Android runs from nativeLibraryDir.
-abstract class CompileTplconv @javax.inject.Inject constructor(
+abstract class CompileTplconv @Inject constructor(
     private val process: ExecOperations,
 ) : DefaultTask() {
     @get:InputFile abstract val source: RegularFileProperty
     @get:InputFile abstract val compiler: RegularFileProperty
     @get:InputFile abstract val ndkRevision: RegularFileProperty
+    @get:Input abstract val executableName: Property<String>
     @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
 
     @TaskAction
     fun compile() {
-        val output = outputDirectory.get().file("arm64-v8a/libtplconv.so").asFile
+        val output = outputDirectory.get().file("arm64-v8a/${executableName.get()}").asFile
         output.parentFile.mkdirs()
         process.exec {
             commandLine(
@@ -93,7 +99,10 @@ abstract class CompileTplconv @javax.inject.Inject constructor(
 
 val converterNdk = androidComponents.sdkComponents.ndkDirectory
 val compileTplconv = tasks.register<CompileTplconv>("compileTplconv") {
+    group = "build"
+    description = "Build the on-device checkpoint weight converter."
     source.set(rootProject.layout.projectDirectory.file("native/tplconv.cpp"))
+    executableName.set("libtplconv.so")
     ndkRevision.set(converterNdk.map { it.file("source.properties") })
     compiler.set(converterNdk.map {
         it.file("toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang++")
@@ -101,8 +110,20 @@ val compileTplconv = tasks.register<CompileTplconv>("compileTplconv") {
     outputDirectory.set(layout.buildDirectory.dir("generated/tplconv/jniLibs"))
 }
 
+val compileComponentconv = tasks.register<CompileTplconv>("compileComponentconv") {
+    group = "build"
+    description = "Build the on-device text encoder converter."
+    source.set(rootProject.layout.projectDirectory.file("native/componentconv.cpp"))
+    executableName.set("libcomponentconv.so")
+    ndkRevision.set(converterNdk.map { it.file("source.properties") })
+    compiler.set(converterNdk.map {
+        it.file("toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang++")
+    })
+    outputDirectory.set(layout.buildDirectory.dir("generated/componentconv/jniLibs"))
+}
+
 // Owns the allocator DSO preloaded only by the SDXL compiler subprocess.
-abstract class CompileCompilerHeap @javax.inject.Inject constructor(
+abstract class CompileCompilerHeap @Inject constructor(
     private val process: ExecOperations,
 ) : DefaultTask() {
     @get:InputFile abstract val source: RegularFileProperty
@@ -138,6 +159,8 @@ abstract class CompileCompilerHeap @javax.inject.Inject constructor(
 }
 
 val compileCompilerHeap = tasks.register<CompileCompilerHeap>("compileCompilerHeap") {
+    group = "build"
+    description = "Build the storage-backed allocator for SDXL compilation."
     source.set(rootProject.layout.projectDirectory.file("native/compiler_heap.c"))
     cppSource.set(rootProject.layout.projectDirectory.file("native/compiler_new.cpp"))
     symbols.set(rootProject.layout.projectDirectory.file("native/compiler_heap.map"))
@@ -149,6 +172,7 @@ val compileCompilerHeap = tasks.register<CompileCompilerHeap>("compileCompilerHe
 }
 androidComponents.onVariants { variant ->
     variant.sources.jniLibs?.addGeneratedSourceDirectory(compileTplconv, CompileTplconv::outputDirectory)
+    variant.sources.jniLibs?.addGeneratedSourceDirectory(compileComponentconv, CompileTplconv::outputDirectory)
     variant.sources.jniLibs?.addGeneratedSourceDirectory(compileCompilerHeap, CompileCompilerHeap::outputDirectory)
 }
 

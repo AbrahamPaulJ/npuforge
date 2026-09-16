@@ -30,7 +30,8 @@ from tpl_parse import parse  # noqa: E402
 
 NP = {"QNN_DATATYPE_SFIXED_POINT_8": np.int8, "QNN_DATATYPE_UFIXED_POINT_8": np.uint8,
       "QNN_DATATYPE_SFIXED_POINT_32": np.int32, "QNN_DATATYPE_UFIXED_POINT_16": np.uint16,
-      "QNN_DATATYPE_INT_32": np.int32, "QNN_DATATYPE_FLOAT_32": np.float32,
+      "QNN_DATATYPE_INT_32": np.int32, "QNN_DATATYPE_FLOAT_16": np.float16,
+      "QNN_DATATYPE_FLOAT_32": np.float32,
       "QNN_DATATYPE_UINT_32": np.uint32}
 
 
@@ -50,10 +51,10 @@ def fp(a, k=129):
     return v[np.linspace(0, v.size - 1, k).astype(np.int64)]
 
 
-def load_sources(path, head_dim):
+def load_sources(path, head_dim, source_prefix="model.diffusion_model."):
     with safe_open(path, framework="np") as sd:
         src = {k: sd.get_tensor(k).astype(np.float32) for k in sd.keys()
-               if k.startswith("model.diffusion_model.")}
+               if k.startswith(source_prefix)}
     cands = defaultdict(list)            # size -> [(key, slice h or None)]
     for k, v in src.items():
         cands[v.size].append((k, None))
@@ -74,6 +75,8 @@ def get(src, key, h, size):
 
 def layouts(s, dims):
     """All (perm, reshaped) of s padded with trailing 1s whose shape == dims."""
+    while s.ndim > len(dims) and s.shape[-1] == 1:
+        s = s.reshape(s.shape[:-1])
     base = s.reshape(s.shape + (1,) * (len(dims) - s.ndim)) if s.ndim < len(dims) else s
     if base.ndim != len(dims):
         if base.size == int(np.prod(dims)):
@@ -90,15 +93,15 @@ def step(t):
     return max(p[0] for p in t["pairs"])
 
 
-def discover(cpp, binf, ckpt, out, head_dim=None):
+def discover(cpp, binf, ckpt, out, head_dim=None, source_prefix="model.diffusion_model.", reject_ambiguous=False):
     tensors = parse(cpp)
     raws = {}
     with tarfile.open(binf) as tar:
         for m in tar.getmembers():
             if m.isfile() and m.name.endswith(".raw"):
                 raws[m.name.rsplit("/", 1)[-1][:-4]] = tar.extractfile(m).read()
-    src, cands = load_sources(ckpt, head_dim)
-    print("pack entries %d, checkpoint UNet tensors %d" % (len(tensors), len(src)))
+    src, cands = load_sources(ckpt, head_dim, source_prefix)
+    print("pack entries %d, checkpoint source tensors %d" % (len(tensors), len(src)))
     fps = {}
     recipe, unmatched, ambiguous = [], [], []
     used = Counter()
@@ -108,14 +111,19 @@ def discover(cpp, binf, ckpt, out, head_dim=None):
         best = []
         ft = fp(T)
         candidates = cands.get(T.size, [])
-        if candidates and T.size not in fps:
-            fps[T.size] = np.array([fp(get(src, key, h, T.size)) for key, h in candidates])
+        fp_key = (T.size, t["dtype"])
+        if candidates and fp_key not in fps:
+            fps[fp_key] = np.array([
+                fp(get(src, key, h, T.size).astype(np.float16) if t["dtype"] == "QNN_DATATYPE_FLOAT_16"
+                   else get(src, key, h, T.size)) for key, h in candidates])
         indices = np.flatnonzero(
-            ~(np.abs(fps[T.size] - ft).max(axis=1) > 2 * tol + 1e-6)
+            ~(np.abs(fps[fp_key] - ft).max(axis=1) > 2 * tol + 1e-6)
         ) if candidates else []
         for index in indices:
             key, h = candidates[index]
             for perm, S in layouts(get(src, key, h, T.size), t["dims"]):
+                if t["dtype"] == "QNN_DATATYPE_FLOAT_16":
+                    S = S.astype(np.float16)
                 err = float(np.abs(S.astype(np.float64) - T).max())
                 if err <= tol:
                     best.append((err, key, h, perm))
@@ -149,7 +157,10 @@ def discover(cpp, binf, ckpt, out, head_dim=None):
     unused = [k for k in src if k not in used_sources]
     print("checkpoint tensors never used: %d %s" % (len(unused), unused[:6]))
     print("perms:", Counter(str(r.get("perm")) + " " + r["dtype"][14:] for r in recipe if r["source"]).most_common(8))
-    json.dump({"entries": recipe, "pairs": {t["binvar"]: t["pairs"] for t in tensors}}, open(out, "w"))
+    if reject_ambiguous and ambiguous:
+        raise ValueError(f"Ambiguous checkpoint sources for {len(ambiguous)} tensors; resolve graph provenance before authoring")
+    with open(out, "w") as output:
+        json.dump({"entries": recipe, "pairs": {t["binvar"]: t.get("pairs", []) for t in tensors}}, output)
     print("wrote", out)
 
 
@@ -159,5 +170,9 @@ if __name__ == "__main__":
     for name in ("cpp", "binf", "ckpt", "out"):
         parser.add_argument(name)
     parser.add_argument("--head-dim", type=int, help="Fixed attention head width; default: SD1.5's eight heads")
+    parser.add_argument("--source-prefix", default="model.diffusion_model.",
+                        help="Checkpoint component prefix; use first_stage_model. for a VAE")
+    parser.add_argument("--reject-ambiguous", action="store_true",
+                        help="Refuse recipes whose source mapping is not unique")
     args = parser.parse_args()
-    discover(args.cpp, args.binf, args.ckpt, args.out, args.head_dim)
+    discover(args.cpp, args.binf, args.ckpt, args.out, args.head_dim, args.source_prefix, args.reject_ambiguous)

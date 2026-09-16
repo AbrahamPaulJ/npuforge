@@ -1,59 +1,68 @@
-# The app
+# Android app
 
-`com.abrah.npuforge` — a standalone Android app that runs the whole converter on
-the phone. Pick a `.safetensors`, optionally stack LoRAs, get
-`Download/npuforge/<name>.zip`. Existing exports are preserved: MediaStore assigns
-numbered filenames for duplicate names, and the completion screen shows the
-actual filename.
+`com.abrah.npuforge` converts a local SD1.5 or SDXL `.safetensors` checkpoint
+into an archive for a compatible image generator. It supports optional UNet
+LoRA merging and writes `Download/npuforge/<name>.zip` through MediaStore.
+Existing exports are preserved; the completion screen shows the actual filename.
 
-The UI follows the system theme and applies safe drawing insets, including the
-keyboard. Checkpoint selection, model name, LoRAs and strengths survive tab
-changes and activity recreation. Back from Info returns to Convert.
+See [Build](../docs/BUILD.md) for prerequisites and external runtime/assets.
+The app requires Android 13 or later and targets ARM64 Snapdragon devices with
+compatible Qualcomm HTP support. Hardware compatibility and checkpoint limits
+are documented in [Limits](../docs/LIMITS.md).
 
-Each conversion keeps its checkpoint, adapters, pack and compiled binary in one
-work directory, cleaned on success, failure or coroutine cancellation. Native
-tool processes are terminated when their owning conversion is cancelled.
+## Conversion pipeline
 
-⛔ It is **not** a feature of any one generator and must not become one. A
-generator renders; this writes models that any generator can import.
+| Stage | Implementation | Output |
+| --- | --- | --- |
+| Import and inspect | `CheckpointInfo.kt`, `ConvertService.kt` | Local checkpoint and adapter copies |
+| Text encoders | `Converter.kt` → `libcomponentconv.so` | Checkpoint-owned MNN encoder(s), token and position embeddings |
+| VAE encoder | `Converter.kt` → `libtplconv.so` → `libqnncontextgen.so` | Compiled QNN encoder context |
+| VAE decoder | Same tools, separate compiler process | Compiled QNN decoder context |
+| UNet | `libtplconv.so` → `libqnncontextgen.so` | LoRA-merged weight pack, then QNN context |
+| Export | `Converter.kt` | Uncompressed ZIP with model components and tokenizer |
 
-## The pipeline, as the app runs it
+Both families use the selected checkpoint's CLIP and VAE weights. SDXL has two
+text encoders; SD1.5 has one. The tokenizer and graph templates are packaged
+assets. Conversion does not download shared model weights. `Donor.kt` remains
+only for legacy component archive backup/restore.
 
-| stage | file | note |
-|---|---|---|
-| inspect | `CheckpointInfo.kt` | safetensors **header only** — a short read, not a 2 GB copy. Selects SD1.5 or SDXL; checks the selected recipe sources; SD2 and diffusers layouts remain unsupported |
-| donor | `Donor.kt` | downloads SD1.5 components once; SDXL downloads the shared component ZIP once, reusing the existing cache |
-| weights | `Converter.kt` → `libtplconv.so` | applies the selected recipe, merging LoRAs before quantization |
-| compile | `Converter.kt` → `libqnncontextgen.so` | SD1.5 or SDXL config; SDXL preloads the storage-backed allocator. Foreground service, screen on |
-| assemble | `Converter.kt` | one **uncompressed** zip via MediaStore — these are quantized weights, deflate would cost a minute of CPU to save nothing |
+LoRAs apply to supported UNet modules before quantization. Unmatched adapter
+tensors produce warnings while matched layers continue to merge; an adapter
+with no effective layers cannot be applied. Text-encoder LoRA merging is not
+implemented. See [LoRA details](../docs/LIMITS.md#lora-behavior).
 
-`ConvertService.kt` owns the foreground service and the progress parsing; its
-LoRA extras are plain `"uri|strength"` strings so the whole flow can be driven
-from `adb shell am` for testing.
+## Process and storage ownership
 
-## Two things that will bite
+`ConvertService.kt` owns conversion in a foreground service. Active checkpoints,
+adapters, compiler backing files and outputs live in
+`noBackupFilesDir/conversion-work`, outside Android's cache directory. The service
+explicitly cleans this workspace on success, failure or cancellation. Cancellation
+also terminates the native subprocess before cleanup.
 
-1. **Packaging.** Getting QNN to run inside an app took four separate fixes,
-   each surfacing as the identical "Device Creation failure". Read
-   `../docs/ANDROID.md` before touching `jniLibs`, `packaging {}`, or the
-   library paths. In short: `/vendor/lib64` must be on `LD_LIBRARY_PATH`, skels
-   must live in `filesDir` and be world-readable, executables must ship as
-   `lib*.so` in `nativeLibraryDir`, and AGP stripping silently corrupts the
-   skels (same size, different md5).
-2. **The Info tab is documentation.** `ui/InfoScreen.kt` is the user-facing copy
-   of `../docs/LIMITS.md`. When a limit changes, change both in the same edit —
-   a stale limits screen is worse than none.
+VAE encoder, VAE decoder and UNet compile sequentially. SDXL compilation
+preloads the storage-backed allocator to reduce pressure on the compiler's
+anonymous heap. This does not establish a universal RAM or storage minimum.
 
-## Debug source set
+The UI retains checkpoint selection, name, LoRAs and strengths across tab
+changes and activity recreation. `ui/InfoScreen.kt` displays the supported
+formats and limits; keep it consistent with [Limits](../docs/LIMITS.md).
 
-`src/debug/` exports `ConvertService` and a `ProbeService` that load-tests a
-54 KB canary context binary to separate "cannot reach the DSP" from "cannot
-prepare a graph". ⚠ It keys off a positive signal (`"ok":true`) because the
-first version passed without ever creating a device. It never ships in release.
+## Native packaging
 
-## SDXL phone result
+Android launches the converter executables from `nativeLibraryDir`, packaged
+under `lib*.so` names. Qualcomm DSP libraries are staged separately where the
+DSP can read them. Library search paths, extraction and byte-preserving
+packaging are required parts of this integration. Read
+[Android runtime integration](../docs/ANDROID.md) before changing them.
 
-O=3 conversion completed in 437 seconds; the exported model generated in Aura
-at 1024 × 1024, 8 steps, CFG 1, LCM/Karras in 15 seconds. These are individual
-Galaxy S25 Ultra results. See [SDXL findings](../docs/SDXL.md) for configuration,
-measurement limits and the separate compiler-memory investigation.
+## Debug diagnostics
+
+The debug manifest exports `ConvertService` and `ProbeService` for development.
+The optional probe requires a separately supplied `libstable_diffusion_core.so`
+and `probe/canary_249.bin` / `probe/canary_228.bin` assets. These external artifacts
+are excluded from source control and have separate terms; see [NOTICE](../NOTICE).
+The probe is absent from release builds and is not a conversion dependency.
+
+The in-app troubleshooting log records the conversion stages, compiler output,
+device information and memory/storage observations. See
+[Testing](../docs/TESTING.md) for reproducible checks and reporting guidance.

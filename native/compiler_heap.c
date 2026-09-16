@@ -1,6 +1,7 @@
 // Storage-backed allocations for the SDXL context-generator subprocess.
-// Small allocations stay with libc. Bootstrap allocations during dlsym use
-// anonymous mappings, tracked separately so they never reach libc's free.
+// Small objects use compact slabs too: leaving them with Scudo can exhaust its
+// size classes and spill into a separate mapping per tiny compiler graph node.
+// Bootstrap allocations during dlsym use tracked anonymous mappings.
 #define _GNU_SOURCE
 #include <dlfcn.h>
 #include <errno.h>
@@ -25,8 +26,41 @@
 #define DISK_THRESHOLD (8UL * 1024UL)
 #define POOL_MAX MIB
 #define SLAB_BYTES (8UL * MIB)
+#define SMALL_HASH_BUCKETS 4096
+
+static const size_t small_sizes[] = {
+    16, 32, 48, 64, 80, 96, 112, 128,
+    160, 192, 224, 256, 320, 384, 448, 512,
+    640, 768, 896, 1024, 1280, 1536, 1792, 2048,
+    2560, 3072, 3584, 4096, 5120, 6144, 7168, 8192,
+};
+#define SMALL_BINS (sizeof(small_sizes) / sizeof(small_sizes[0]))
+
+typedef struct SmallSlab {
+    struct SmallSlab *hash_next;
+    struct SmallSlab *next;
+    struct SmallSlab *previous;
+    void *reservation;
+    void *base;
+    void *recycled;
+    size_t metadata_size;
+    size_t capacity;
+    size_t used;
+    size_t live;
+    size_t bin;
+    // Zero means free; requested size + 1 also represents a live malloc(0).
+    uint16_t sizes[];
+} SmallSlab;
 
 typedef struct Slab Slab;
+
+// Bionic and glibc declare different qualifiers for this otherwise identical
+// ABI; host regression tests compile the same allocator source as the APK.
+#ifdef __BIONIC__
+typedef const void *UsablePointer;
+#else
+typedef void *UsablePointer;
+#endif
 
 typedef struct Allocation {
     struct Allocation *next;
@@ -50,11 +84,8 @@ struct Slab {
     Allocation entries[];
 };
 
-static void *(*libc_malloc)(size_t);
 static void (*libc_free)(void *);
-static void *(*libc_realloc)(void *, size_t);
-static int (*libc_posix_memalign)(void **, size_t, size_t);
-static size_t (*libc_usable_size)(const void *);
+static size_t (*libc_usable_size)(UsablePointer);
 static pthread_once_t initialization = PTHREAD_ONCE_INIT;
 static pthread_mutex_t allocations_lock = PTHREAD_MUTEX_INITIALIZER;
 static _Thread_local int resolving;
@@ -64,6 +95,13 @@ static Allocation *allocations[4096];
 // 8 KiB through 1 MiB blocks share 8 MiB mappings and metadata. A separate
 // file and metadata mmap per allocation exhausted the tester's 65,530 VMAs.
 static Slab *slabs[8];
+static SmallSlab *small_available[SMALL_BINS];
+// One empty slab per class avoids repeated fallocate/mmap for short-lived
+// strings and containers. Other empty slabs are released immediately.
+static SmallSlab *small_empty[SMALL_BINS];
+static SmallSlab *small_index[SMALL_HASH_BUCKETS];
+static size_t small_count;
+static size_t small_mappings;
 static Allocation *deferred_frees;
 static int directory_fd = -1;
 static size_t page_size;
@@ -87,6 +125,40 @@ static void crash_value(const char *label, uintptr_t value) {
         line[n++] = "0123456789abcdef"[(value >> shift) & 15];
     line[n++] = '\n';
     write(STDERR_FILENO, line, n);
+}
+
+// Capture mappings at the fault, rather than relying on the app's five-second
+// sample. A fast allocation burst can otherwise disappear before the next poll.
+static void crash_mappings(void) {
+    int fd = open("/proc/self/maps", O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return;
+    static const char scudo[] = "scudo:secondary";
+    static const char backing[] = ".compiler-heap-";
+    size_t scudo_match = 0, backing_match = 0;
+    uintptr_t maps = 0, scudo_maps = 0, backing_maps = 0;
+    int has_scudo = 0, has_backing = 0;
+    char buffer[4096];
+    ssize_t bytes;
+    while ((bytes = read(fd, buffer, sizeof(buffer))) > 0) {
+        for (ssize_t i = 0; i < bytes; ++i) {
+            char ch = buffer[i];
+            scudo_match = ch == scudo[scudo_match] ? scudo_match + 1 : (ch == scudo[0] ? 1 : 0);
+            backing_match = ch == backing[backing_match] ? backing_match + 1 : (ch == backing[0] ? 1 : 0);
+            if (scudo_match == sizeof(scudo) - 1) { has_scudo = 1; scudo_match = 0; }
+            if (backing_match == sizeof(backing) - 1) { has_backing = 1; backing_match = 0; }
+            if (ch == '\n') {
+                maps++;
+                scudo_maps += has_scudo;
+                backing_maps += has_backing;
+                has_scudo = has_backing = 0;
+                scudo_match = backing_match = 0;
+            }
+        }
+    }
+    close(fd);
+    crash_value("memory_mappings", maps);
+    crash_value("scudo_secondary", scudo_maps);
+    crash_value("storage_backed", backing_maps);
 }
 
 static void compiler_crash(int signal, siginfo_t *info, void *context) {
@@ -124,6 +196,7 @@ static void compiler_crash(int signal, siginfo_t *info, void *context) {
         }
         close(fd);
     }
+    crash_mappings();
     // Restore Android's original disposition and re-deliver to this thread so
     // debuggerd/tombstones and the actual signal exit status remain intact.
     sigaction(signal, &previous_signals[signal], NULL);
@@ -156,11 +229,8 @@ static void initialize(void) {
     // dlsym can allocate while resolving these symbols. Those allocations use
     // mapped_allocate below and remain tracked after initialization finishes.
     libc_free = (void (*)(void *))dlsym(RTLD_NEXT, "free");
-    libc_malloc = (void *(*)(size_t))dlsym(RTLD_NEXT, "malloc");
-    libc_realloc = (void *(*)(void *, size_t))dlsym(RTLD_NEXT, "realloc");
-    libc_posix_memalign = (int (*)(void **, size_t, size_t))dlsym(RTLD_NEXT, "posix_memalign");
-    libc_usable_size = (size_t (*)(const void *))dlsym(RTLD_NEXT, "malloc_usable_size");
-    if (!libc_free || !libc_malloc || !libc_realloc || !libc_posix_memalign || !libc_usable_size) {
+    libc_usable_size = (size_t (*)(UsablePointer))dlsym(RTLD_NEXT, "malloc_usable_size");
+    if (!libc_free || !libc_usable_size) {
         static const char message[] = "[compiler heap] cannot resolve libc allocator\n";
         write(STDERR_FILENO, message, sizeof(message) - 1);
         _exit(127);
@@ -186,8 +256,187 @@ static void initialize(void) {
     atomic_store_explicit(&ready, 1, memory_order_release);
     resolving = 0;
     static const char message[] =
-        "[compiler heap] active: C/C++ allocation hooks, 8 KiB cutoff, shared 8 MiB slabs up to 1 MiB\n";
+        "[compiler heap] active: C/C++ allocation hooks, small-object pooling from 16 bytes, shared 8 MiB slabs up to 1 MiB (small-pool-test1)\n";
     write(STDERR_FILENO, message, sizeof(message) - 1);
+}
+
+static char *append_decimal(char *output, unsigned long value) {
+    char digits[32];
+    size_t count = 0;
+    do {
+        digits[count++] = (char)('0' + value % 10);
+        value /= 10;
+    } while (value);
+    while (count) *output++ = digits[--count];
+    return output;
+}
+
+// No formatting/allocator calls: small-slab growth holds allocations_lock.
+static int backing_file(size_t length, const char **operation) {
+    char name[80] = ".compiler-heap-";
+    char *end = append_decimal(name + sizeof(".compiler-heap-") - 1, (unsigned long)getpid());
+    *end++ = '-';
+    end = append_decimal(end, atomic_fetch_add_explicit(&sequence, 1, memory_order_relaxed));
+    *end = '\0';
+    *operation = "openat backing file";
+    int fd = openat(directory_fd, name, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+    if (fd < 0) return -1;
+    *operation = "unlinkat backing file";
+    int result = unlinkat(directory_fd, name, 0);
+    if (result == 0) {
+        *operation = "fallocate backing file";
+        result = fallocate(fd, 0, 0, (off_t)length);
+    }
+    if (result != 0) {
+        int error = errno;
+        close(fd);
+        errno = error;
+        return -1;
+    }
+    return fd;
+}
+
+static size_t small_hash(uintptr_t base) {
+    uintptr_t key = base / SLAB_BYTES;
+    key ^= key >> 33;
+    key *= UINT64_C(0xff51afd7ed558ccd);
+    key ^= key >> 33;
+    return key & (SMALL_HASH_BUCKETS - 1);
+}
+
+// Look up ownership before touching any metadata; libc-owned pointers can be
+// passed to free/realloc and must never be interpreted as one of our headers.
+static SmallSlab *small_owner(const void *pointer) {
+    uintptr_t base = (uintptr_t)pointer & ~(uintptr_t)(SLAB_BYTES - 1);
+    SmallSlab *slab = small_index[small_hash(base)];
+    while (slab && (uintptr_t)slab->base != base) slab = slab->hash_next;
+    return slab;
+}
+
+static size_t small_slot(const SmallSlab *slab, const void *pointer) {
+    size_t offset = (uintptr_t)pointer - (uintptr_t)slab->base;
+    size_t stride = small_sizes[slab->bin];
+    size_t index = offset / stride;
+    if (offset % stride || index >= slab->used || !slab->sizes[index]) {
+        static const char message[] = "[compiler heap] invalid or freed small pointer\n";
+        write(STDERR_FILENO, message, sizeof(message) - 1);
+        abort();
+    }
+    return index;
+}
+
+static void small_link(SmallSlab *slab) {
+    slab->previous = NULL;
+    slab->next = small_available[slab->bin];
+    if (slab->next) slab->next->previous = slab;
+    small_available[slab->bin] = slab;
+}
+
+static void small_unlink(SmallSlab *slab) {
+    if (slab->previous) slab->previous->next = slab->next;
+    else small_available[slab->bin] = slab->next;
+    if (slab->next) slab->next->previous = slab->previous;
+    slab->previous = slab->next = NULL;
+}
+
+// Called under allocations_lock. Only syscalls and scalar operations are used
+// during growth, so no allocation can re-enter the locked allocator.
+static SmallSlab *small_create(size_t bin, const char **operation) {
+    size_t capacity = SLAB_BYTES / small_sizes[bin];
+    size_t metadata_size = (sizeof(SmallSlab) + capacity * sizeof(uint16_t) + page_size - 1)
+        & ~(page_size - 1);
+    *operation = "small metadata mmap";
+    SmallSlab *slab = mmap(NULL, metadata_size, PROT_READ | PROT_WRITE,
+                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (slab == MAP_FAILED) return NULL;
+    void *reservation = MAP_FAILED;
+    int fd = backing_file(SLAB_BYTES, operation);
+    if (fd < 0) goto failed;
+    *operation = "small address reservation";
+    reservation = mmap(NULL, 2 * SLAB_BYTES, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (reservation == MAP_FAILED) goto failed;
+    uintptr_t aligned = ((uintptr_t)reservation + SLAB_BYTES - 1) & ~(uintptr_t)(SLAB_BYTES - 1);
+    *operation = "small backing mmap";
+    void *base = mmap((void *)aligned, SLAB_BYTES, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
+    if (base == MAP_FAILED) goto failed;
+    close(fd);
+    // Keep the unused reservation PROT_NONE. Releasing the whole reservation
+    // when empty avoids splitting mappings as individual objects are freed.
+    slab->reservation = reservation;
+    slab->base = base;
+    slab->metadata_size = metadata_size;
+    slab->capacity = capacity;
+    slab->bin = bin;
+    size_t hash = small_hash(aligned);
+    slab->hash_next = small_index[hash];
+    small_index[hash] = slab;
+    small_link(slab);
+    disk_mappings++;
+    small_mappings++;
+    return slab;
+
+failed:;
+    int error = errno;
+    if (reservation != MAP_FAILED) munmap(reservation, 2 * SLAB_BYTES);
+    if (fd >= 0) close(fd);
+    munmap(slab, metadata_size);
+    errno = error;
+    return NULL;
+}
+
+static void *small_allocate(size_t size, size_t alignment) {
+    size_t bytes = size ? size : 1;
+    size_t bin = 0;
+    while (small_sizes[bin] < bytes || small_sizes[bin] % alignment) ++bin;
+    size_t stride = small_sizes[bin];
+    char report[384];
+    int report_length = 0;
+    const char *operation = "small slab";
+    pthread_mutex_lock(&allocations_lock);
+    SmallSlab *slab = small_available[bin];
+    if (!slab) slab = small_create(bin, &operation);
+    if (!slab) {
+        int error = errno;
+        pthread_mutex_unlock(&allocations_lock);
+        int count = snprintf(report, sizeof(report),
+            "[compiler heap] small allocation failed: operation=%s bytes=%zu alignment=%zu errno=%d\n",
+            operation, size, alignment, error);
+        write(STDERR_FILENO, report, (size_t)count);
+        errno = ENOMEM;
+        return NULL;
+    }
+    if (small_empty[bin] == slab) small_empty[bin] = NULL;
+    void *pointer;
+    if (slab->recycled) {
+        pointer = slab->recycled;
+        slab->recycled = *(void **)pointer;
+    } else {
+        // Do not populate free links in untouched slots: that would fault in
+        // every file page just to allocate the first 40-byte graph node.
+        pointer = (char *)slab->base + slab->used++ * stride;
+    }
+    size_t index = ((uintptr_t)pointer - (uintptr_t)slab->base) / stride;
+    slab->sizes[index] = (uint16_t)(size + 1);
+    if (++slab->live == slab->capacity) small_unlink(slab);
+    disk_bytes += stride;
+    disk_count++;
+    small_count++;
+    if (disk_bytes > peak_disk_bytes) peak_disk_bytes = disk_bytes;
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    if (now.tv_sec - last_report >= 5) {
+        last_report = now.tv_sec;
+        // Format after unlocking: snprintf is not an allocator primitive.
+        size_t live = disk_bytes, peak = peak_disk_bytes, count = small_count, maps = small_mappings;
+        pthread_mutex_unlock(&allocations_lock);
+        report_length = snprintf(report, sizeof(report),
+            "[compiler heap] small allocation %zu bytes; storage-backed %zu MiB live, %zu MiB peak; %zu small allocations in %zu small slabs (capacity, not RSS)\n",
+            size, live / MIB, peak / MIB, count, maps);
+    } else {
+        pthread_mutex_unlock(&allocations_lock);
+    }
+    if (report_length > 0) write(STDERR_FILENO, report, (size_t)report_length);
+    return pointer;
 }
 
 // Owns the storage and lifetime metadata shared by malloc and aligned allocation.
@@ -240,19 +489,8 @@ static void *mapped_allocate(size_t size, size_t alignment, int disk) {
                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (metadata == MAP_FAILED) goto failed;
     if (disk) {
-        char name[80];
-        snprintf(name, sizeof(name), ".compiler-heap-%d-%lu", getpid(),
-                 atomic_fetch_add_explicit(&sequence, 1, memory_order_relaxed));
-        operation = "openat backing file";
-        fd = openat(directory_fd, name, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+        fd = backing_file(backing_length, &operation);
         if (fd < 0) goto failed;
-        // The mapping retains the backing inode; even SIGKILL leaves no files.
-        operation = "unlinkat backing file";
-        if (unlinkat(directory_fd, name, 0) != 0) goto failed;
-        // Allocate actual disk space before returning writable memory, so a
-        // later page fault cannot discover a sparse file has no backing space.
-        operation = "fallocate backing file";
-        if (fallocate(fd, 0, 0, (off_t)backing_length) != 0) goto failed;
     }
     operation = "mmap backing file";
     if (extra) {
@@ -310,6 +548,8 @@ register_allocation:
     entry->disk = disk;
     char report[384];
     int report_length = 0;
+    size_t report_live = 0, report_peak = 0, report_count = 0, report_maps = 0;
+    int should_report = 0;
     pthread_mutex_lock(&allocations_lock);
     Allocation **bucket = allocation_bucket(pointer);
     entry->next = *bucket;
@@ -322,12 +562,18 @@ register_allocation:
         clock_gettime(CLOCK_MONOTONIC, &now);
         if (size >= 64 * MIB || now.tv_sec - last_report >= 5) {
             last_report = now.tv_sec;
-            report_length = snprintf(report, sizeof(report),
-                "[compiler heap] allocation %zu KiB; storage-backed %zu MiB live, %zu MiB peak, %zu allocations in %zu backing mappings (capacity, not RSS)\n",
-                size / 1024, disk_bytes / MIB, peak_disk_bytes / MIB, disk_count, disk_mappings);
+            should_report = 1;
+            report_live = disk_bytes;
+            report_peak = peak_disk_bytes;
+            report_count = disk_count;
+            report_maps = disk_mappings;
         }
     }
     pthread_mutex_unlock(&allocations_lock);
+    if (should_report)
+        report_length = snprintf(report, sizeof(report),
+            "[compiler heap] allocation %zu KiB; storage-backed %zu MiB live, %zu MiB peak, %zu allocations in %zu backing mappings (capacity, not RSS)\n",
+            size / 1024, report_live / MIB, report_peak / MIB, report_count, report_maps);
     if (report_length > 0) write(STDERR_FILENO, report, (size_t)report_length);
     return pointer;
 
@@ -356,7 +602,8 @@ void *malloc(size_t size) {
         if (resolving) return mapped_allocate(size, _Alignof(max_align_t), 0);
         pthread_once(&initialization, initialize);
     }
-    return size >= DISK_THRESHOLD ? mapped_allocate(size, _Alignof(max_align_t), 1) : libc_malloc(size);
+    return size < DISK_THRESHOLD ? small_allocate(size, _Alignof(max_align_t))
+                                 : mapped_allocate(size, _Alignof(max_align_t), 1);
 }
 
 void free(void *pointer) {
@@ -365,6 +612,37 @@ void free(void *pointer) {
     if (!atomic_load_explicit(&ready, memory_order_acquire) && !resolving)
         pthread_once(&initialization, initialize);
     pthread_mutex_lock(&allocations_lock);
+    SmallSlab *small = small_owner(pointer);
+    if (small) {
+        size_t index = small_slot(small, pointer);
+        small->sizes[index] = 0;
+        *(void **)pointer = small->recycled;
+        small->recycled = pointer;
+        if (small->live == small->capacity) small_link(small);
+        int release = --small->live == 0;
+        disk_bytes -= small_sizes[small->bin];
+        disk_count--;
+        small_count--;
+        if (release && !small_empty[small->bin]) {
+            small_empty[small->bin] = small;
+            release = 0;
+        }
+        if (release) {
+            small_unlink(small);
+            SmallSlab **owner = &small_index[small_hash((uintptr_t)small->base)];
+            while (*owner != small) owner = &(*owner)->hash_next;
+            *owner = small->hash_next;
+            disk_mappings--;
+            small_mappings--;
+        }
+        pthread_mutex_unlock(&allocations_lock);
+        if (release) {
+            munmap(small->reservation, 2 * SLAB_BYTES);
+            munmap(small, small->metadata_size);
+        }
+        errno = saved_errno;
+        return;
+    }
     Allocation **link = allocation_bucket(pointer);
     while (*link && (*link)->pointer != pointer) link = &(*link)->next;
     Allocation *entry = *link;
@@ -417,11 +695,17 @@ void free(void *pointer) {
     errno = saved_errno;
 }
 
-size_t malloc_usable_size(const void *pointer) {
+size_t malloc_usable_size(UsablePointer pointer) {
     if (!pointer) return 0;
     if (!atomic_load_explicit(&ready, memory_order_acquire) && !resolving)
         pthread_once(&initialization, initialize);
     pthread_mutex_lock(&allocations_lock);
+    SmallSlab *small = small_owner(pointer);
+    if (small) {
+        size_t size = small->sizes[small_slot(small, pointer)] - 1;
+        pthread_mutex_unlock(&allocations_lock);
+        return size;
+    }
     Allocation *entry = *allocation_bucket(pointer);
     while (entry && entry->pointer != pointer) entry = entry->next;
     size_t size = entry ? entry->size : 0;
@@ -436,7 +720,7 @@ void *calloc(size_t count, size_t size) {
         return NULL;
     }
     void *pointer = malloc(bytes);
-    // Reused mappings and libc memory need explicit zeroing. Larger mappings
+    // Reused small and large slabs need explicit zeroing. Larger mappings
     // are always fresh files, already zero-filled without touching every page.
     if (pointer && bytes <= POOL_MAX)
         memset(pointer, 0, bytes);
@@ -452,12 +736,26 @@ void *realloc(void *pointer, size_t size) {
     if (!atomic_load_explicit(&ready, memory_order_acquire) && !resolving)
         pthread_once(&initialization, initialize);
     pthread_mutex_lock(&allocations_lock);
-    Allocation *entry = *allocation_bucket(pointer);
-    while (entry && entry->pointer != pointer) entry = entry->next;
-    size_t old_size = entry ? entry->size : 0;
+    SmallSlab *small = small_owner(pointer);
+    size_t old_size;
+    int owned;
+    if (small) {
+        size_t index = small_slot(small, pointer);
+        old_size = small->sizes[index] - 1;
+        if (size <= small_sizes[small->bin]) {
+            small->sizes[index] = (uint16_t)(size + 1);
+            pthread_mutex_unlock(&allocations_lock);
+            return pointer;
+        }
+        owned = 1;
+    } else {
+        Allocation *entry = *allocation_bucket(pointer);
+        while (entry && entry->pointer != pointer) entry = entry->next;
+        owned = entry != NULL;
+        old_size = entry ? entry->size : 0;
+    }
     pthread_mutex_unlock(&allocations_lock);
-    if (!entry && size < DISK_THRESHOLD && libc_realloc) return libc_realloc(pointer, size);
-    if (!entry) old_size = libc_usable_size(pointer);
+    if (!owned) old_size = libc_usable_size(pointer);
     void *replacement = malloc(size);
     if (replacement) {
         memcpy(replacement, pointer, old_size < size ? old_size : size);
@@ -481,9 +779,8 @@ int posix_memalign(void **result, size_t alignment, size_t size) {
     if (!atomic_load_explicit(&ready, memory_order_acquire) && !resolving)
         pthread_once(&initialization, initialize);
     int disk = atomic_load_explicit(&ready, memory_order_acquire);
-    if (disk && size < DISK_THRESHOLD && alignment < DISK_THRESHOLD)
-        return libc_posix_memalign(result, alignment, size);
-    void *pointer = mapped_allocate(size, alignment, disk);
+    void *pointer = disk && size < DISK_THRESHOLD && alignment <= DISK_THRESHOLD
+        ? small_allocate(size, alignment) : mapped_allocate(size, alignment, disk);
     int error = pointer ? 0 : ENOMEM;
     if (pointer) *result = pointer;
     errno = saved_errno;

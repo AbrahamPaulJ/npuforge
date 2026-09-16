@@ -1,5 +1,6 @@
 package com.abrah.npuforge
 
+import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
@@ -20,16 +21,15 @@ import kotlinx.coroutines.withContext
 import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The conversion pipeline: a `.safetensors` in, a model directory out.
  *
- * Two stages, both native and both measured on an SM8750 (HTP v79):
+ * QNN graphs are populated by [stageWeights], then compiled by [stageCompile].
+ * Both model families write checkpoint-owned MNN text encoders via [stageClip].
  *
- *   1. [stageWeights]  tplconv: checkpoint -> an 863 MB TPLPACK1 weight pack   ~24 s
- *   2. [stageCompile]  the QNN context-binary generator: pack -> unet.bin      ~93 s
- *
- * ⚠ Both binaries are EXECUTABLES shipped as `lib*.so` in `jniLibs`. Android
+ * ⚠ These native tools are EXECUTABLES shipped as `lib*.so` in `jniLibs`. Android
  * refuses to execute anything in the writable app data directory, and
  * `nativeLibraryDir` is the one place it allows -- which is why they are named
  * that way and why `useLegacyPackaging = true` is not optional (build.gradle.kts).
@@ -101,7 +101,7 @@ object Converter {
         val monitor = launch(Dispatchers.IO) {
             while (true) {
                 report.snapshot(pid)
-                delay(5000)
+                delay(5.seconds)
             }
         }
         val tail = ArrayDeque<String>()
@@ -154,7 +154,12 @@ object Converter {
      * wants is decided by the DEVICE, not by the graph being compiled, and
      * detecting that here would be a second thing to get wrong. ~145 MB of app
      * storage, written once.
+     *
+     * These are public libraries copied from the APK, never checkpoints or user
+     * data. FastRPC runs outside the app UID and requires read/traverse access;
+     * owner-only permissions break DSP loading (see docs/ANDROID.md, section 3).
      */
+    @SuppressLint("SetWorldReadable")
     internal fun stageDspLibs(context: Context, from: File): File {
         val into = File(context.filesDir, "qnnlibs").apply { mkdirs() }
         val wanted = from.listFiles().orEmpty().filter {
@@ -184,11 +189,12 @@ object Converter {
         model: CheckpointInfo.Model,
         report: ConversionReport,
         loras: List<Pair<File, Float>> = emptyList(),
+        templateDirectory: String = model.templateDirectory,
         onLine: (String) -> Unit = {},
     ): File {
         val tpl = File(work, "template").apply { mkdirs() }
-        for (name in context.assets.list(model.templateDirectory).orEmpty()) {
-            context.assets.open("${model.templateDirectory}/$name").use { input ->
+        for (name in context.assets.list(templateDirectory).orEmpty()) {
+            context.assets.open("$templateDirectory/$name").use { input ->
                 File(tpl, name).outputStream().use { input.copyTo(it) }
             }
         }
@@ -219,6 +225,7 @@ object Converter {
         work: File,
         model: CheckpointInfo.Model,
         report: ConversionReport,
+        component: String = "unet",
         onLine: (String) -> Unit = {},
     ): File {
         // ⚠⚠ THE DSP AND THE CPU NEED THE LIBRARIES IN DIFFERENT PLACES.
@@ -257,7 +264,7 @@ object Converter {
                 "--model", File(tpl, "libqnn_model.so").absolutePath,
                 "--backend", File(libs, "libQnnHtp.so").absolutePath,
                 "--output_dir", outDir.absolutePath,
-                "--binary_file", "unet",
+                "--binary_file", component,
                 "--config_file", backend.absolutePath,
                 "--log_level", "info",
             ),
@@ -288,24 +295,46 @@ object Converter {
             },
             work, report, onLine,
         )
-        val unet = File(outDir, "unet.bin")
-        if (!unet.isFile || unet.length() == 0L) throw Failure("the generator produced no unet.bin")
-        return unet
+        val output = File(outDir, "$component.bin")
+        if (!output.isFile || output.length() == 0L) throw Failure("the generator produced no $component.bin")
+        return output
     }
 
-    /**
-     * Assembles the finished model directory.
-     *
-     * ⚠ CLIP, the VAE and the tokenizer come from the TEMPLATE, not from the
-     * user's checkpoint: the recipe covers the UNet only. The UNet carries the
-     * style, so this works, but a converted model is not a complete port of the
-     * checkpoint and the UI should not claim otherwise.
-     */
+    /** Reconstructs the model family's text encoder(s) with row-sized weight buffers. */
+    suspend fun stageClip(
+        context: Context,
+        ckpt: File,
+        work: File,
+        output: File,
+        model: CheckpointInfo.Model,
+        report: ConversionReport,
+        onLine: (String) -> Unit,
+    ) {
+        val assets = File(work, "clip").apply { mkdirs() }
+        output.mkdirs()
+        context.assets.open("${model.componentDirectory}/clip_recipe.bin").use { input ->
+            File(assets, "clip_recipe.bin").outputStream().use { input.copyTo(it) }
+        }
+        run(
+            listOf(
+                File(context.applicationInfo.nativeLibraryDir, "libcomponentconv.so").absolutePath,
+                assets.absolutePath, ckpt.absolutePath, output.absolutePath,
+            ),
+            emptyMap(), work, report, onLine,
+        )
+        context.assets.open("${model.componentDirectory}/tokenizer.json").use { input ->
+            File(output, "tokenizer.json").outputStream().use { input.copyTo(it) }
+        }
+        assets.deleteRecursively()
+    }
+
+    /** Packages the selected component directory without substituting weights. */
     suspend fun assemble(
         context: Context,
         unet: File,
         name: String,
         model: CheckpointInfo.Model,
+        components: File,
         onFile: (String) -> Unit,
     ): String {
         // One zip, not seven loose files: it is what a generator's import
@@ -313,7 +342,10 @@ object Converter {
         // nobody's idea of a result. Entry names are flat basenames because
         // that is what importers key on.
         val files = listOf(unet to "unet.bin") +
-            model.components.map { File(File(context.filesDir, model.donorDirectory), it) to it }
+            model.components.map { File(components, it) to it }
+        for ((file, entryName) in files) {
+            if (!file.isFile || file.length() == 0L) throw Failure("missing converted component: $entryName")
+        }
 
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, "$name.zip")

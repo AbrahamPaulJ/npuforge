@@ -1,127 +1,198 @@
 package com.abrah.npuforge.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.abrah.npuforge.R
 
 /** Conversion scope and the measurements available for each model family. */
 @Composable
 fun InfoScreen() {
     Column(
-        Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Section(
-            "What it does",
-            "Converts SD1.5 and SDXL image models to run on your phone’s Qualcomm AI processor.",
-            "The app includes a prepared model structure. Your phone fills it with " +
-                "your model’s weights and builds the final file.",
+        InfoSectionCard(
+            title = stringResource(R.string.info_what_title),
+            badge = stringResource(R.string.chip_qualcomm_npu),
+            paragraphs = listOf(
+                stringResource(R.string.info_what_p1),
+                stringResource(R.string.info_what_p2),
+            ),
         )
 
-        Section(
-            "Scope",
-            "• Single-file .safetensors checkpoints",
-            "• SD1.5: 512 × 512, Snapdragon 8 Gen 2 target (v73)",
-            "• SDXL: 1024 × 1024, Snapdragon 8 Gen 3 target (v75)",
-            "• QAIRT 2.50; SDXL UNet uses INT8 weights and 16-bit activations",
-            "• Shared VAE encoder and decoder are included for image-to-image and text-to-image",
+        InfoSectionCard(
+            title = stringResource(R.string.info_scope_title),
+            paragraphs = listOf(
+                stringResource(R.string.info_scope_b1),
+                stringResource(R.string.info_scope_b2),
+                stringResource(R.string.info_scope_b3),
+                stringResource(R.string.info_scope_b4),
+                stringResource(R.string.info_scope_b5),
+            ),
         )
 
-        Section(
-            "What is converted, and what is borrowed",
-            "Conversion replaces the UNet from your checkpoint. SD1.5 downloads the " +
-                "shared DreamShaper text encoder and VAE once.",
-            "For SDXL, the shared components download once from Mr-J-369's " +
-                "SDXL-OnDevice-Conversion repository (about 1 GB). The app saves its " +
-                "MNN text encoders and QNN VAE encoder/decoder for reuse.",
-            "The current SDXL components use madebyollin/sdxl-vae-fp16-fix, QAIRT 2.50 " +
-                "and the 1024 × 1024 v75 VAE. Prompt interpretation and colour follow " +
-                "these shared components.",
+        InfoSectionCard(
+            title = stringResource(R.string.info_converted_title),
+            paragraphs = listOf(
+                stringResource(R.string.info_converted_p1),
+                stringResource(R.string.info_converted_p2),
+                stringResource(R.string.info_converted_p3),
+            ),
         )
 
-        Warning(
-            "Checkpoint compatibility",
-            "CyberRealistic, DreamShaper 8 and AbsoluteReality have working conversions. " +
-                "MistoonAnime produced noise in the documented test despite converting successfully.",
-            "The template reuses calibrated activation ranges. Their suitability varies " +
-                "by checkpoint; the MistoonAnime result does not establish that all anime models fail.",
+        WarningCard(
+            title = stringResource(R.string.info_compatibility_title),
+            paragraphs = listOf(
+                stringResource(R.string.info_compatibility_p1),
+                stringResource(R.string.info_compatibility_p2),
+            ),
         )
 
-        Section(
-            "LoRA",
-            "Adapters are merged into the weights during conversion, so they cost " +
-                "nothing at generation time. Several stack in one pass.",
-            "Supported: standard kohya LoRAs (lora_down / lora_up / alpha).",
-            "Not supported: diffusers/PEFT format, LoCon, LyCORIS, LoHa, DoRA, IA3. " +
-                "These fail with a clear message rather than producing a bad model.",
-            "Only attention modules have been tested; convolution adapters should work " +
-                "but are unverified.",
-            "The text-encoder half of a LoRA is dropped, so style adapters work better " +
-                "than trigger-word ones.",
-            "Strength is baked in, not a slider you can move later: two strengths of one " +
-                "adapter are two separate models.",
+        InfoSectionCard(
+            title = stringResource(R.string.info_lora_title),
+            paragraphs = listOf(
+                stringResource(R.string.info_lora_p1),
+                stringResource(R.string.info_lora_p2),
+                stringResource(R.string.info_lora_p3),
+                stringResource(R.string.info_lora_p4),
+                stringResource(R.string.info_lora_p5),
+                stringResource(R.string.info_lora_p6),
+            ),
         )
 
-        Section(
-            "What it needs from your phone",
-            "• arm64, Android 13 or newer",
-            "• Earlier SD1.5 conversion measured about 4.8 GB of RAM at peak",
-            "• SD1.5 needs about 4 GB of working storage",
-            "• SD1.5 output is roughly 1.3 GB; the tested SDXL ZIP was about 3.5 GB",
-            "• Tested SDXL O=3 conversion completed in 7 minutes 17 seconds",
-            "• SDXL uses temporary files to reduce RAM use, so it needs extra free storage",
-            "• Peak SDXL phone RAM has not been measured",
+        InfoSectionCard(
+            title = stringResource(R.string.info_requirements_title),
+            paragraphs = listOf(
+                stringResource(R.string.info_requirements_b1),
+                stringResource(R.string.info_requirements_b2),
+                stringResource(R.string.info_requirements_b3),
+                stringResource(R.string.info_requirements_b4),
+                stringResource(R.string.info_requirements_b5),
+                stringResource(R.string.info_requirements_b6),
+                stringResource(R.string.info_requirements_b7),
+            ),
         )
 
-        Section(
-            "How to tell what went wrong",
-            "Saturated, blotchy noise can indicate that the checkpoint does not fit " +
-                "the template's activation ranges, as in the MistoonAnime test.",
-            "Model loading depends on the target chip and the QNN runtime in your generator.",
-            "Unexpected prompt results can involve the shared prompt reader (CLIP).",
-            "Colour or detail problems need investigation; appearance alone does not identify the cause.",
+        InfoSectionCard(
+            title = stringResource(R.string.info_troubleshooting_title),
+            paragraphs = listOf(
+                stringResource(R.string.info_troubleshooting_p1),
+                stringResource(R.string.info_troubleshooting_p2),
+                stringResource(R.string.info_troubleshooting_p3),
+                stringResource(R.string.info_troubleshooting_p4),
+            ),
         )
 
-        Section(
-            "Tested on",
-            "One device: Samsung Galaxy S25 Ultra (SM8750, Hexagon v79). SD1.5 and " +
-                "SDXL conversion and generation both worked on this phone.",
-            "The SDXL O=3 output generated in Aura in 15 seconds at 1024 × 1024, " +
-                "8 steps, CFG 1, LCM/Karras. This is one run, not a cross-device benchmark.",
+        InfoSectionCard(
+            title = stringResource(R.string.info_tested_title),
+            paragraphs = listOf(
+                stringResource(R.string.info_tested_p1),
+                stringResource(R.string.info_tested_p2),
+            ),
         )
     }
 }
 
 @Composable
-private fun Section(title: String, vararg body: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
-        body.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
-    }
-}
-
-@Composable
-private fun Warning(title: String, vararg body: String) {
-    Card(Modifier.fillMaxWidth()) {
+private fun InfoSectionCard(
+    title: String,
+    badge: String? = null,
+    paragraphs: List<String>,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+    ) {
         Column(
-            Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                if (badge != null) {
+                    SuggestionChip(
+                        onClick = {},
+                        label = { Text(badge, style = MaterialTheme.typography.labelSmall) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                        border = null,
+                    )
+                }
+            }
+            paragraphs.forEach { text ->
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WarningCard(title: String, paragraphs: List<String>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                title,
-                style = MaterialTheme.typography.titleSmall,
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.error,
             )
-            body.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
+            paragraphs.forEach { text ->
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
     }
 }

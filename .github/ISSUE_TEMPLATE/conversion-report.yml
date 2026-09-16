@@ -1,0 +1,34 @@
+name: Conversion report
+description: Report a conversion failure or a reproducible success.
+title: "[Conversion] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: App version or commit
+      description: Include the complete version shown in the troubleshooting log.
+  - type: input
+    id: device
+    attributes:
+      label: Phone and Android version
+      description: Model, Snapdragon chip, RAM and Android version. Do not include a device serial.
+  - type: textarea
+    id: model
+    attributes:
+      label: Checkpoint and LoRAs
+      description: Public model links or filenames, F16/F32 if known, and adapter strengths.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What happened?
+      description: Did conversion fail, or did it finish and produce an incorrect image? Include the last stage and reproduction steps.
+  - type: textarea
+    id: log
+    attributes:
+      label: Troubleshooting log
+      description: Attach the exported full troubleshooting log after removing personal paths, device identifiers and unrelated information.
+  - type: textarea
+    id: generation
+    attributes:
+      label: Generation settings, if applicable
+      description: Consumer app/runtime, sampler, steps, CFG, resolution, seed and prediction mode. Include an output example if appropriate.
