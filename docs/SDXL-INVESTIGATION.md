@@ -196,10 +196,10 @@ successful MOP run's 8 steps / CFG 1 / LCM cannot establish a universal preset.
 However, the saved standard-sampler runs mean changing presets alone is not a
 complete explanation here. [Illustrious model card](https://huggingface.co/OnomaAIResearch/Illustrious-xl-early-release-v0)
 
-Some derivatives use a different prediction type. NPUForge currently exports
-architecture/context markers, not that model-specific setting; Aura accepts
-the setting from the generation request. Verify it for an identified failing
-checkpoint rather than assuming it from the name “anime” or “SDXL”.
+Some derivatives use a different prediction type. npuforge exports
+architecture/context markers; the generation request supplies the prediction
+setting in Local Dream or Fancy-Ai. Verify it for the specific checkpoint rather
+than assuming it from the name “anime” or “SDXL”.
 
 ### Original Pony v6 failure
 
