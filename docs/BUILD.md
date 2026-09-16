@@ -1,152 +1,153 @@
-# Building and running npuforge
+# Build npuforge
 
-The current Android project uses AGP 9.4.0, Gradle 9.7.1, Kotlin Compose plugin
-2.4.20, Android SDK 37 and NDK 29.0.14206865. The Gradle daemon toolchain is
-JetBrains JDK 21; application bytecode targets Java 17. Native Gradle tasks
-currently use the Linux x86_64 NDK toolchain.
+The source checkout can run the host tests without an Android SDK, Qualcomm
+SDK, checkpoint, or generated model bundle. A **working conversion APK** also
+needs the external runtime and generated assets listed below. Gradle does not
+download or generate those assets automatically; assembling an APK alone does
+not establish that it contains everything needed for conversion.
 
-## What you must supply
+## Host requirements
 
-A source checkout does not contain all runtime/model artifacts (see `NOTICE`):
+The Android native build tasks currently target **Linux x86_64**.
 
-- **QAIRT SDK 2.50.0.260828** for the current Android runtime and SDXL template.
-  Supply its Android context generator as
-  `app/src/main/jniLibs/arm64-v8a/libqnncontextgen.so`, plus the QNN HTP,
-  Prepare, System, NetRunExtensions, target stub and DSP skel libraries.
-  Follow [ANDROID.md](ANDROID.md) for runtime placement and packaging.
-- In `app/src/main/assets/template/`, supply `libqnn_model.so` and copy the
-  SD1.5 `template/recipe.bin` and `template/tpl_trim.pack` from the repository.
-- In `app/src/main/assets/template_sdxl/`, supply the matching SDXL
-  `libqnn_model.so`, `recipe.bin` and `tpl_trim.pack`. The source list and
-  O=3 configuration are tracked. These generated SDXL artifacts are not
-  distributed by this source push; a fresh clone needs them before conversion.
-- In `app/src/main/assets/components_sdxl/`, supply the sparse CLIP recipe,
-  tokenizer, component manifests and both VAE template bundles described in
-  [SDXL-COMPONENTS.md](SDXL-COMPONENTS.md). New SDXL conversions use checkpoint
-  weights and do not download shared CLIP/VAE weights.
-- In `app/src/main/assets/components_sd15/`, supply the SD1.5 CLIP recipe and
-  tokenizer, component manifests and both 512px VAE template bundles described
-  in [SD15-COMPONENTS.md](SD15-COMPONENTS.md). SD1.5 also converts the checkpoint's
-  own component weights; it no longer downloads the DreamShaper donor archive.
+| Dependency | Version used by the project |
+| --- | --- |
+| Gradle | 9.7.1, supplied through `./gradlew` |
+| Android Gradle Plugin | 9.4.0 |
+| Gradle daemon | JetBrains JDK 21; application bytecode targets Java 17 |
+| Kotlin Compose plugin | 2.4.20 |
+| Android SDK | Platform 37, Build Tools 37.0.0 |
+| Android NDK | 29.0.14206865 |
+| Qualcomm AI Runtime | QAIRT 2.50.0.260828 |
 
-Gradle builds the first-party converter and compiler allocator. SDK and model
-binaries remain gitignored. The older SD1.5 measurements below came from the
-original QAIRT 2.49 template; they are not measurements of every current build.
-
-## 1. The converter binary
-
-Android builds compile `native/tplconv.cpp` through the `:app:compileTplconv`
-task using NDK r29 (`29.0.14206865`) on Linux. The resulting executable is
-registered through AGP's generated JNI sources API and packaged as
-`lib/arm64-v8a/libtplconv.so` for both debug and release builds. No prebuilt
-`libtplconv.so` belongs in `app/src/main/jniLibs`.
+Install Android command-line tools and put `sdkmanager` on `PATH`, then install
+the SDK packages:
 
 ```sh
-./gradlew :app:assembleDebug
+export ANDROID_HOME="$HOME/Android/Sdk"
+sdkmanager --sdk_root="$ANDROID_HOME" \
+  'platform-tools' 'platforms;android-37' 'build-tools;37.0.0' \
+  'ndk;29.0.14206865'
+sdkmanager --sdk_root="$ANDROID_HOME" --licenses
 ```
 
-The task statically links libc++, retains `-ffp-contract=off`, and sets both
-`max-page-size` and `common-page-size` to 16384. This replaces the original
-4 KB-aligned prebuilt converter. Keep native library extraction enabled: the
-converter is an executable launched from `nativeLibraryDir`.
+Set `JAVA_HOME` to a JDK 21 installation. The tracked Gradle daemon criteria
+select JetBrains JDK 21 and can provision it when necessary. The first build
+needs network access for Gradle, Android dependencies and toolchain downloads.
 
-For host comparisons against the Python reference:
+## External runtime and model assets
+
+Read [NOTICE](../NOTICE) before supplying or redistributing these files. They
+have separate provenance and terms from the repository's original source.
+Keep generated model files matched to their recipes and SDK version.
+
+### Qualcomm runtime
+
+Place the QAIRT Android ARM64 files in
+`app/src/main/jniLibs/arm64-v8a/`:
+
+- `qnn-context-binary-generator`, renamed to `libqnncontextgen.so`;
+- `libQnnHtp.so`, `libQnnHtpPrepare.so`, `libQnnSystem.so` and
+  `libQnnHtpNetRunExtensions.so`;
+- the matching `libQnnHtpV<arch>.so`, `libQnnHtpV<arch>Stub.so` and
+  `libQnnHtpV<arch>Skel.so` files for the device architectures being supported.
+
+The tested runtime bundle contains v68, v69, v73, v75, v79 and v81 files. These
+are not a guarantee that every corresponding device supports the current
+templates. See [device/runtime packaging](ANDROID.md) and [limits](LIMITS.md).
+
+### UNet templates
+
+| Asset directory | Files to supply |
+| --- | --- |
+| `app/src/main/assets/template/` | SD1.5 `libqnn_model.so`; copy `recipe.bin` and `tpl_trim.pack` from the repository's `template/` directory |
+| `app/src/main/assets/template_sdxl/` | Matching SDXL `libqnn_model.so`, `recipe.bin`, `tpl_trim.pack` |
+
+Both asset directories already track `sources.txt` and `htp_config.json`.
+The SD1.5 recipe and trimmed pack have separate provenance restrictions
+documented in [template/README.md](../template/README.md).
+
+### Checkpoint component templates
+
+Supply this tree under **each** of `app/src/main/assets/components_sd15/` and
+`app/src/main/assets/components_sdxl/`:
+
+```text
+clip_recipe.bin
+clip_requirements.json
+tokenizer.json
+vae_encoder/
+  libqnn_model.so
+  recipe.bin
+  tpl_trim.pack
+  requirements.json
+  sources.txt
+  htp_config.json
+vae_decoder/
+  libqnn_model.so
+  recipe.bin
+  tpl_trim.pack
+  requirements.json
+  sources.txt
+  htp_config.json
+```
+
+The families use different graphs and resolutions. Authoring instructions are
+in [CLIP components](CLIP-COMPONENTS.md), [VAE templates](VAE-TEMPLATES.md),
+[SD1.5 components](SD15-COMPONENTS.md) and [SDXL components](SDXL-COMPONENTS.md).
+Authoring requires additional host tools and source model assets; it is a
+separate workflow from compiling the Android app.
+
+## Build and inspect
+
+From the repository root:
 
 ```sh
-c++ -O2 -std=c++17 -ffp-contract=off -o tplconv native/tplconv.cpp
+./gradlew :app:assembleDebug :app:lintDebug --console=plain
 ```
 
-No dependencies beyond libc++ and POSIX `mmap` for `tplconv`.
+- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
+- Lint report: `app/build/reports/lint-results-debug.html`
+- Unsigned release build: `./gradlew :app:assembleRelease`
 
-`:app:compileComponentconv` builds `native/componentconv.cpp` with the same NDK
-and linker settings, packaging it as `libcomponentconv.so`. It reconstructs the
-selected family's MNN text encoder(s) directly from the checkpoint and sparse recipe; PyTorch,
-ONNX and the MNN converter are authoring tools, not phone dependencies.
+Signing credentials are not included. The debug source set exports diagnostic
+services and is intended for development. Its optional DSP probe additionally
+needs the external probe backend and canary assets described in [app/README.md](../app/README.md).
+They are not used by ordinary conversion.
 
-`:app:compileCompilerHeap` also builds `native/compiler_heap.c` into
-`libcompiler_heap.so` for debug and release. Its symbol map, `-fno-builtin` and
-16 KB linker alignment are part of the tested integration. It is preloaded
-only into the SDXL QNN compiler. See [SDXL.md](SDXL.md) for its operation.
+Gradle builds `libtplconv.so`, `libcomponentconv.so` and
+`libcompiler_heap.so` from the native source and registers them as generated
+JNI inputs. Do not place prebuilt copies in `src/main/jniLibs`.
 
+Preserve the existing native build and packaging settings:
 
-`-ffp-contract=off` is essential to the existing LoRA merge arithmetic. Without
-it, fused multiply-add can round differently across host and device builds.
-The source and weight recipe are unchanged by the alignment fix.
+- `-ffp-contract=off` keeps LoRA arithmetic consistent with the reference.
+- The native outputs use 16 KB ELF alignment.
+- `useLegacyPackaging = true` extracts executables to `nativeLibraryDir`.
+- Qualcomm libraries must retain their original bytes; stripping DSP libraries
+  can prevent device creation. Compare packaged files with the SDK originals.
 
-## 2. The pack-loading library (generated, gitignored)
+The compiler allocator is preloaded into SDXL compiler subprocesses. It is
+not an application-wide allocator replacement.
 
-From the template's patched `model_tpl.cpp` (produced by `tools/tpl_patch.py`
-against the QAIRT converter's `model.cpp`):
+## Verification and authoring
+
+Run the [host tests](TESTING.md) before changing the converter. Full integration
+also needs a packaged runtime, generated templates and a supported phone.
+
+To author a pack-loading model library, patch the QAIRT-generated C++ using
+`tools/tpl_patch.py`, then run the SDK model library generator:
 
 ```sh
-export ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/29.0.14206865"
-python $QNN_SDK_ROOT/bin/x86_64-linux-clang/qnn-model-lib-generator \
-    -c model_tpl.cpp -t aarch64-android -o lib_arm
+export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/29.0.14206865"
+python "$QNN_SDK_ROOT/bin/x86_64-linux-clang/qnn-model-lib-generator" \
+  -c model_tpl.cpp -t aarch64-android -o lib_arm
 ```
 
-⚠ **No `-b`.** Omitting the weights is the whole point: the library is 9.7 MB
-instead of ~873 MB and takes its weights from `QNN_TPL_PACK` at generate time.
-⚠ With no `-b` the generator names the output `libqnn_model.so`, **not**
-`libmodel.so`. Takes ~72 s.
+Omit `-b`: the generated `libqnn_model.so` reads the external weight pack through
+`QNN_TPL_PACK` instead of embedding checkpoint weights. See
+[template authoring](TEMPLATE-AUTHORING.md) for the complete workflow.
 
-## 3. Run it on the phone
-
-```sh
-adb push tplconv_arm template/recipe.bin template/tpl_trim.pack \
-         lib_arm/aarch64-android/libqnn_model.so  /data/local/tmp/npuforge/
-adb push <your-checkpoint>.safetensors /data/local/tmp/npuforge/ckpt.safetensors
-# plus the QAIRT device runtime listed above, into the same directory
-
-adb shell
-cd /data/local/tmp/npuforge
-./tplconv_arm recipe.bin tpl_trim.pack ckpt.safetensors out.pack     # ~24 s
-
-export LD_LIBRARY_PATH=/data/local/tmp/npuforge
-export ADSP_LIBRARY_PATH="/data/local/tmp/npuforge;/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp"
-export QNN_TPL_PACK=/data/local/tmp/npuforge/out.pack
-./qnn-context-binary-generator --model ./libqnn_model.so --backend ./libQnnHtp.so \
-    --output_dir ./out --binary_file unet --config_file ./htp_backend.json      # ~93 s
-```
-
-`out/unet.bin` is the model.
-
-⚠ **`config_file_path` inside the backend-extension JSON must be ABSOLUTE on the
-device.** A relative path is read against the process CWD and fails confusingly.
-
-## 4. Verifying a change
-
-Never judge the converter by looking at renders. Build the same checkpoint with
-the Python reference (`tools/tpl_apply.py apply`) and `cmp` the packs — they must
-be **byte-identical**. Two reference checkpoints are known-good:
-
-| checkpoint | pack md5 |
-|---|---|
-| DreamShaper 8 (`Lykon/DreamShaper`, `DreamShaper_8_pruned.safetensors`) | `042b99cf38b37cecc15483f37118bb46` |
-| AbsoluteReality (`Lykon/AbsoluteReality`, `AbsoluteRealityV1.6525_pruned.safetensors`) | `52ca4f492e9f43634d08698ea9a5360b` |
-
-⚠⚠ **Do NOT gate on the context binary's md5.** The compile is not
-byte-reproducible: two runs on the same phone, from the same pack, produced
-882,780,736 bytes both times with **different md5s** (`2fbde3d5…` and
-`0acd5323…`) — and rendered **byte-identical PNGs**. A PC compile differs again
-(881,826,392 bytes). Neither size nor hash is a gate at this stage; the render
-is. The one place hashes ARE exact is the weight pack, which is why that is what
-`tplconv` is verified against.
-
-⚠ And compare against the right arm. A model built from the *recipe* pack must be
-compared against the PC's build of the *recipe* pack — not against the stock
-template build. Comparing against the template reads as a failure when nothing is
-wrong.
-
-## Authoring a new template
-
-Out of scope for this document; it needs the full PC conversion pipeline (ONNX
-export, calibration, a 2 h 18 m quantize). The steps are `tools/tpl_patch.py` →
-`tools/tpl_pack.py identity` → `tools/tpl_recipe.py discover` →
-`tools/tpl_apply.py finalize` → `tools/tpl_recipe_bin.py` →
-`tools/tpl_pack_trim.py`.
-
-⚠ **Gate the encodings before spending the compile.** A template whose timestep
-path quantized to `[0, 0]` renders pure noise, and the converter exits 0, the IO
-contract matches a known-good binary, the IO ranges look sane, and it runs on the
-NPU at the correct speed. Latency proves a graph compiled, never that it computes
-anything.
+Once a complete APK is installed and the checkpoint/adapters are local,
+conversion does not download CLIP or VAE weights. Network access during setup
+and authoring is separate from offline conversion on the phone.

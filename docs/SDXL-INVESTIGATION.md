@@ -1,110 +1,169 @@
-# SDXL failures: evidence and next steps
+# SDXL reliability and component fidelity
 
-Investigation: 2026-09-15–16. Existing source, saved reports and authoring artifacts
-were inspected, followed by a focused local Pony CLIP export and a user-reported
-successful phone test, then full-component app conversion and a successful
-Illustrious phone render. Exact files and
-symptoms from the broader user reports are unknown; the findings below must not
-be applied to every phone or adapter.
+This record separates saved failure evidence, implemented fixes and reported
+phone outcomes. Investigations covered compiler allocation failures, a LoRA
+compatibility regression and poor output from substituted text encoders.
+They did not identify a single cause applicable to every phone or checkpoint.
+
+The latest test APK received a successful report after small-object pooling,
+workspace relocation and LoRA compatibility fixes. No post-fix device-specific
+logs were supplied with that confirmation; broader device support remains to
+be measured.
 
 ## Summary
 
-| Report | Evidence | Conclusion |
+| Finding | Evidence | Current implementation or result |
 |---|---|---|
-| More RAM, but conversion crashes | Vivo SM8650 reaches exactly 65,530 mappings; 64,575 belong to Scudo | Strong evidence of mapping exhaustion, independent of advertised RAM; originating allocation path remains unknown |
-| SDXL LoRA fails | Merged FP32 tensors were cached without eviction across both weight passes | Confirmed memory defect; a broad SDXL transformer adapter can retain 8.14 GiB in this cache alone |
-| Pony output is striped noise | User reports success after replacing only the seven CLIP files; baseline UNet/VAE/tokenizer/markers are byte-identical | Checkpoint-owned CLIPs fix this Pony case; the shared-encoder substitution was not faithful enough |
-| Illustrious output was poor | User reports excellent waiIllustriousSDXL_v170 output after full checkpoint-owned component conversion | This checkpoint now works without changing the UNet template; the test does not isolate CLIP versus VAE contributions |
+| Compiler mapping exhaustion | Vivo report reaches 65,530 mappings, 64,575 belonging to Scudo; a later Nubia trace identifies a 40-byte allocation | Small objects now share storage-backed slabs instead of remaining in Scudo |
+| Backing file creation fails despite free storage | Test APK 2 reports `openat` ENOENT during VAE decoder compilation; deleted-directory host reproduction matches it | Active work moved from cache to `noBackupFilesDir/conversion-work` |
+| LoRA merge retains too much memory | Calculated broad-SDXL merged-weight cache payload is 8.14 GiB without eviction | Retained payload capped at 128 MiB; evicted tensors are recomputed |
+| Previously accepted DMD2 adapters rejected | 722 modules matched, but 198 extra tensors triggered a new hard rejection | ResNet/sampling mappings added; remaining unmatched tensors warn while matched layers merge |
+| Pony output is striped noise | Successful reported test replacing only seven CLIP files, with the UNet/VAE/tokenizer/markers preserved | Checkpoint-owned CLIPs resolve this reported case |
+| Illustrious component fidelity | Successful full-component `waiIllustriousSDXL_v170` conversion and recognizable output | App converts checkpoint-owned CLIPs and both VAE graphs without changing the UNet template |
 
-## 1. Phone compilation: a mapping limit is different from a RAM limit
+## 1. Compiler allocation and workspace failures
 
-The latest saved Vivo report starts at 11:23:46 UTC, identifies V2307A / SM8650,
-and ends at 11:31:47 UTC. It already uses the 8 KiB cutoff, slabs and C++ hooks.
-Immediately before abort it has **65,530 mappings**, including **64,575 Scudo
-secondary mappings** and only **503 compiler backing mappings**. In its final
-seconds mapping count rises sharply while virtual-memory size falls.
+### Mapping exhaustion in earlier Vivo builds
 
-Linux limits the number of mapped memory regions per process separately from
-their total size. Its documented default is 65,530. More physical RAM therefore
-does not resolve this limit. The device's actual setting was unreadable, so the
-matching count strongly supports this explanation without proving the failed
-syscall. [Linux kernel documentation](https://www.kernel.org/doc/html/latest/admin-guide/sysctl/vm.html#max-map-count)
+The saved Vivo V2307A / SM8650 report starting at 11:23:46 UTC already uses
+the earlier 8 KiB cutoff, backing slabs and C++ hooks. Before abort it has
+**65,530 mappings**, including **64,575 Scudo secondary mappings** and only
+**503 compiler backing mappings**. In its final seconds mapping count rises
+sharply while virtual-memory size falls.
 
-The signal is consistent with the process aborting itself. It does not identify
-an OEM watchdog or prove an ordinary low-memory kill. The older Samsung Scudo
-stack predates the successful configuration change and is not the missing Vivo
-stack. See [the existing evidence](../notes/vivo-existing-evidence.md).
+Linux limits mapped regions separately from their total size; its documented
+default limit is 65,530. More physical RAM does not remove this limit. The
+actual device setting was unreadable, so the matching count strongly supports
+mapping exhaustion without identifying the failed syscall in that report.
+[Linux kernel documentation](https://www.kernel.org/doc/html/latest/admin-guide/sysctl/vm.html#max-map-count)
 
-The slab and C++ interception changes have **not** closed this failure. Reducing
-the cutoff again or disabling MTE without the native caller would be guessing.
-Also keep chip compatibility separate: the SDXL target is fixed at v75 / soc57;
-reported RAM and a phone's brand do not identify its DSP compatibility.
+The native-abort signal does not establish an OEM watchdog or low-memory kill.
+Earlier slabs reduced compiler backing mappings but left small allocations with
+libc/Scudo. Subsequent Nubia native-crash evidence identified an ordinary
+40-byte C++ allocation on that remaining path. Current pooling covers small
+objects from a 16-byte size class, using compact metadata and shared 8 MiB slabs.
+Blocks through 1 MiB also share slabs; larger allocations retain separate
+backing. [SDXL.md](SDXL.md) describes the allocator contract.
 
-The report already records Android exit reason 5 (`REASON_CRASH_NATIVE`), but
-the original diagnostic code only printed exit metadata. Android 12+ can expose
-the native tombstone through `ApplicationExitInfo.traceInputStream`, including
-the abort message and native backtrace. The report now decodes a bounded summary
-of the abort message, signal and up to 24 crashing-thread frames into its existing
-text export. Availability depends on Android retaining the trace; this
-investigation has not recovered the missing Vivo stack.
+A host test with 300,000 simultaneous 40-byte allocations used three backing
+slabs, with total process mappings increasing from 48 to 54. Regression tests
+also exercise reuse, alignment, C/C++ allocation APIs, cross-thread freeing,
+foreign libc pointers and crash-time mapping diagnostics. These results check
+the mechanism, not every Android allocator or QNN workload.
+
+### Test APK 2: active directory removed during compilation
+
+The later report identifies `0.2.1-small-pool-lora-test2`, a Nubia NX789J /
+SM8750 running Android 16, and a Pony/DMD2 F32 conversion. CLIP conversion and
+VAE encoder compilation completed. VAE decoder compilation failed **before
+UNet weight preparation or LoRA merging**.
+
+The allocator reported:
+
+```text
+operation=openat backing file
+bytes=1572864 alignment=16 page_size=4096
+errno=2 (No such file or directory)
+```
+
+At that point the report recorded about 1,136 process mappings, no Scudo
+secondary mappings, approximately 3.74 GiB RSS and 15.95 GiB available RAM.
+Available storage was approximately 145 GiB. The small-object pool had handled
+about 15.5 million allocations. This failure did not reproduce the earlier
+mapping-limit abort.
+
+The backing directory was inside `cache/work/vae_decoder`. Removing a directory
+while the allocator retains its file descriptor reproduces this exact `openat`
+failure: existing mapped data remains readable and filesystem capacity remains
+available, but creating a new file fails with ENOENT. The saved report does not
+identify the process or policy that removed the directory.
+
+Active checkpoint, adapter, component and compiler files now live under
+`noBackupFilesDir/conversion-work`. The foreground service cleans that workspace
+explicitly after conversion. A host reproduction confirmed that deleting cache
+does not interrupt allocations in the separate no-backup directory. Android
+classifies cache files as reclaimable; persistent app-specific files use a
+different lifecycle. [Android storage documentation](https://developer.android.com/training/data-storage/app-specific)
+
+### Diagnostic coverage and device scope
+
+Reports now include signal-time mapping counts, memory/storage snapshots and
+Android native tombstone summaries when available. Tombstone decoding extracts
+the abort message, signal and up to 24 crashing-thread frames from
+`ApplicationExitInfo.traceInputStream`. Retention depends on Android; adding the
+reader cannot recover an already missing trace.
 [Android native crash diagnostics](https://developer.android.com/ndk/guides/debug)
 
-## 2. LoRA: a separate weight-stage memory defect
+The latest test build was reported working after the workspace and LoRA fixes.
+No accompanying post-fix Vivo/Nubia logs identify the successful device matrix.
+Target compatibility also remains separate: SDXL uses fixed v75/soc57 settings.
 
-`LoraSet::apply` in `native/tplconv.cpp` retained a full FP32 merged tensor for
-every matched source key. The cache survived both conversion passes and had no
-size limit. The compiler's storage-backed allocator cannot help: it is preloaded
-only into the later QNN compiler process, not `tplconv`.
+## 2. LoRA memory use and compatibility
 
-Counting source shapes in the shipped recipes, a broad adapter covering all
-700 SDXL transformer weight tensors retains **8,735,948,800 bytes (8.14 GiB)**.
-The corresponding SD1.5 transformer subset is about **924 MiB**. These are
-calculated cache sizes, not measured phone peaks; checkpoint pages, adapter
-pages and temporary merge buffers add to memory use. A sparse adapter costs less.
+### Bounded merged-weight cache
 
-The fix bounds the merged-tensor cache to **128 MiB**, retaining recently used
-tensors for repeated attention-head reads. Evicted tensors are recomputed when
-needed; merge order and FP16 rounding stay the same. This may increase conversion
-time. The bound applies to retained cache payloads, not the entire process.
+`LoraSet::apply` previously retained a full FP32 merged tensor for every matched
+source key across both weight passes. Counting shipped recipe shapes, an
+adapter covering all 700 SDXL transformer weights could retain
+**8,735,948,800 bytes (8.14 GiB)**. The corresponding SD1.5 subset is about
+924 MiB. These are calculated payload sizes, not measured phone peaks.
+Checkpoint mappings, adapter mappings and temporary buffers add to them.
 
-Other limits remain important:
+The current cache retains at most **128 MiB** of merged payloads. Adjacent
+attention-head reads reuse cached weights; evicted tensors are recomputed with
+the same merge order and FP16 rounding. Recomputing can increase conversion
+time. The compiler allocator is separate and cannot bound this earlier weight
+stage's RAM usage.
 
-- Standard SDXL kohya attention naming follows the expected block mapping;
-  there is no evidence that every SDXL LoRA is mapped incorrectly.
-- Text-encoder adapters (`lora_te`, `lora_te1`, `lora_te2`) are not merged into
-  the CLIPs, including checkpoint-owned encoders. A successful UNet merge cannot
-  reproduce those changes.
-- Native and Python merging now reject unmatched adapter tensors and invalid
-  ranks/spatial up kernels, and report dropped encoder modules. Previously,
-  one matched pair could conceal unmatched UNet modules in the same file.
-  Standard diffusers-style ResNet/conv names remain incompletely mapped;
-  supporting a convolution's shape does not mean every naming scheme is supported.
-- The native safetensors reader supports F16/F32, not BF16 adapters.
-- Correct merging does not establish that an adapter matches the checkpoint's
-  training family, or that merged weights fit the template's activation ranges.
+### DMD2 mapping and warning-only unmatched tensors
 
-The tester report `Lora-f16-success.txt` records a successful SDXL conversion on
-a nubia NX789J / SM8750 running Android 16, with 24,230,260,736 bytes of reported
-RAM. The adapter label is `dmd2Sdxl4stepLora.LhSd`, strength 0.8: 722 modules
-matched, both native stages exited 0, and conversion finished in 687.678 seconds.
-The filename reports F16, but the log does not independently establish the
-adapter dtype or the base checkpoint's identity. It establishes conversion
-success, not a rendered comparison or proof of the new cache limit's behavior.
+The pre-fix failure reports matched 722 UNet modules but rejected 198 unmatched
+adapter tensors. The first reported tensor belonged to
+`lora_unet_down_blocks_0_downsamplers_0_conv`. The newer rejection exposed an
+incomplete mapping that earlier conversions had silently skipped.
 
-The same tester later reported DMD2 F32 success and supplied recognizable renders
-labeled `+lora_f32`. The user explicitly places both F16 and F32 tests before the
-component-conversion update. Together these are tester-reported conversion and
-generation successes for that setup. Adapter dtypes were not independently read
-from tensor files, and no controlled comparison isolates the adapter's effect.
-These results do not independently validate the new component pipeline. The
-subsequent Illustrious success is a separate test, recorded below.
+Native and Python mappings now include ResNet normalization/convolution/shortcut
+layers, down/up samplers, input/output convolution and time/additional embedding
+layers, alongside attention. On the inspected SDXL source layout, 66 additional
+modules with down/up/alpha entries account for the 198 previously unmatched
+tensors. Mapping aliases were compared across 391 SD1.5 and 1,050 SDXL source
+weights, with no collisions in those sets.
 
-The reports still do not identify an actual failing adapter, so the cache defect
-is a concrete fix, not proof of the cause of every reported LoRA failure. The
-successful tester run also rules out describing SDXL LoRA conversion as generally
-unsupported. Rendered LoRA effect and full adapter coverage remain unverified.
+The whole-adapter rejection for extra tensors has also been removed. Recognized
+UNet pairs merge, while remaining unsupported or unmatched tensors produce a
+warning. Missing pairs can be skipped when other recognized pairs exist. A file
+with no matched UNet pair still fails; invalid multiplication shapes remain
+errors. This preserves useful partial merging without claiming the unsupported
+parts were applied.
 
-## 3. Image quality: what the existing evidence rules out
+Remaining limits:
+
+- Text-encoder adapters are reported and skipped, including with checkpoint-owned
+  CLIPs. A UNet-only merge cannot reproduce their encoder changes.
+- Supported input dtypes are F16/F32. BF16 support is deferred.
+- Standard kohya module naming is supported; arbitrary PEFT/diffusers file
+  layouts and format-specific DoRA/LyCORIS arithmetic are not implemented.
+- Correct merge arithmetic does not establish adapter/checkpoint training-family
+  compatibility or that the result fits the template's activation ranges.
+
+### Historical and latest phone reports
+
+The historical `Lora-f16-success.txt` report records a Nubia NX789J / SM8750,
+Android 16, adapter label `dmd2Sdxl4stepLora.LhSd`, strength 0.8, 722 matched
+modules, successful native exits and completion in **687.678 seconds**. F16 is
+reported by the filename rather than verified tensor metadata. The base
+checkpoint is not established by that report.
+
+The same tester supplied recognizable renders labeled `+lora_f32` and reported
+DMD2 F32 success. Both tests preceded checkpoint-owned component conversion and
+the strict unmatched-tensor rejection. They establish working historical setups,
+not full adapter coverage or a controlled measurement of the adapter's effect.
+
+The latest test APK received a separate successful report after the mapping,
+warning behavior and workspace fixes. It does not provide new adapter tensor
+metadata or a same-seed LoRA-effect comparison.
+
+## 3. Image quality and checkpoint-owned conditioning
 
 The SDXL authoring `plan.json` identifies **xxmix9realisticsdxl_v10** as the
 template checkpoint. Calibration covers three prompt trajectories / 30 rows,
@@ -144,8 +203,8 @@ checkpoint rather than assuming it from the name “anime” or “SDXL”.
 
 ### Original Pony v6 failure
 
-The user's 23:32 screenshot shows banded noise at 1024 × 1024, 30 steps,
-CFG 7, seed 434446878 and 45.7 seconds. The user confirms DPM and V-prediction
+The supplied 23:32 screenshot shows banded noise at 1024 × 1024, 30 steps,
+CFG 7, seed 434446878 and 45.7 seconds. The reported settings were DPM with V-prediction
 off; the exact DPM variant and schedule were not supplied. The phone checkpoint
 header matches the previously audited local header: title `v6-full-te`, SDXL
 base architecture, 1024 resolution and `modelspec.prediction_type=epsilon`.
@@ -205,11 +264,15 @@ source parameters are mapped. Floating graph arithmetic on HTP remains FP16;
 float32 I/O does not mean float32 internal computation. Pony's source VAE already
 matches the shared FP16-fix weights after rounding. See
 [component conversion](SDXL-COMPONENTS.md) for the new implementation and checks.
-The user reports excellent quality after full app conversion of `waiIllustriousSDXL_v170`. The supplied screenshot shows 1024 × 1024, 30 steps, CFG 7, seed 418928922 and 45.8 seconds on NPU. This validates conversion and text-to-image for this checkpoint; it does not isolate CLIP versus VAE effects or establish compatibility with every derivative.
+Full app conversion of `waiIllustriousSDXL_v170` subsequently produced a
+reported successful result. Its screenshot records 1024 × 1024, 30 steps,
+CFG 7, seed 418928922 and 45.8 seconds on NPU. This supports conversion and
+text-to-image for this checkpoint; it does not isolate CLIP versus VAE effects
+or establish compatibility with every derivative.
 Other derivatives and image-to-image still need testing. Component fidelity and
 UNet activation calibration remain separate verification tasks.
 
-### CLIP-only diagnostic: user-confirmed success on September 16
+### CLIP-only diagnostic: reported phone success on September 16
 
 `v6-Pony-CLIP-test.zip` contains checkpoint-owned CLIP-L and CLIP-G in the same
 formats as the donor: FP16 for L and INT8 with external weights for G. Later
@@ -233,19 +296,18 @@ covered both EOS and zero padding:
 | CLIP-G EOS pooled vector | 0.91–1.29% |
 
 All outputs were finite and the original-encoder wrapper comparisons passed.
-These numerical results are host conditioning checks. The user subsequently
-reported that the diagnostic model worked on the phone: "It worked!"
-Replacing the shared CLIPs fixed the reported Pony failure while preserving
+These numerical results are host conditioning checks. A subsequent phone test
+reported successful generation with the diagnostic model. Replacing the shared CLIPs fixed the reported Pony failure while preserving
 the exact compiled UNet and VAE. This does not establish universal SDXL support
 or identify which individual encoder/tensor caused the degradation.
 The reproducible `pony_clip_test.py`, `package_clip_test.py`, per-encoder results
 and `package-verification.json` remain in local artifacts outside the public repo.
 
-The requested comparison used the distinct test model, baseline prompt, seed
-434446878, 30 steps, CFG 7, the same DPM variant/schedule and V-prediction off.
-The exact rerun settings and output image were not independently captured;
-the success is user-reported. A distinct model path matters because same-path
-model reuse can retain conditioning in RAM.
+The comparison protocol specified a distinct test model with the baseline
+prompt, seed 434446878, 30 steps, CFG 7, the same DPM variant/schedule and
+V-prediction off. The exact rerun settings and output image were not independently
+captured, so success remains a reported phone result. A distinct model path
+avoids retaining conditioning through same-path model reuse.
 
 The integration review also identified a separate conditioning difference:
 the QNN path EOS-pads CLIP-G, while the standard tokenizer and MNN path use zero
@@ -255,10 +317,10 @@ padded hidden rows remain visible to UNet attention within the active chunk.
 The successful test left that behavior unchanged, so no padding change was
 needed for the observed Pony fix. Its broader effect remains unmeasured.
 
-### Next implementation and remaining quality work
+### Remaining quality work
 
-Extend phone validation to SD1.5, image-to-image and additional checkpoints,
-then support applicable text-encoder LoRAs. The successful Pony diagnostic used
+Extend phone evidence to the checkpoint-owned SD1.5 path, image-to-image and
+additional checkpoints. Text-encoder LoRA is a separate future capability. The successful Pony diagnostic used
 desktop export; the subsequent Illustrious app conversion provides separate
 evidence for the new SDXL stages. Neither result required a new UNet template.
 
@@ -278,19 +340,23 @@ A weight-span ratio is only a screening heuristic. The historical SD1.5
 MistoonAnime result neither proves the SDXL cause nor establishes that one
 additional “anime template” covers Pony and Illustrious.
 
-## Verification of the source changes
+## Verification scope
 
-- Ten focused Python/native tests passed, including SD1.5/SDXL attention pack
-  byte parity with synthetic LoRAs, cache eviction/recomputation, stacked signed
-  strengths and rejection of partial/DoRA/invalid-shape adapters. The original
-  native code accepted a tiny DoRA fixture while ignoring its magnitude tensor;
-  the updated code rejects it.
-- Standalone Kotlin compilation of `NativeTombstone` and `ConversionReport`
-  against Android 37 succeeded. Tombstone fixtures passed for field ordering,
-  signed signals, unknown fields, bounds, malformed input and PID matching.
-- Independent source review and `git diff --check` found no actionable issues.
-- No APK build/deployment, full checkpoint conversion or UNet template rebuild
-  was performed in the diagnostic. The focused local CLIP export and subsequent
-  user-reported phone success are recorded above.
-  These checks do not establish a full SDXL LoRA fix or Vivo conversion success
-  on a device; they validate the bounded source changes described above.
+Recorded checks for the implemented changes include:
+
+- Native/Python LoRA pack parity with F16/F32 adapters, ResNet/sampler mappings,
+  stacked signed strengths and bounded-cache eviction/recomputation.
+- Warning-only behavior for unmatched or mixed-format tensors, continued merging
+  of recognized pairs, and failure for zero matches or unusable shapes.
+- Host compiler-allocation stress tests, alignment/reallocation, cross-thread
+  freeing and crash-signal/mapping-count behavior.
+- The deleted-directory backing-file reproduction and the separate persistent
+  workspace case.
+- Native CLIP outputs matching the working Pony diagnostic; VAE recipe/pack
+  comparisons and compiled planar float32 component interfaces.
+- Android build and lint checks, plus tombstone fixtures covering malformed
+  input, bounds, unknown fields, field ordering and PID matching.
+
+Host checks establish behavior of the exercised paths. Phone measurements and
+reported results are attributed separately above. Neither class of evidence
+establishes universal device, adapter or checkpoint support.

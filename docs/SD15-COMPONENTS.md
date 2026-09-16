@@ -62,8 +62,9 @@ recipes remove learned reference weights; each conversion supplies its own.
 - A 512px host fixture stayed finite in FP32 and FP16. Relative RMSE was
   0.4815% for encoder mean, 0.3982% for encoder std and 0.04780% for decoder
   output. This is a host arithmetic check, not phone QNN inference validation.
-- Android debug assembly and lint pass with no lint findings. The existing 28
-  Python/native regressions and two new VAE authoring cases pass.
+- At component integration, Android debug assembly and lint passed with no lint
+  findings, alongside 28 existing Python/native tests and two VAE authoring
+  cases. See [Testing](TESTING.md) for the current suite and commands.
 - SDXL component assets remain byte-identical to the preceding APK.
 - All 30 component asset files and both native writers were verified byte for
   byte inside the final debug APK.

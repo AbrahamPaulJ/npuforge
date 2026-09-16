@@ -92,9 +92,9 @@ Detailed reproduction: [CLIP authoring](CLIP-COMPONENTS.md) and
 - Native FP16/FP32 tests cover tie-to-even rounding, subnormals, signed zero,
   convolution layout, attention singleton dimensions and invalid values.
 - Existing native and Python LoRA regressions pass after adding the float rules.
-- The complete Python/native regression suite passes all 30 tests, including
-  13 CLIP writer cases for quantization, QKV slicing, projection transpose and
-  malformed inputs.
+- At component integration, 30 Python/native tests passed, including 13 CLIP
+  writer cases for quantization, QKV slicing, projection transpose and malformed
+  inputs. The current suite and commands are documented in [Testing](TESTING.md).
 - Both VAE native packs reproduce the QNN converter's weight bytes exactly.
 - Both VAE contexts compile successfully with the host QNN HTP backend. Their
   compiled metadata preserves the float32 planar runtime interfaces above.

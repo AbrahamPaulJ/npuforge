@@ -1,139 +1,46 @@
-# npuforge — project index
+# npuforge development index
 
-Convert SD1.5 and SDXL `.safetensors` into Qualcomm NPU models **on the phone**. A standalone converter: it writes models that any generator
-can import, and is deliberately not a feature of any one generator.
+Read [HANDOFF.md](HANDOFF.md) for the current implementation and source map.
+Read [README.md](README.md) for the public overview. This file is a navigation
+aid; measured results and limitations belong in the topic documents below.
 
-📌 **START HERE: `HANDOFF.md`.** It is rewritten every session and says what
-state things are in and what to do next. This file is only an index.
+## Documentation
 
-## Status
-
-SD1.5 and SDXL conversion and generation work on the tested Galaxy S25 Ultra.
-Current runtime: QAIRT 2.50.0.260828. SDXL uses O=3, the storage-backed compiler
-allocator and disabled source-destructive reuse. Recorded O=3 total conversion:
-437 seconds; Aura generation: 15 seconds at 1024 × 1024, 8 steps, CFG 1.
-See `docs/SDXL.md` for exact settings and limitations, and `NOTICE` for third-party
-artifact provenance. SDK/model binaries are still excluded from this source repo.
-
-## Read on demand
-
-| Doc | Read it when |
+| Document | Contents |
 |---|---|
-| `HANDOFF.md` | **always, first** — live state, next step, what not to redo |
-| `docs/SDXL.md` | SDXL template contract, compiler OOM investigation, successful phone results and checkpoint-owned components |
-| `docs/SDXL-COMPONENTS.md` | SDXL CLIP/VAE phone pipeline, generated assets, validation and FP16 limits |
-| `docs/SD15-COMPONENTS.md` | SD1.5 checkpoint-owned components, clip-skip 2, 512px VAE templates and quality limits |
-| `docs/SDXL-INVESTIGATION.md` | Pony fixed with checkpoint-owned CLIPs, Vivo mapping-limit evidence, bounded LoRA cache and successful Illustrious full-component conversion |
-| `docs/LIMITS.md` | **before saying what this supports**, or when a conversion produced something wrong. Scope, the fp16 stamp, the anime failure and its dead hypotheses, LoRA support matrix, how to read a failure |
-| `ROADMAP.md` | planning. Also lists what is **parked by decision** (2.28 build, anime template) and what was **rejected on measurement** — check before proposing anything |
-| `docs/CHECKPOINT-FAMILIES.md` | **before planning a second template, a second resolution, or changing whose CLIP/VAE ships**. Which SD1.5 checkpoints exist and where they came from, the 0.9 MB span probe, why "photoreal vs anime" may be the wrong split, and what another resolution costs |
-| `docs/PIPELINE.md` | touching the template, the recipe, or the quantization rules. The full derivation with every measurement, plus the dead first template and the four checks that passed on it |
-| `docs/BUILD.md` | building `tplconv`, the pack-loading library, or running the adb-driven pipeline. ⚠ `-ffp-contract=off` and the md5-gating trap live here |
-| `docs/ANDROID.md` | **anything touching packaging, `jniLibs`, or library paths.** Four separate causes of one "Device Creation failure" |
-| `README.md` | the public face: results, why the bundle is small, the CLIP/VAE 2×2 |
-| `NOTICE` | before publishing anything, or adding a dependency |
+| [docs/BUILD.md](docs/BUILD.md) | Toolchain, required external artifacts, native and Android builds |
+| [docs/LIMITS.md](docs/LIMITS.md) | Supported inputs, LoRA behavior, device and quality limits |
+| [docs/SDXL.md](docs/SDXL.md) | SDXL runtime contract, compiler configuration and phone measurements |
+| [docs/SDXL-COMPONENTS.md](docs/SDXL-COMPONENTS.md) | Checkpoint-owned SDXL CLIP/VAE conversion and precision limits |
+| [docs/SD15-COMPONENTS.md](docs/SD15-COMPONENTS.md) | SD1.5 CLIP, clip-skip 2 and 512px VAE components |
+| [docs/SDXL-INVESTIGATION.md](docs/SDXL-INVESTIGATION.md) | Compiler allocation, workspace, LoRA and conditioning findings |
+| [docs/PIPELINE.md](docs/PIPELINE.md) | Template derivation, tensor mapping and quantization measurements |
+| [docs/ANDROID.md](docs/ANDROID.md) | Android packaging, native library and DSP loading requirements |
+| [docs/CHECKPOINT-FAMILIES.md](docs/CHECKPOINT-FAMILIES.md) | Historical SD1.5 checkpoint measurements and calibration questions |
+| [docs/TEMPLATE-AUTHORING.md](docs/TEMPLATE-AUTHORING.md) | External template authoring dependencies and reproduction steps |
+| [ROADMAP.md](ROADMAP.md) | Priorities, deferred experiments and evidence needed |
+| [NOTICE](NOTICE) | Third-party artifact provenance and distribution restrictions |
 
-## Key files
+## Engineering constraints
 
-| Path | What |
-|---|---|
-| `native/tplconv.cpp` | the weight stage. safetensors reader, quantization rules, TPLPACK1 writer, LoRA merge. **Its header comment is the arithmetic spec** |
-| `tools/tpl_apply.py` | the Python reference `tplconv` must match byte-for-byte |
-| `tools/tpl_recipe.py`, `tpl_patch.py`, `tpl_pack.py` | template authoring (PC, once) |
-| `tools/tpl_recipe_bin.py`, `tpl_pack_trim.py` | what turns authoring output into the 43 KB + 397 KB the app ships |
-| `tools/lora_merge.py` | the PC reference for the LoRA merge |
-| `tools/span_probe.py` | weight-span profile of a checkpoint, local **or over HTTP ranges** — 0.9 MB decides whether a checkpoint will survive the template's activation ranges |
-| `template/` | `recipe.bin`, `tpl_trim.pack`, `sources.txt` (686 LDM keys) |
-| `app/src/main/java/com/abrah/npuforge/Converter.kt` | the staged pipeline: weights → compile → DSP libs → zip via MediaStore |
-| `…/ConvertService.kt` | foreground service, progress parsing, `--esa` LoRA extras so adb can drive it |
-| `…/CheckpointInfo.kt` | header-only SD1.5/SDXL selection; SD2/diffusers remain unsupported |
-| `…/MainActivity.kt`, `…/ui/InfoScreen.kt` | Compose UI; Info tab mirrors `docs/LIMITS.md` |
-| `app/src/debug/…/ProbeService.kt` | DSP reachability probe, debug source set only |
+- Native weight conversion must match the Python reference byte-for-byte.
+  Preserve `-ffp-contract=off`; FMA contraction changes LoRA rounding.
+- Compare a recipe-derived pack against the corresponding reference pack.
+  A context-binary checksum or a successful compile is not an image-quality
+  measurement.
+- The app uses checkpoint-owned CLIP and both VAE components for both model
+  families. Shared-component archives are legacy backup/restore inputs only.
+- Extra unmatched LoRA tensors warn and leave the recognized UNet layers
+  usable. Text-encoder LoRA and BF16 remain unsupported; BF16 is deferred.
+- SDK libraries, generated templates/models and checkpoints stay excluded
+  from source control. A fresh clone needs externally supplied artifacts for
+  a working APK; see [docs/BUILD.md](docs/BUILD.md) and [NOTICE](NOTICE).
+- Published documentation should distinguish host checks, historical phone
+  measurements and reported field results. Avoid broad compatibility claims
+  from a single checkpoint or device.
+- Keep device serials, network endpoints, private paths, credentials and local
+  diagnostic reports out of published changes. Review the actual diff before
+  committing; historical repository rewriting requires separate coordination.
 
-## Rules that cost time to learn
-
-- **Correctness is decided by `cmp` on the weight pack, never by looking at
-  renders and never by the context binary's md5** — the compile is not
-  byte-reproducible. Two reference checkpoints with known pack md5s are in
-  `docs/BUILD.md`.
-- **`-ffp-contract=off` is mandatory** on both host and device builds. Without
-  it clang fuses FMA on aarch64, the LoRA merge diverges, and the phone produces
-  a different pack from x86 (renders drifted 29 dB after 20 steps).
-- **Compare against the right arm.** A model built from the *recipe* pack is
-  compared against the PC's build of the *recipe* pack. Comparing against the
-  stock template arm reads as a total failure when nothing is wrong.
-- **Latency proves a graph compiled, never that it computes anything.** See the
-  dead template in `docs/PIPELINE.md`.
-- **When a check reports a failure, suspect the check first.** In this project an
-  encoding gate failed a healthy build, a DSP probe passed without creating a
-  device, and a render comparison scored 0/5 against the wrong baseline.
-- ⛔ **Never commit** `libstable_diffusion_core.so`, `libQnn*.so`,
-  `qnn-context-binary-generator`, `libqnn_model.so`, checkpoints or packs. The
-  first is CC BY-NC 4.0; the rest are Qualcomm's or huge. `.gitignore` covers
-  them — do not "fix" it.
-- ⛔ **This repo is public. Sanitise before every push, not before the first
-  one.** Anything written here for local convenience gets published the moment
-  it is pushed, and a push cannot be taken back — a scrub after the fact still
-  leaves the value in someone's clone. So check *before* `git push`:
-
-  | never publish | write instead |
-  |---|---|
-  | device serials, `adb -s R5…` | `-s <serial>`, or `"$SERIAL"` |
-  | Tailscale / LAN addresses, `:5555` endpoints | `<device-ip>` |
-  | absolute paths under a home directory (`C:\Users\…`, `/home/…`, `/mnt/c/…`) | a repo-relative path, or say what the thing is and how to get it |
-  | paths into private sibling checkouts | name the artefact, not its location |
-  | personal emails, tokens, keystores, launcher scripts | nothing — `.gitignore` them |
-
-  ```sh
-  git grep -nEi "R5CY|100\.99\.|C:.Users|/home/[a-z]|:5555|@gmail" -- $(git ls-files)
-  ```
-
-  ⚠ **The working tree is not the deliverable — history is.** Scrubbing a file
-  leaves the old blob reachable. If something identifying has already been
-  committed, rewrite (`git filter-branch --tree-filter`), drop `refs/original`,
-  expire the reflog and `gc --prune=now`, then verify by scanning **every blob**,
-  not just `HEAD`. That was done once (2026-09-14) and the verification is the
-  part that took the time.
-
-  ⚠ Commits are authored as `AbrahamPaulJ@users.noreply.github.com`, and
-  `Claude-Session:` trailers are **not** published — they link to private
-  transcripts. Keep `Co-Authored-By`.
-
-## What this repo does NOT contain
-
-It is self-contained for **building and verifying the converter**. It is not
-self-contained for **authoring a new template** or for **rendering a model to
-look at it**. Those need things that are deliberately absent — some because they
-are Qualcomm's, some because their licence is incompatible with this one
-(`NOTICE`), some because they are gigabytes.
-
-| What | Why absent | Needed for | How to get it |
-|---|---|---|---|
-| QAIRT SDK — `qnn-context-binary-generator`, `libQnnHtp*`, the device runtime | Qualcomm's, redistribution restricted (`NOTICE` §1) | the app's `jniLibs`, and every rebuild | Qualcomm's developer site; needs an account |
-| `libqnn_model.so` (9.7 MB) | generated from QAIRT converter output (`NOTICE` §3) | the app's assets | regenerate — `docs/BUILD.md` |
-| Template authoring scripts and the modified `diffusers` UNet they import | CC BY-NC 4.0 upstream (`NOTICE` §2) | building a **new** template | `docs/TEMPLATE-AUTHORING.md` names every step and the upstream |
-| Render + score harnesses | not written for a public audience | judging a converted model on device | `docs/TEMPLATE-AUTHORING.md` §5 says what they must do |
-| Checkpoints | ~2 GB each, mixed licences (`NOTICE` §4) | any conversion | the user supplies their own |
-
-## Environment
-
-- The app's `jniLibs` and `assets/template/libqnn_model.so` are **gitignored**, so
-  a fresh clone does not build a working APK until they are put back. That is a
-  licence boundary, not an oversight — `docs/BUILD.md` and `NOTICE`.
-- Build: JDK 21 daemon + Android SDK 37 / NDK r29 on Linux, `./gradlew.bat assembleDebug` (or `./gradlew`).
-- adb: always pass `-s <serial>` — there is usually more than one transport when
-  a phone is on both USB and TCP. Check `adb shell settings get global wifi_on`
-  before a large push, and verify every push by md5: `adb push` reports bytes
-  **sent**, not bytes **landed**.
-- ⚠ **`\` collapses inside quoted heredocs in some shells.** Kotlin/C++/Gradle
-  written that way comes out with literal newlines and invalid escapes. Write
-  source files with an editor, or use `Char(92)` / `System.lineSeparator()`.
-
-## Documentation convention
-
-`HANDOFF.md` is rewritten each session, never appended. `CLAUDE.md` stays a thin
-index (< ~350 lines). Findings live in `docs/`, one file per topic, each claim
-carrying its measurement. **No self-contradiction** — when a claim is refuted,
-rewrite the section that states it rather than appending a correction. Record
-**what was wrong and why**: the dead hypotheses are the most valuable part of
-this record.
+Use the repository's current Gradle and NDK configuration. Build commands and
+test dependencies are maintained in [docs/BUILD.md](docs/BUILD.md).

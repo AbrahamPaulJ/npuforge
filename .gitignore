@@ -6,6 +6,7 @@ claude-yolo.bat
 .gradle/
 .kotlin/
 __pycache__/
+.venv/
 local.properties
 *.iml
 .idea/
