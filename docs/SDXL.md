@@ -20,7 +20,7 @@ checkpoint compatibility.
 These runs predate checkpoint-owned component conversion. Checkpoint: `mopMixtureOfPerverts_instaV1`. Shared VAE source:
 `madebyollin/sdxl-vae-fp16-fix`, already converted with QAIRT 2.50.
 
-| Run | Conversion measurement | Aura generation |
+| Run | Conversion measurement | Generation |
 |---|---|---|
 | O=1, reuse disabled | Compiler exited 0; approximately 254 seconds compiling only | 20 seconds |
 | O=3, reuse disabled | User reported 437 seconds total conversion | 15 seconds |

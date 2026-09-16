@@ -11,7 +11,7 @@ time; adding checkpoint-owned CLIP and VAE conversion changes that workload.
 | Original SD1.5 UNet conversion | Galaxy S25 Ultra / SM-S938B, SM8750; 512 × 512; QAIRT 2.49 | 24 s weight conversion + 93 s compilation = **117 s** | Measured original UNet path; excludes today's CLIP/VAE conversion |
 | Original SD1.5 equivalence | DreamShaper 8, identical reference pack and generation inputs | Phone pack byte-identical to Python/host pack; **5/5 rendered PNGs identical** to PC compile | Specific reference model and test inputs |
 | Earlier SDXL conversion | Galaxy S25 Ultra; O=3, source-destructive reuse disabled; QAIRT 2.50 | **437 s total conversion**, reported | Earlier pipeline using shared components; not a current full-pipeline benchmark |
-| Generation from that SDXL export | Aura; 1024 × 1024, 8 steps, CFG 1, LCM/Karras | **15 s**, reported screenshot | Generation in the consuming app; one run |
+| Generation from that SDXL export | 1024 × 1024, 8 steps, CFG 1, LCM/Karras | **15 s**, reported screenshot | Generation in the consuming app; one run |
 | Pony CLIP diagnostic | Pony v6; only seven CLIP-related files replaced | Successful output reported; UNet/VAE/tokenizer/markers preserved by hash | Isolates the text-encoder replacement for this case |
 | Full-component Illustrious | `waiIllustriousSDXL_v170`; 1024 × 1024, 30 steps, CFG 7 | Successful output reported; screenshot shows **45.8 s generation** | End-to-end conversion and text-to-image report; no conversion timing or peak memory supplied |
 | SDXL DMD2 LoRA before component update | nubia NX789J / SM8750; F16-labeled adapter at strength 0.8 | Log records completion in **687.678 s**; F32 success also reported | Historical evidence; earlier merger matched 722 UNet modules and lacked full ResNet/sampler coverage |
@@ -66,8 +66,9 @@ publishing private tester conversations or unsanitized device logs.
    resident memory, file backing and virtual mapping counts.
 3. For converter changes, compare native weight/component output to the matching
    reference recipe and source weights. Keep compiler configuration fixed.
-4. Import the ZIP into a consumer that implements its interface contract. Record
-   consumer/runtime version, prompt, negative prompt, seed, sampler/schedule,
+4. Import the ZIP into [Local Dream](https://github.com/xororz/local-dream) or
+   [Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai), the supported apps. Record
+   app/runtime version, prompt, negative prompt, seed, sampler/schedule,
    steps, CFG, resolution and prediction mode.
 5. Check text-to-image and, separately, image-to-image. For timing claims, repeat
    trials under recorded thermal conditions and distinguish cold and warm runs.

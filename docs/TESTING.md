@@ -73,7 +73,8 @@ A phone check should record:
 1. App/build version, device/SoC, Android version and available RAM/storage.
 2. Checkpoint identity and family; adapter identity, dtype and strength.
 3. Completion of CLIP, **both** VAE components, UNet and ZIP export.
-4. The consuming generator's sampler, prediction mode, seed, steps, CFG and size.
+4. Local Dream or Fancy-Ai version, sampler, prediction mode, seed, steps, CFG
+   and size; output models currently work only in these two apps.
 5. A generated result and the full conversion log, including any warnings.
 
 Text-to-image exercises the decoder but does not establish image-to-image

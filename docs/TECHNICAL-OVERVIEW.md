@@ -3,8 +3,9 @@
 npuforge demonstrates checkpoint-to-QNN conversion inside an Android app.
 A user supplies an SD1.5 or SDXL checkpoint and optional UNet LoRAs. Native tools
 populate pre-authored graphs with those weights and invoke Qualcomm's ARM64
-context generator on the phone. The result is a model ZIP for a compatible
-image-generation application.
+context generator on the phone. Output models work only with
+[Local Dream](https://github.com/xororz/local-dream) and
+[Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai).
 
 ## The engineering contribution
 

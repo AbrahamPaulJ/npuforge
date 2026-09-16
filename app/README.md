@@ -1,7 +1,9 @@
 # Android app
 
 `com.abrah.npuforge` converts a local SD1.5 or SDXL `.safetensors` checkpoint
-into an archive for a compatible image generator. It supports optional UNet
+into an archive for [Local Dream](https://github.com/xororz/local-dream) or
+[Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai), the only supported output
+consumers. It supports optional UNet
 LoRA merging and writes `Download/npuforge/<name>.zip` through MediaStore.
 Existing exports are preserved; the completion screen shows the actual filename.
 

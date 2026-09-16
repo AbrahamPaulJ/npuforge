@@ -2,6 +2,8 @@
 
 **Convert SD1.5 and SDXL checkpoints into Qualcomm QNN models entirely on an Android phone.**
 
+[![Host regression tests](https://github.com/AbrahamPaulJ/npuforge/actions/workflows/host-tests.yml/badge.svg?branch=main)](https://github.com/AbrahamPaulJ/npuforge/actions/workflows/host-tests.yml)
+
 [Technical overview](docs/TECHNICAL-OVERVIEW.md) · [Results](docs/RESULTS.md) · [Build](docs/BUILD.md) · [Tests](docs/TESTING.md) · [Limitations](docs/LIMITS.md)
 
 npuforge turns a local `.safetensors` checkpoint into an importable model ZIP for
@@ -23,7 +25,7 @@ performed separately on a workstation.
 ## What it enables
 
 - **Local model conversion:** choose a checkpoint, convert it on the phone, and
-  import the exported ZIP into a compatible image generator.
+  import the exported ZIP into Local Dream or Fancy-Ai.
 - **Checkpoint-owned components:** preserve a fine-tune's trained CLIP and VAE
   weights, including SDXL's two text encoders.
 - **Baked-in LoRAs:** merge supported UNet adapters before quantization, with an
@@ -33,8 +35,15 @@ performed separately on a workstation.
 - **Inspectable implementation:** Kotlin/Jetpack Compose app, native C/C++
   converters, Python reference tools, and host regression tests.
 
-The app exports models. Image generation takes place in a compatible consumer,
-which must support the exported graph interfaces and QNN runtime.
+## Supported generation apps
+
+Output models work only with:
+
+- [Local Dream](https://github.com/xororz/local-dream)
+- [Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai)
+
+Import the exported ZIP through either app's custom-model workflow. Device and
+QNN runtime compatibility still apply.
 
 ## How it works
 
@@ -68,7 +77,7 @@ compatibility and quality must be established for each model family.
 |---|---|
 | **117 s SD1.5 conversion** | 24 s weight conversion + 93 s QNN compilation on Galaxy S25 Ultra; original UNet pipeline |
 | **437 s SDXL conversion** | Reported total for the earlier O=3 pipeline on Galaxy S25 Ultra; predates checkpoint-owned CLIP/VAE conversion |
-| **15 s SDXL image generation** | Export consumed by Aura: 1024 × 1024, 8 steps, CFG 1; generation time, not conversion time |
+| **15 s SDXL image generation** | Generated from the exported model: 1024 × 1024, 8 steps, CFG 1; generation time, not conversion time |
 | **Pony restored by checkpoint-owned CLIPs** | Reported successful render after replacing only the text-encoder components |
 | **Illustrious full-component conversion** | Successful reported output from `waiIllustriousSDXL_v170`; 1024 × 1024, 30 steps, CFG 7 |
 | **LoRA conversion fixes confirmed** | Latest test APK reported working after DMD2 mapping, compiler allocation and workspace fixes |
@@ -82,8 +91,8 @@ pipeline**. [Results, methodology and remaining measurements](docs/RESULTS.md).
 1. Install an APK built with the required runtime and generated assets.
 2. Select a complete SD1.5 or SDXL `.safetensors` checkpoint.
 3. Optionally add UNet LoRAs and set their strengths.
-4. Start conversion and import `Download/npuforge/<name>.zip` into a compatible
-   generator.
+4. Start conversion and import `Download/npuforge/<name>.zip` into **Local Dream**
+   or **Fancy-Ai**.
 
 The current app targets Android 13+ on ARM64 Snapdragon devices. The Galaxy S25
 Ultra with 12 GB RAM is the main demonstrated device. Available memory, storage,

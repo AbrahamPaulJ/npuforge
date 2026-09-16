@@ -1,7 +1,9 @@
 # Developer overview
 
 npuforge converts SD1.5 and SDXL checkpoints into importable Qualcomm NPU model
-bundles on Android. Start with [README.md](README.md) for the project overview
+bundles on Android for [Local Dream](https://github.com/xororz/local-dream) and
+[Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai). Output compatibility is limited
+to those two apps. Start with [README.md](README.md) for the project overview
 and [docs/BUILD.md](docs/BUILD.md) for dependencies and build instructions.
 
 ## Current implementation

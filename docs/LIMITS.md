@@ -6,6 +6,13 @@ reported working in test APK 3. That latest confirmation did not include
 post-fix device-specific logs, so it does not establish support for every
 Vivo/Nubia device or checkpoint.
 
+## Output application compatibility
+
+Output models work only with [Local Dream](https://github.com/xororz/local-dream)
+and [Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai). Their custom-model import
+path implements the exported component filenames, conditioning interfaces and
+QNN context contract. Device/runtime requirements apply in both apps.
+
 ## Current conversion contract
 
 | | SD1.5 | SDXL |

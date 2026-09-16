@@ -4,7 +4,7 @@ Review date: **16 September 2026**.
 
 npuforge's specific contribution is an Android application that accepts an SDXL
 checkpoint, converts its weights and compiles QNN context binaries **on the
-phone**, then exports a package for a compatible generator. This includes
+phone**, then exports a package for Local Dream or Fancy-Ai. This includes
 checkpoint-owned CLIP graphs in MNN format and QNN VAE encoder/decoder graphs.
 Templates are prepared in advance; conversion of each selected checkpoint does
 not need a workstation or cloud compiler.

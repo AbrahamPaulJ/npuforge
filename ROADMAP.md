@@ -88,7 +88,8 @@ are prerequisites.
 
 ### Workflow improvements
 
-- Document a share/import contract for consuming generation apps.
+- Document the existing Local Dream/Fancy-Ai import contract before extending
+  output compatibility to other generation apps.
 - Investigate resuming completed stages after interruption.
 - Measure compilation memory and quality before adding resolutions. Current
   graphs are fixed at 512 × 512 for SD1.5 and 1024 × 1024 for SDXL; a new
