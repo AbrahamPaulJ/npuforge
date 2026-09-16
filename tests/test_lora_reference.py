@@ -17,7 +17,7 @@ from lora_merge import merge
 
 
 class LoraReferenceTest(unittest.TestCase):
-    def test_supported_sdxl_modules_and_unsupported_adapters(self):
+    def test_supported_layers_merge_despite_extras_but_invalid_math_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory) / "base.safetensors"
             lora = Path(directory) / "lora.safetensors"
@@ -33,8 +33,30 @@ class LoraReferenceTest(unittest.TestCase):
             expected = np.array([[1.0703125, 1.9765625], [2.958984375, 3.96484375]], dtype=np.float16)
             for weight in result.values():
                 np.testing.assert_array_equal(weight, expected)
+            altered = dict(tensors)
+            altered[MODULES[0] + ".dora_scale"] = ([2], [1, 1])
+            save_tensors(lora, altered)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = merge(str(base), str(lora), 0.75)
+            self.assertIn("warning:", output.getvalue())
+            self.assertIn("dora_scale", output.getvalue())
+            for weight in result.values():
+                np.testing.assert_array_equal(weight, expected)
+
+            altered = dict(tensors)
+            del altered[MODULES[0] + ".lora_up.weight"]
+            save_tensors(lora, altered)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = merge(str(base), str(lora), 0.75)
+            self.assertIn("warning:", output.getvalue())
+            self.assertIn("2 unsupported or unmatched", output.getvalue())
+            for key, weight in result.items():
+                target = np.array([[1, 2], [3, 4]], dtype=np.float16) if key == KEYS[0] else expected
+                np.testing.assert_array_equal(weight, target)
+
             for suffix, values, message in (
-                (".dora_scale", ([2], [1, 1]), "unsupported or unmatched"),
                 (".lora_up.weight", ([2, 1], [1, 1]), "invalid LoRA down/up shapes"),
                 (".alpha", ([2], [1, 1]), "alpha must be one finite value"),
             ):

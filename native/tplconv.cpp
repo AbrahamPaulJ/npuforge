@@ -422,20 +422,87 @@ struct LoraMod {
     float scale;  // strength * alpha / rank
 };
 
-// LDM attention block prefix -> the diffusers prefix kohya would have used.
-std::string diffusers_prefix(const std::string& pre) {
-    int n = -1;
-    if (sscanf(pre.c_str(), "input_blocks.%d.1", &n) == 1 && pre == "input_blocks." + std::to_string(n) + ".1")
-        return "down_blocks_" + std::to_string((n - 1) / 3) + "_attentions_" + std::to_string((n - 1) % 3);
-    if (pre == "middle_block.1") return "mid_block_attentions_0";
-    if (sscanf(pre.c_str(), "output_blocks.%d.1", &n) == 1 && pre == "output_blocks." + std::to_string(n) + ".1")
-        return "up_blocks_" + std::to_string(n / 3) + "_attentions_" + std::to_string(n % 3);
-    return "";
-}
-
 std::string underscored(std::string v) {
     for (char& c : v) if (c == '.') c = '_';
     return v;
+}
+
+std::string resnet_member(const std::string& member) {
+    static const std::pair<const char*, const char*> names[] = {
+        {"in_layers.0", "norm1"}, {"in_layers.2", "conv1"},
+        {"out_layers.0", "norm2"}, {"out_layers.3", "conv2"},
+        {"emb_layers.1", "time_emb_proj"}, {"skip_connection", "conv_shortcut"},
+    };
+    for (const auto& name : names) if (member == name.first) return name.second;
+    return "";
+}
+
+std::string attention_member(const std::string& member) {
+    if (member == "norm" || member == "proj_in" || member == "proj_out" ||
+        member.compare(0, 19, "transformer_blocks.") == 0)
+        return underscored(member);
+    return "";
+}
+
+// SD1.5 and SDXL share two down-path ResNets / three up-path ResNets per
+// block. Convert complete paths so a sampler convolution cannot accidentally
+// acquire an attention alias. DMD2 adapts ResNets and samplers as well as attention.
+std::string diffusers_name(const std::string& body) {
+    static const std::pair<const char*, const char*> direct[] = {
+        {"input_blocks.0.0", "conv_in"}, {"out.0", "conv_norm_out"},
+        {"out.2", "conv_out"}, {"time_embed.0", "time_embedding_linear_1"},
+        {"time_embed.2", "time_embedding_linear_2"},
+        {"label_emb.0.0", "add_embedding_linear_1"},
+        {"label_emb.0.2", "add_embedding_linear_2"},
+    };
+    for (const auto& name : direct) if (body == name.first) return name.second;
+
+    int block = -1, consumed = 0;
+    if (sscanf(body.c_str(), "input_blocks.%d.%n", &block, &consumed) == 1 &&
+        consumed > 0 && block > 0 && block <= 11) {
+        const std::string rest = body.substr((size_t)consumed);
+        const std::string prefix = "down_blocks_" + std::to_string((block - 1) / 3);
+        if (block % 3 == 0)
+            return rest == "0.op" ? prefix + "_downsamplers_0_conv" : "";
+        if (rest.compare(0, 2, "0.") == 0) {
+            const std::string member = resnet_member(rest.substr(2));
+            if (!member.empty()) return prefix + "_resnets_" + std::to_string((block - 1) % 3) + "_" + member;
+        }
+        if (rest.compare(0, 2, "1.") == 0) {
+            const std::string member = attention_member(rest.substr(2));
+            if (!member.empty()) return prefix + "_attentions_" + std::to_string((block - 1) % 3) + "_" + member;
+        }
+    }
+    consumed = 0;
+    if (sscanf(body.c_str(), "output_blocks.%d.%n", &block, &consumed) == 1 &&
+        consumed > 0 && block >= 0 && block <= 11) {
+        const std::string rest = body.substr((size_t)consumed);
+        const std::string prefix = "up_blocks_" + std::to_string(block / 3);
+        // SD1.5's first upsampler is .1.conv; SDXL's is .2.conv.
+        if ((block == 2 || block == 5 || block == 8) && (rest == "1.conv" || rest == "2.conv"))
+            return prefix + "_upsamplers_0_conv";
+        if (rest.compare(0, 2, "0.") == 0) {
+            const std::string member = resnet_member(rest.substr(2));
+            if (!member.empty()) return prefix + "_resnets_" + std::to_string(block % 3) + "_" + member;
+        }
+        if (rest.compare(0, 2, "1.") == 0) {
+            const std::string member = attention_member(rest.substr(2));
+            if (!member.empty()) return prefix + "_attentions_" + std::to_string(block % 3) + "_" + member;
+        }
+    }
+    consumed = 0;
+    if (sscanf(body.c_str(), "middle_block.%d.%n", &block, &consumed) == 1 && consumed > 0) {
+        const std::string rest = body.substr((size_t)consumed);
+        if (block == 0 || block == 2) {
+            const std::string member = resnet_member(rest);
+            if (!member.empty()) return "mid_block_resnets_" + std::to_string(block / 2) + "_" + member;
+        }
+        if (block == 1) {
+            const std::string member = attention_member(rest);
+            if (!member.empty()) return "mid_block_attentions_0_" + member;
+        }
+    }
+    return "";
 }
 
 // For one checkpoint key, every kohya module name that could refer to it.
@@ -446,11 +513,8 @@ std::vector<std::string> kohya_names(const std::string& ldm_key) {
     if (ldm_key.size() < S.size() || ldm_key.compare(ldm_key.size() - S.size(), S.size(), S) != 0) return out;
     std::string body = ldm_key.substr(P.size(), ldm_key.size() - P.size() - S.size());
     out.push_back("lora_unet_" + underscored(body));
-    for (size_t i = 0; i < body.size(); i++) {
-        if (body[i] != '.') continue;
-        std::string dp = diffusers_prefix(body.substr(0, i));
-        if (!dp.empty()) out.push_back("lora_unet_" + dp + "_" + underscored(body.substr(i + 1)));
-    }
+    std::string name = diffusers_name(body);
+    if (!name.empty()) out.push_back("lora_unet_" + name);
     return out;
 }
 
@@ -530,9 +594,9 @@ struct LoraSet {
                 path.c_str(), strength, matched, text_modules, unmatched.size());
         if (!unmatched.empty()) {
             std::sort(unmatched.begin(), unmatched.end());
-            die("%s: unsupported or unmatched adapter tensor '%s'; requires standard kohya "
-                "UNet lora_down/lora_up/alpha (no DoRA, LyCORIS or PEFT)",
-                path.c_str(), unmatched.front().c_str());
+            fprintf(stderr, "warning: %s: ignoring %zu unsupported or unmatched adapter tensors "
+                            "(first: '%s'); merging the matched UNet layers\n",
+                    path.c_str(), unmatched.size(), unmatched.front().c_str());
         }
         if (matched == 0) die("%s matched no tensors -- wrong LoRA format?", path.c_str());
         files.push_back(std::move(st));

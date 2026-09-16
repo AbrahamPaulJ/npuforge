@@ -25,6 +25,7 @@ android {
 
     buildTypes {
         debug {
+            versionNameSuffix = "-small-pool-lora-test3"
             // Unminified: this is a tool for one person so far, and a readable
             // stack trace is worth more than the megabytes. Revisit if it ships.
             isMinifyEnabled = false

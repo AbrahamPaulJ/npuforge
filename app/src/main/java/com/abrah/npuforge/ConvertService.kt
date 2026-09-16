@@ -215,7 +215,9 @@ class ConvertService : Service() {
         post(firstStage)
         conversion = scope.launch {
             var result: State = State.Idle
-            val work = File(cacheDir, "work")
+            // Active inputs, compiler backing files and outputs must survive
+            // cache reclamation. This directory is cleaned explicitly below.
+            val work = File(noBackupFilesDir, "conversion-work")
             val wakeLock = getSystemService(PowerManager::class.java)
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "npuforge:conversion")
                 .apply { setReferenceCounted(false) }
@@ -252,6 +254,7 @@ class ConvertService : Service() {
                     diagnostic.record("LoRA strengths=${loraSpecs.map { it.second }}")
                     work.deleteRecursively()
                     work.mkdirs()
+                    diagnostic.record("Conversion workspace: ${work.absolutePath}")
                     steps = 10 + loraSpecs.size
                     step = 0
 

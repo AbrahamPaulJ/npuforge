@@ -30,6 +30,67 @@ import numpy as np
 from safetensors.numpy import load_file, save_file
 
 
+def diffusers_name(body):
+    """Forward LDM weight-module mapping for the SD1.5/SDXL UNet layouts.
+
+    Follows Diffusers' convert_ldm_unet_checkpoint / renew_resnet_paths;
+    these model families have two ResNets per down block and three per up block.
+    """
+    direct = {
+        "input_blocks.0.0": "conv_in",
+        "out.0": "conv_norm_out",
+        "out.2": "conv_out",
+        "time_embed.0": "time_embedding.linear_1",
+        "time_embed.2": "time_embedding.linear_2",
+        "label_emb.0.0": "add_embedding.linear_1",
+        "label_emb.0.2": "add_embedding.linear_2",
+    }
+    if body in direct:
+        return direct[body].replace(".", "_")
+    resnet = {
+        "in_layers.0": "norm1",
+        "in_layers.2": "conv1",
+        "out_layers.0": "norm2",
+        "out_layers.3": "conv2",
+        "emb_layers.1": "time_emb_proj",
+        "skip_connection": "conv_shortcut",
+    }
+    match = re.fullmatch(r"(input_blocks|output_blocks|middle_block)\.(\d+)\.(.+)", body)
+    if not match:
+        return None
+    group, number, rest = match.groups()
+    n = int(number)
+    if group == "middle_block":
+        if n in (0, 2) and rest in resnet:
+            return f"mid_block_resnets_{n // 2}_{resnet[rest]}"
+        attention = "mid_block_attentions_0" if n == 1 else None
+    else:
+        part, separator, rest = rest.partition(".")
+        if not separator:
+            return None
+        if group == "input_blocks":
+            if n in (3, 6, 9) and part == "0" and rest == "op":
+                return f"down_blocks_{n // 3 - 1}_downsamplers_0_conv"
+            if not 1 <= n <= 11 or n % 3 == 0:
+                return None
+            block, layer = (n - 1) // 3, (n - 1) % 3
+            prefix = f"down_blocks_{block}"
+        else:
+            if n > 11:
+                return None
+            if n in (2, 5, 8) and part in ("1", "2") and rest == "conv":
+                return f"up_blocks_{n // 3}_upsamplers_0_conv"
+            prefix, layer = f"up_blocks_{n // 3}", n % 3
+        if part == "0" and rest in resnet:
+            return f"{prefix}_resnets_{layer}_{resnet[rest]}"
+        attention = f"{prefix}_attentions_{layer}" if part == "1" else None
+    # In SD1.5, output_blocks.2.1 is an upsampler, not an attention block.
+    if attention and (rest in ("norm", "proj_in", "proj_out")
+                      or rest.startswith("transformer_blocks.")):
+        return attention + "_" + rest.replace(".", "_")
+    return None
+
+
 def merge(base_path, lora_path, strength, out_path=None):
     if not np.isfinite(strength):
         raise SystemExit("LoRA strength must be finite")
@@ -40,27 +101,6 @@ def merge(base_path, lora_path, strength, out_path=None):
     # would carry, and index by that. Reversing a kohya name is ambiguous --
     # "." -> "_" is lossy and `to_out_0`, `ff_net_0_proj` and `transformer_blocks_0`
     # all collide with it -- but going forwards is deterministic.
-    #
-    # ⚠ kohya names SD1.5 LoRAs with **diffusers** block names while the
-    # checkpoint uses **LDM** ones, so the block prefix needs translating.
-    # Attention blocks, which is all a standard style LoRA touches:
-    #     input_blocks.N.1   N in 1,2,4,5,7,8 -> down_blocks.(N-1)//3.attentions.(N-1)%3
-    #     middle_block.1                      -> mid_block.attentions.0
-    #     output_blocks.N.1  N in 3..11       -> up_blocks.N//3.attentions.N%3
-    # Everything inside an attention block is named identically in both.
-    def diffusers_prefix(body):
-        m = re.match(r"input_blocks\.(\d+)\.1$", body)
-        if m:
-            n = int(m.group(1))
-            return f"down_blocks_{(n - 1) // 3}_attentions_{(n - 1) % 3}"
-        if body == "middle_block.1":
-            return "mid_block_attentions_0"
-        m = re.match(r"output_blocks\.(\d+)\.1$", body)
-        if m:
-            n = int(m.group(1))
-            return f"up_blocks_{n // 3}_attentions_{n % 3}"
-        return None
-
     kohya_of = {}
     for k in base:
         if not (k.startswith("model.diffusion_model.") and k.endswith(".weight")):
@@ -68,14 +108,10 @@ def merge(base_path, lora_path, strength, out_path=None):
         body = k[len("model.diffusion_model."):-len(".weight")]
         # LDM-native naming, used by some LoRAs
         kohya_of.setdefault("lora_unet_" + body.replace(".", "_"), k)
-        # diffusers naming, used by kohya for SD1.5
-        for cut in range(len(body)):
-            if body[cut] != ".":
-                continue
-            pre, rest = body[:cut], body[cut + 1:]
-            dp = diffusers_prefix(pre)
-            if dp:
-                kohya_of.setdefault("lora_unet_" + dp + "_" + rest.replace(".", "_"), k)
+        # Diffusers naming includes DMD2's ResNet and sampler convolutions.
+        mapped = diffusers_name(body)
+        if mapped:
+            kohya_of.setdefault("lora_unet_" + mapped, k)
 
     SUF = ".lora_down.weight"
     modules = sorted(k[: -len(SUF)] for k in lora
@@ -90,9 +126,9 @@ def merge(base_path, lora_path, strength, out_path=None):
     unmatched = sorted(set(lora) - used)
     print(f"LoRA modules: {len(modules)} unet, {te} text-encoder (DROPPED -- text-encoder LoRA merging unsupported)")
     if unmatched:
-        raise SystemExit(f"{len(unmatched)} unsupported or unmatched adapter tensors, first: {unmatched[0]}; "
-                         "requires standard kohya UNet lora_down/lora_up/alpha (no DoRA, LyCORIS or PEFT)")
-    if not modules:
+        print(f"warning: ignoring {len(unmatched)} unsupported or unmatched adapter tensors "
+              f"(first: '{unmatched[0]}'); merging the matched UNet layers")
+    if not any(m in kohya_of and m + ".lora_up.weight" in lora for m in modules):
         raise SystemExit("LoRA matched no UNet tensors")
 
     merged = dict(base)
@@ -100,7 +136,7 @@ def merge(base_path, lora_path, strength, out_path=None):
     deltas = []
     for m in modules:
         target = kohya_of.get(m)
-        if target is None:
+        if target is None or m + ".lora_up.weight" not in lora:
             skipped += 1
             continue
         down = lora[m + ".lora_down.weight"].astype(np.float32)

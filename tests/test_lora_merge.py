@@ -69,11 +69,12 @@ class LoraMergeTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.workspace.cleanup()
 
-    def adapter(self, name="lora.safetensors", alpha=True, extra=None):
+    def adapter(self, name="lora.safetensors", alpha=True, extra=None, missing_up=None):
         tensors = {}
         for module in MODULES:
             tensors[module + ".lora_down.weight"] = ([2, 2], [0.5, 0.25, 0.125, -0.25])
-            tensors[module + ".lora_up.weight"] = ([2, 2], [0.25, 0.5, -0.25, 0.125])
+            if module != missing_up:
+                tensors[module + ".lora_up.weight"] = ([2, 2], [0.25, 0.5, -0.25, 0.125])
             if alpha:
                 tensors[module + ".alpha"] = ([], [1.0])
         tensors.update(extra or {})
@@ -116,24 +117,53 @@ class LoraMergeTest(unittest.TestCase):
         for line in result.stdout.splitlines():
             self.assertEqual(list(map(float, line.split()[3:])), self.expected(0.75 / 2 - 0.25))
 
-    def test_partial_adapter_is_rejected_before_merging(self):
+    def test_partial_adapter_warns_and_merges_known_layers(self):
         unknown = "lora_unet_down_blocks_1_resnets_0_conv1"
         result = self.run_probe(32, self.adapter(extra={
             unknown + ".lora_down.weight": ([1, 1], [1]),
             unknown + ".lora_up.weight": ([1, 1], [1]),
         }))
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("4 UNet modules matched", result.stderr)
         self.assertIn("2 unmatched tensors", result.stderr)
         self.assertIn("unsupported or unmatched adapter tensor", result.stderr)
-        self.assertEqual(result.stdout, "")
+        self.assertIn("warning:", result.stderr)
+        for line in result.stdout.splitlines():
+            self.assertEqual(list(map(float, line.split()[3:])), self.expected(0.5))
 
-    def test_dora_is_rejected_even_when_low_rank_weights_match(self):
+    def test_dora_extras_warn_and_known_low_rank_weights_merge(self):
         result = self.run_probe(32, self.adapter(extra={
             MODULES[0] + ".dora_scale": ([2], [1, 1]),
         }))
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("dora_scale", result.stderr)
+        self.assertIn("warning:", result.stderr)
+        for line in result.stdout.splitlines():
+            self.assertEqual(list(map(float, line.split()[3:])), self.expected(0.5))
+
+    def test_missing_up_is_skipped_when_other_layers_match(self):
+        result = self.run_probe(32, self.adapter(missing_up=MODULES[0]))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("3 UNet modules matched", result.stderr)
+        self.assertIn("2 unmatched tensors", result.stderr)
+        self.assertIn("warning:", result.stderr)
+        for line in result.stdout.splitlines():
+            row = line.split()
+            expected = [1, 2, 3, 4] if row[0] == "0" else self.expected(0.5)
+            self.assertEqual(list(map(float, row[3:])), expected)
+
+    def test_adapter_with_no_effective_layers_still_fails(self):
+        unknown = "lora_unet_unknown_conv"
+        path = self.work / "unmatched.safetensors"
+        save_tensors(path, {
+            unknown + ".lora_down.weight": ([1, 1], [1]),
+            unknown + ".lora_up.weight": ([1, 1], [1]),
+        })
+        result = self.run_probe(32, path)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("0 UNet modules matched", result.stderr)
+        self.assertIn("matched no tensors", result.stderr)
+        self.assertEqual(result.stdout, "")
 
     def test_both_sdxl_text_encoders_are_reported_as_dropped(self):
         extra = {}
