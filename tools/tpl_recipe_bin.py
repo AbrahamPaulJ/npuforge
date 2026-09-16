@@ -14,7 +14,8 @@ Format (little-endian throughout):
     u32 count
     count x entry:
         u8  rule            0 template, 1 i8_axis, 2 u8_asym,
-                            3 i32_scalar, 4 i32_axis_bias, 5 i32_axis_zero
+                            3 i32_scalar, 4 i32_axis_bias, 5 i32_axis_zero,
+                            6 float16, 7 float32
         u8  ndims           1, 2 or 4
         i8  axis            -1 when absent
         i8  head            -1 when absent, else the head index; dims imply its width
@@ -42,6 +43,8 @@ RULES = {
     "i32_scalar": 3,
     "i32_axis_bias": 4,
     "i32_axis_zero": 5,
+    "float16": 6,
+    "float32": 7,
 }
 
 

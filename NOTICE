@@ -42,14 +42,13 @@ SCOPE, IN ONE TABLE
    `qnn-model-lib-generator` from converter-emitted C++. Same unresolved question
    as (1). `docs/BUILD.md` says how to regenerate it; it is gitignored.
 
-4. **The app downloads a CLIP/VAE donor at runtime, from the same NC project.**
-   `app/.../Donor.kt` fetches `DreamShaperV8_qnn2.28_8gen2.zip` from xororz's
+4. **Earlier SD1.5 conversions downloaded a CLIP/VAE donor from the same NC project.**
+   The legacy archive helper in `app/.../Donor.kt` references `DreamShaperV8_qnn2.28_8gen2.zip` from xororz's
    Hugging Face repo and keeps six files from it (395 MB): the text encoder,
-   tokenizer and VAE that every converted model borrows. The repo bundles
-   nothing, but a **shipped app depends on a CC BY-NC 4.0 artefact at runtime**.
-   Replacing this with a clean-room CLIP/VAE build is the same job as (2), and
-   `ROADMAP.md` item 1b is the measurement that says which parts to use — stock
-   SD1.5 CLIP and the ft-mse VAE.
+   tokenizer and VAE previously borrowed by SD1.5 conversions. These legacy
+   archives remain available for backup/restore and retain their original terms.
+   New SD1.5 and SDXL conversions read checkpoint-owned weights instead; this
+   does not change the separate UNet template provenance in (2).
 
 5. **Checkpoints are the user's problem, and not all are redistributable.**
    Stable Diffusion 1.5 derivatives carry their own terms (CreativeML Open
@@ -79,11 +78,19 @@ What IS original here
 
 These are the parts the MIT licence grants.
 
-Current SDXL shared components (2026-09-15)
------------------------------------------
-The app downloads the user-published shared ZIP from
+SDXL components (2026-09-16)
+---------------------------
+New SD1.5 and SDXL conversions read CLIP and VAE weights from the selected checkpoint.
+The native writer and authoring helpers are original source; their MNN 3.6.1
+format references are recorded in tools/clip_recipe.py and docs/CLIP-COMPONENTS.md.
+Generated MNN graph recipes, the standard tokenizer, QNN libraries and template
+packs remain gitignored. They are not relicensed by the repository's MIT licence.
+Checkpoint and upstream component terms still apply.
+
+Legacy backup/restore retains support for the user-published shared ZIP from
 https://huggingface.co/Mr-J-369/SDXL-OnDevice-Conversion . It contains MNN text
 encoders/embeddings/tokenizer and QAIRT 2.50 v75 QNN VAE encoder/decoder. The VAE
 source is identified as madebyollin/sdxl-vae-fp16-fix. These components are not
 MIT source and are not bundled in this repository. Generated SDXL template
-binaries and packs are also excluded from this source push.
+binaries and packs are also excluded from source control. Neither model family
+consumes cached shared weights during new conversions.

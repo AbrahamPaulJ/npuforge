@@ -11,16 +11,16 @@
     <string name="tab_convert">Конвертация</string>
     <string name="tab_info">Справка</string>
     <string name="tab_components">Резервные копии</string>
-    <string name="components_title">Резервное копирование общих файлов моделей</string>
-    <string name="components_description">Сохраните загруженные файлы CLIP и VAE, чтобы не скачивать их заново. Эти файлы помогают модели понимать текстовые запросы и декодировать изображения. Восстановите ZIP-архив после переустановки приложения или на другом телефоне. Оригинальный ZIP-архив загрузки также подойдет.</string>
+    <string name="components_title">Старые резервные копии общих файлов</string>
+    <string name="components_description">Сохраняйте или восстанавливайте резервные копии CLIP и VAE из прежних версий приложения. Новые конвертации SD1.5 и SDXL используют компоненты вашего чекпоинта, а не эти общие файлы.</string>
     <string name="components_ready">Сохранено на этом телефоне</string>
-    <string name="components_missing">Общие файлы еще не загружены</string>
+    <string name="components_missing">Старые файлы не сохранены</string>
     <string name="components_backup">Создать копию</string>
     <string name="components_restore">Восстановить из копии</string>
     <string name="components_backing_up">Сохранение общих файлов моделей…</string>
     <string name="components_restoring">Восстановление общих файлов моделей…</string>
     <string name="components_backup_done">Резервная копия %1$s создана.</string>
-    <string name="components_restore_done">Файлы %1$s восстановлены. Вы можете конвертировать без повторной загрузки.</string>
+    <string name="components_restore_done">Старые файлы %1$s восстановлены. Новые конвертации используют выбранный чекпоинт.</string>
 
     <plurals name="inside_title">
         <item quantity="one">Внутри файла: %1$s, %2$d тензор</item>
@@ -38,9 +38,6 @@
         <item quantity="many">Отсутствуют %1$d тензоров, необходимых шаблону. Конвертация невозможна.</item>
         <item quantity="other">Отсутствуют %1$d тензоров, необходимых шаблону. Конвертация невозможна.</item>
     </plurals>
-    <string name="will_swap">Основная модель генерации берется из вашего файла. Обработка промптов и декодирование изображений используют общие компоненты CLIP и VAE, поэтому результаты могут отличаться от исходной модели.</string>
-    <string name="sdxl_components">При первой конвертации SDXL загружается около 1 ГБ общих файлов. Последующие конвертации используют их повторно.</string>
-    <string name="stage_donor">Подготовка общих файлов модели (первый запуск)…</string>
     <string name="stage_import">Копирование вашей модели…</string>
     <string name="stage_lora">Чтение LoRA…</string>
     <string name="add_lora">Добавить LoRA</string>
@@ -50,7 +47,7 @@
     <string name="name_dot">Не может начинаться с точки.</string>
     <string name="name_space">Не допускаются пробелы в начале и конце.</string>
     <string name="remove">Удалить</string>
-    <string name="lora_note">Адаптеры LoRA объединяются с весами модели во время конвертации. Они не замедляют генерацию изображений, но для каждой комбинации требуется отдельная конвертация. Изменения текстового кодировщика не переносятся, поэтому стилевые LoRA работают эффективнее, чем привязанные к ключевым словам.</string>
+    <string name="lora_note">LoRA объединяются с UNet при конвертации. Для каждой комбинации нужна отдельная конвертация. Веса текстовых энкодеров LoRA не объединяются.</string>
     <string name="stage_weights">Подготовка весов модели…</string>
     <string name="stage_compile">Компиляция модели для NPU вашего телефона…</string>
     <string name="stage_assemble">Сохранение готовой модели…</string>
@@ -66,10 +63,10 @@
 
     <string name="done_title">Готово за %1$d мин %2$d сек</string>
     <string name="done_where">Сохранено в: %1$s. Откройте приложение для генерации и импортируйте как пользовательскую модель.</string>
-    <string name="done_note">Сконвертированная модель включает общие файлы для чтения промптов и декодирования изображений. Для SD1.5 используются файлы DreamShaper; для SDXL — компоненты, загруженные при первом запуске.</string>
+    <string name="done_note">Сконвертированная модель использует текстовый энкодер и VAE вашего чекпоинта. Для SDXL включены оба текстовых энкодера.</string>
     <string name="failed_title">Ошибка конвертации</string>
 
-    <string name="caveats">SD1.5: разрешение 512 × 512, для Snapdragon 8 Gen 2. SDXL: 1024 × 1024, для Snapdragon 8 Gen 3. Протестировано на Galaxy S25 Ultra. Другие устройства пока не подтверждены.</string>
+    <string name="caveats">SD1.5: 512 × 512, целевой чип Snapdragon 8 Gen 2. SDXL: 1024 × 1024, Snapdragon 8 Gen 3. Пользователь подтвердил полную конвертацию SDXL в тесте WAI Illustrious v170 на телефоне. Полная конвертация компонентов SD1.5 ещё требует проверки на телефоне.</string>
     <string name="export_conversion_report">Экспортировать отчет для отладки</string>
 
     <!-- Language Selection -->
@@ -81,14 +78,12 @@
 
     <!-- Additional UI Labels and Statuses -->
     <string name="part_status_converted">✓ сконвертировано</string>
-    <string name="part_status_not_converted">✗ не конвертируется</string>
     <string name="part_status_absent">—</string>
     <string name="copy_log">Скопировать журнал</string>
     <string name="log_copied">Журнал скопирован в буфер обмена</string>
     <string name="ram_status_optimal">Оптимально</string>
     <string name="ram_status_moderate">Умеренно</string>
     <string name="ram_status_high">Высокая нагрузка</string>
-    <string name="model_selected">Модель выбрана</string>
     <string name="lora_adapters">Адаптеры LoRA</string>
     <string name="lora_weight">Вес: %1$.1f</string>
     <string name="active_process">Выполняется конвертация</string>
@@ -104,41 +99,51 @@
     <string name="info_scope_b2">• SD1.5: 512 × 512, цель Snapdragon 8 Gen 2 (v73)</string>
     <string name="info_scope_b3">• SDXL: 1024 × 1024, цель Snapdragon 8 Gen 3 (v75)</string>
     <string name="info_scope_b4">• QAIRT 2.50; UNet SDXL использует веса INT8 и активации fp16</string>
-    <string name="info_scope_b5">• Общие энкодер и декодер VAE включены для режимов img2img и txt2img</string>
+    <string name="info_scope_b5">• Оба семейства конвертируют собственные текстовые энкодеры, энкодер и декодер VAE</string>
 
-    <string name="info_converted_title">Что конвертируется и что заимствуется</string>
-    <string name="info_converted_p1">Конвертация заменяет модуль UNet из вашего чекпоинта. Для SD1.5 общий текстовый энкодер DreamShaper и VAE загружаются один раз.</string>
-    <string name="info_converted_p2">Для SDXL общие компоненты загружаются один раз из репозитория SDXL-OnDevice-Conversion от Mr-J-369 (~1 ГБ). Приложение сохраняет текстовые энкодеры MNN и VAE энкодер/декодер QNN для повторного использования.</string>
-    <string name="info_converted_p3">Текущие компоненты SDXL используют sdxl-vae-fp16-fix от madebyollin, QAIRT 2.50 и VAE 1024 × 1024 v75. Интерпретация текстовых запросов и цветопередача зависят от этих общих компонентов.</string>
+    <string name="info_converted_title">Компоненты чекпоинта</string>
+    <string name="info_converted_p1">SD1.5 конвертирует на телефоне UNet чекпоинта, текстовый энкодер, а также энкодер и декодер VAE.</string>
+    <string name="info_converted_p2">SDXL конвертирует на телефоне UNet чекпоинта, оба текстовых энкодера (CLIP-L и CLIP-G), а также энкодер и декодер VAE.</string>
+    <string name="info_converted_p3">Чекпоинт должен содержать все необходимые компоненты. Отсутствующие или несовместимые тензоры останавливают конвертацию; веса другой модели не подставляются. Используется стандартный токенизатор.</string>
 
     <string name="info_compatibility_title">Совместимость чекпоинтов</string>
-    <string name="info_compatibility_p1">Модели CyberRealistic, DreamShaper 8 и AbsoluteReality успешно конвертируются и работают. В тесте модели MistoonAnime был получен шум, несмотря на успешную компиляцию.</string>
-    <string name="info_compatibility_p2">Шаблон использует предварительно откалиброванные диапазоны активаций. Их применимость зависит от конкретного чекпоинта; результат MistoonAnime не означает неработоспособность всех аниме-моделей.</string>
+    <string name="info_compatibility_p1">Прежние конвертации UNet работали для CyberRealistic, DreamShaper 8 и AbsoluteReality. MistoonAnime выдавал шум с общими файлами CLIP и VAE; собственные компоненты этой модели ещё не проверены.</string>
+    <string name="info_compatibility_p2">Замена только текстовых энкодеров исправила проверенную модель Pony. Пользователь также сообщил об отличном результате после полной конвертации собственных компонентов WAI Illustrious v170. Другие чекпоинты ещё не проверены; UNet использует фиксированные диапазоны активаций.</string>
 
     <string name="info_lora_title">LoRA</string>
-    <string name="info_lora_p1">Адаптеры объединяются с весами во время конвертации, поэтому генерация не замедляется. Несколько адаптеров объединяются за один проход.</string>
-    <string name="info_lora_p2">Поддерживаются: стандартные LoRA формата kohya (lora_down / lora_up / alpha).</string>
+    <string name="info_lora_p1">Веса адаптеров UNet объединяются при конвертации без дополнительных затрат при генерации. Можно объединить несколько адаптеров.</string>
+    <string name="info_lora_p2">Поддерживаются стандартные LoRA kohya для UNet (lora_down / lora_up / alpha).</string>
     <string name="info_lora_p3">Не поддерживаются: форматы diffusers/PEFT, LoCon, LyCORIS, LoHa, DoRA, IA3. Конвертер выведет понятное сообщение об ошибке вместо создания поврежденной модели.</string>
     <string name="info_lora_p4">Протестированы только модули внимания; свёрточные адаптеры должны работать, но пока не верифицированы.</string>
-    <string name="info_lora_p5">Текстовая часть LoRA отбрасывается, поэтому стилевые адаптеры работают значительно лучше адаптеров с ключевыми словами.</string>
+    <string name="info_lora_p5">Веса текстовых энкодеров LoRA не объединяются. Адаптеры только для текстовых энкодеров не поддерживаются.</string>
     <string name="info_lora_p6">Сила адаптера жестко впекается в модель: изменение силы требует повторной конвертации.</string>
 
     <string name="info_requirements_title">Требования к устройству</string>
     <string name="info_requirements_b1">• Архитектура arm64, Android 13 или новее</string>
     <string name="info_requirements_b2">• В замерах SD1.5 пиковое потребление ОЗУ составило около 4.8 ГБ</string>
-    <string name="info_requirements_b3">• Для работы SD1.5 требуется около 4 ГБ свободного места</string>
-    <string name="info_requirements_b4">• Размер файла SD1.5 около 1.3 ГБ; протестированный архив SDXL — около 3.5 ГБ</string>
-    <string name="info_requirements_b5">• Тестовая конвертация SDXL O=3 завершилась за 7 минут 17 секунд</string>
+    <string name="info_requirements_b3">• Прежняя конвертация только UNet SD1.5 требовала около 4 ГБ рабочего пространства; полная конвертация компонентов требует дополнительного места</string>
+    <string name="info_requirements_b4">• Прежние файлы экспорта занимали около 1.3 ГБ для SD1.5 и 3.5 ГБ для SDXL; собственные компоненты чекпоинта могут изменить размер</string>
+    <string name="info_requirements_b5">• Прежняя конвертация UNet SDXL заняла 7 минут 17 секунд; конвертация CLIP и VAE требует дополнительного времени</string>
     <string name="info_requirements_b6">• SDXL использует временные файлы для экономии памяти, поэтому требуется дополнительное место на диске</string>
     <string name="info_requirements_b7">• Пиковое потребление памяти для SDXL пока не измерено</string>
 
     <string name="info_troubleshooting_title">Диагностика проблем</string>
-    <string name="info_troubleshooting_p1">Пятнистый перенасыщенный шум обычно указывает на несовпадение динамических диапазонов модели с калибровкой шаблона.</string>
+    <string name="info_troubleshooting_p1">Шум может быть связан с несовместимыми весами, диапазонами активаций шаблона или настройками генерации. Перед выводами проверьте журнал конвертации.</string>
     <string name="info_troubleshooting_p2">Загрузка модели зависит от процессора устройства и версии рантайма QNN в генераторе.</string>
-    <string name="info_troubleshooting_p3">Неожиданная интерпретация промптов может быть связана с общим модулем CLIP.</string>
+    <string name="info_troubleshooting_p3">Старые экспорты SDXL использовали общие веса CLIP, из-за которых проверенная модель Pony работала неверно. Повторная конвертация включит её собственные текстовые энкодеры.</string>
     <string name="info_troubleshooting_p4">Дефекты цвета или деталей требуют отдельного анализа; внешний вид сам по себе не указывает на причину.</string>
 
     <string name="info_tested_title">Протестировано на устройствах</string>
-    <string name="info_tested_p1">Одно устройство: Samsung Galaxy S25 Ultra (SM8750, Hexagon v79). Конвертация и генерация SD1.5 и SDXL работают стабильно.</string>
-    <string name="info_tested_p2">Сгенерировано в Aura за 15 секунд при 1024 × 1024, 8 шагов, CFG 1, LCM/Karras. Единичный замер, не бенчмарк.</string>
+    <string name="info_tested_p1">Прежние конвертации UNet SD1.5 и SDXL работали на Samsung Galaxy S25 Ultra. Пользователь теперь подтвердил полную конвертацию компонентов SDXL и хороший результат WAI Illustrious v170. Полная конвертация компонентов SD1.5 на телефоне ещё не проверена.</string>
+    <string name="info_tested_p2">В сообщённом результате WAI Illustrious v170 использованы NPU, 1024 × 1024, 30 шагов, CFG 7 и seed 418928922; генерация заняла 45.8 секунды. Это единичный результат пользователя, а не тест на нескольких устройствах.</string>
+
+    <string name="stage_validate">Проверка компонентов чекпоинта…</string>
+    <string name="stage_clip">Конвертация текстовых энкодеров…</string>
+    <string name="stage_vae_encoder_weights">Подготовка весов энкодера изображений…</string>
+    <string name="stage_vae_encoder_compile">Компиляция энкодера изображений…</string>
+    <string name="stage_vae_decoder_weights">Подготовка весов декодера изображений…</string>
+    <string name="stage_vae_decoder_compile">Компиляция декодера изображений…</string>
+
+    <string name="components_legacy_family">%1$s · старые файлы</string>
+    <string name="checkpoint_components">UNet, текстовый энкодер и VAE конвертируются из этого чекпоинта. Для SDXL включаются оба текстовых энкодера. Загрузка общих моделей не требуется.</string>
 </resources>

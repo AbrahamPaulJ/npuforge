@@ -29,6 +29,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -401,13 +402,14 @@ private fun ConvertScreen() {
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
         ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
                         stringResource(R.string.phone_ram_used, (fraction * 100).roundToInt()),
+                        modifier = Modifier.align(Alignment.CenterVertically),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -470,25 +472,24 @@ private fun ConvertScreen() {
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(
+                        // Give both labels the card width; long stages must not
+                        // squeeze the status into a column one character wide.
+                        Text(
+                            if (s.steps > 0) "${s.step}/${s.steps} · ${s.stage}" else s.stage,
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            contentColor = MaterialTheme.colorScheme.primary,
                         ) {
                             Text(
-                                if (s.steps > 0) "${s.step}/${s.steps} · ${s.stage}" else s.stage,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            SuggestionChip(
-                                onClick = {},
-                                label = { Text(stringResource(R.string.active_process), style = MaterialTheme.typography.labelSmall) },
-                                colors = SuggestionChipDefaults.suggestionChipColors(
-                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                    labelColor = MaterialTheme.colorScheme.primary,
-                                ),
-                                border = null,
+                                stringResource(R.string.active_process),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.labelSmall,
                             )
                         }
                         Text(
@@ -691,36 +692,35 @@ private fun ConvertScreen() {
                 border = BorderStroke(1.dp, Color(0xFF334155)),
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
+                    Text(
+                        stringResource(R.string.conversion_log),
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFE2E8F0),
+                    )
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Text(
-                            stringResource(R.string.conversion_log),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFFE2E8F0),
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick = {
-                                val clipboard = context.getSystemService(ClipboardManager::class.java)
-                                clipboard?.setPrimaryClip(ClipData.newPlainText("npuforge log", log))
-                                Toast.makeText(context, R.string.log_copied, Toast.LENGTH_SHORT).show()
-                            }) {
-                                Text(
-                                    stringResource(R.string.copy_log),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                            TextButton(onClick = { followLog = !followLog }) {
-                                Text(
-                                    stringResource(if (followLog) R.string.pause_scroll else R.string.follow_log),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
+                        TextButton(onClick = {
+                            val clipboard = context.getSystemService(ClipboardManager::class.java)
+                            clipboard?.setPrimaryClip(ClipData.newPlainText("npuforge log", log))
+                            Toast.makeText(context, R.string.log_copied, Toast.LENGTH_SHORT).show()
+                        }) {
+                            Text(
+                                stringResource(R.string.copy_log),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        TextButton(onClick = { followLog = !followLog }) {
+                            Text(
+                                stringResource(if (followLog) R.string.pause_scroll else R.string.follow_log),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
                         }
                     }
                     SelectionContainer {
@@ -756,13 +756,14 @@ private fun CheckpointCard(r: CheckpointInfo.Report) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
                     pluralStringResource(R.plurals.inside_title, r.totalTensors, r.architecture, r.totalTensors),
+                    modifier = Modifier.align(Alignment.CenterVertically),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -777,17 +778,9 @@ private fun CheckpointCard(r: CheckpointInfo.Report) {
                 )
             }
 
-            PartRow(stringResource(R.string.part_unet), r.unet, kept = true)
-            PartRow(stringResource(R.string.part_vae), r.vae, kept = false)
-            PartRow(stringResource(R.string.part_clip), r.clip, kept = false)
-
-            if (r.model == CheckpointInfo.Model.SDXL) {
-                Text(
-                    stringResource(R.string.sdxl_components),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            PartRow(stringResource(R.string.part_unet), r.unet)
+            PartRow(stringResource(R.string.part_vae), r.vae)
+            PartRow(stringResource(R.string.part_clip), r.clip)
             if (r.ema.present) {
                 Text(
                     stringResource(R.string.part_ema, r.ema.tensors),
@@ -823,7 +816,7 @@ private fun CheckpointCard(r: CheckpointInfo.Report) {
             }
             if (r.convertible) {
                 Text(
-                    stringResource(R.string.will_swap),
+                    stringResource(R.string.checkpoint_components),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -833,17 +826,9 @@ private fun CheckpointCard(r: CheckpointInfo.Report) {
 }
 
 @Composable
-private fun PartRow(label: String, p: CheckpointInfo.Part, kept: Boolean) {
-    val statusText = when {
-        !p.present -> stringResource(R.string.part_status_absent)
-        kept -> stringResource(R.string.part_status_converted)
-        else -> stringResource(R.string.part_status_not_converted)
-    }
-    val statusColor = when {
-        !p.present -> MaterialTheme.colorScheme.onSurfaceVariant
-        kept -> MaterialTheme.colorScheme.tertiary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
+private fun PartRow(label: String, p: CheckpointInfo.Part) {
+    val statusText = stringResource(if (p.present) R.string.part_status_converted else R.string.part_status_absent)
+    val statusColor = if (p.present) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
     val size = if (p.bytes > 0) " · ${p.bytes / 1_000_000} MB" else ""
 
     Row(

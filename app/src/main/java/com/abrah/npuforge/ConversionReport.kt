@@ -1,6 +1,7 @@
 package com.abrah.npuforge
 
 import android.app.ActivityManager
+import android.app.ApplicationExitInfo
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -72,11 +73,23 @@ class ConversionReport(private val context: Context, model: String) : AutoClosea
     }
 
     fun exitDetails(pid: Int) {
-        val exits = context.getSystemService(ActivityManager::class.java)
-            .getHistoricalProcessExitReasons(context.packageName, pid, 1)
-        if (exits.isEmpty()) record("Android has no exit record available yet for pid=$pid")
-        for (exit in exits) {
-            record("Android exit pid=${exit.pid} time=${exit.timestamp} reason=${exit.reason} status=${exit.status} importance=${exit.importance} pssKiB=${exit.pss} rssKiB=${exit.rss} description=${exit.description}")
+        try {
+            val exits = context.getSystemService(ActivityManager::class.java)
+                .getHistoricalProcessExitReasons(context.packageName, pid, 1)
+            if (exits.isEmpty()) record("Android has no exit record available yet for pid=$pid")
+            for (exit in exits) {
+                record("Android exit pid=${exit.pid} time=${exit.timestamp} reason=${exit.reason} status=${exit.status} importance=${exit.importance} pssKiB=${exit.pss} rssKiB=${exit.rss} description=${exit.description}")
+                if (exit.reason == ApplicationExitInfo.REASON_CRASH_NATIVE) {
+                    // API 31+ exposes a protobuf tombstone. It may already have
+                    // expired from Android's global crash buffer, or be unavailable.
+                    val summary = exit.traceInputStream?.use { NativeTombstone.summarize(it, pid) }
+                    if (summary == null) record("Android native tombstone unavailable for pid=$pid")
+                    else summary.forEach(::record)
+                }
+            }
+        } catch (e: Exception) {
+            // Diagnostic access or decoding must never replace the tool's failure.
+            runCatching { record("Android exit diagnostics unavailable for pid=$pid: ${e.message}") }
         }
     }
 

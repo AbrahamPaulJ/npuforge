@@ -34,9 +34,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <list>
+#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <fcntl.h>
@@ -101,7 +104,7 @@ struct Safetensors {
         if (m.len < 8) die("%s: too small", path);
         uint64_t hlen;
         memcpy(&hlen, m.p, 8);
-        if (hlen + 8 > m.len) die("%s: bad header length", path);
+        if (hlen > m.len - 8) die("%s: bad header length", path);
         std::string h((const char*)m.p + 8, hlen);
         data = m.p + 8 + hlen;
         parse(h);
@@ -186,6 +189,8 @@ struct Safetensors {
                 else if (k == "shape") t.shape = ints(s, i);
                 else if (k == "data_offsets") {
                     auto v = ints(s, i);
+                    if (v.size() != 2 || v[0] < 0 || v[1] < v[0])
+                        die("%s: invalid tensor data offsets", name.c_str());
                     t.begin = (uint64_t)v[0];
                     t.end = (uint64_t)v[1];
                 } else skipval(s, i);
@@ -201,7 +206,17 @@ struct Safetensors {
         const Tensor& t = it->second;
         shape = t.shape;
         size_t n = 1;
-        for (int64_t d : t.shape) n *= (size_t)d;
+        for (int64_t d : t.shape) {
+            if (d <= 0 || (uint64_t)d > std::numeric_limits<size_t>::max() / n)
+                die("%s: invalid tensor shape", name.c_str());
+            n *= (size_t)d;
+        }
+        if (t.end < t.begin || t.end > m.len - (size_t)(data - m.p))
+            die("%s: tensor data exceeds checkpoint", name.c_str());
+        const size_t width = t.dtype == "F16" ? 2 : t.dtype == "F32" ? 4 : 0;
+        if (!width) die("%s: unsupported dtype %s", name.c_str(), t.dtype.c_str());
+        if (n > std::numeric_limits<size_t>::max() / width || t.end - t.begin != n * width)
+            die("%s: tensor byte count does not match shape", name.c_str());
         std::vector<float> out(n);
         const uint8_t* src = data + t.begin;
         if (t.dtype == "F16") {
@@ -280,7 +295,7 @@ struct Safetensors {
 // ------------------------------------------------------------- recipe ----
 
 enum Rule { R_TEMPLATE = 0, R_I8_AXIS = 1, R_U8_ASYM = 2, R_I32_SCALAR = 3,
-            R_I32_AXIS_BIAS = 4, R_I32_AXIS_ZERO = 5 };
+            R_I32_AXIS_BIAS = 4, R_I32_AXIS_ZERO = 5, R_FLOAT16 = 6, R_FLOAT32 = 7 };
 
 struct Entry {
     uint8_t rule = 0, ndims = 0, nperm = 0;
@@ -440,6 +455,12 @@ std::vector<std::string> kohya_names(const std::string& ldm_key) {
 }
 
 struct LoraSet {
+    // SDXL's full transformer weights occupy over 8 GiB in float32. Keep only
+    // recent merged tensors: adjacent attention heads reuse q/k/v, while a
+    // tensor encountered again in pass 2 can be recomputed with identical math.
+    explicit LoraSet(size_t cache_limit_bytes = 128 * 1024 * 1024)
+        : cache_limit_bytes(cache_limit_bytes) {}
+
     std::vector<std::unique_ptr<Safetensors>> files;
     std::unordered_map<std::string, std::vector<LoraMod>> byKey;  // LDM key -> mods
 
@@ -455,30 +476,64 @@ struct LoraSet {
                 path = spec.substr(0, colon);
             } catch (...) { path = spec; }
         }
+        if (!std::isfinite(strength)) die("%s: LoRA strength must be finite", path.c_str());
         auto st = std::make_unique<Safetensors>();
         st->load(path.c_str());
         int matched = 0;
+        std::unordered_set<std::string> used;
         for (const std::string& key : all_sources) {
             for (const std::string& kn : kohya_names(key)) {
                 auto d = st->tensors.find(kn + ".lora_down.weight");
                 auto u = st->tensors.find(kn + ".lora_up.weight");
                 if (d == st->tensors.end() || u == st->tensors.end()) continue;
+                const auto& ds = d->second.shape;
+                const auto& us = u->second.shape;
+                if ((ds.size() != 2 && ds.size() != 4) || (us.size() != 2 && us.size() != 4) ||
+                    std::any_of(ds.begin(), ds.end(), [](int64_t n) { return n <= 0; }) ||
+                    std::any_of(us.begin(), us.end(), [](int64_t n) { return n <= 0; }) || ds[0] != us[1])
+                    die("%s: invalid LoRA down/up shapes or rank", kn.c_str());
+                if (us.size() == 4 && (us[2] != 1 || us[3] != 1))
+                    die("%s: spatial LoRA up kernels are unsupported", kn.c_str());
                 size_t rank = (size_t)d->second.shape[0];
                 float alpha = (float)rank;
                 auto a = st->tensors.find(kn + ".alpha");
                 if (a != st->tensors.end()) {
                     std::vector<int64_t> sh;
                     std::vector<float> av = st->get_f32(kn + ".alpha", sh);
-                    if (!av.empty()) alpha = av[0];
+                    if (av.size() != 1 || !std::isfinite(av[0]))
+                        die("%s: LoRA alpha must be one finite value", kn.c_str());
+                    alpha = av[0];
+                    used.insert(kn + ".alpha");
                 }
                 byKey[key].push_back({st.get(), kn + ".lora_down.weight",
                                       kn + ".lora_up.weight", strength * alpha / (float)rank});
+                used.insert(kn + ".lora_down.weight");
+                used.insert(kn + ".lora_up.weight");
                 matched++;
                 break;
             }
         }
-        fprintf(stderr, "lora %s strength %.3f: %d modules matched\n",
-                path.c_str(), strength, matched);
+        int text_modules = 0;
+        std::vector<std::string> unmatched;
+        for (const auto& tensor : st->tensors) {
+            const std::string& name = tensor.first;
+            if (name.compare(0, 7, "lora_te") == 0 || name.compare(0, 13, "text_encoder.") == 0 ||
+                name.compare(0, 15, "text_encoder_2.") == 0) {
+                if (name.find(".lora_down.weight") != std::string::npos ||
+                    name.find(".lora_A.weight") != std::string::npos) text_modules++;
+                continue;
+            }
+            if (!used.count(name)) unmatched.push_back(name);
+        }
+        fprintf(stderr, "lora %s strength %.3f: %d UNet modules matched; "
+                        "%d text-encoder modules DROPPED (text-encoder LoRA merging unsupported); %zu unmatched tensors\n",
+                path.c_str(), strength, matched, text_modules, unmatched.size());
+        if (!unmatched.empty()) {
+            std::sort(unmatched.begin(), unmatched.end());
+            die("%s: unsupported or unmatched adapter tensor '%s'; requires standard kohya "
+                "UNet lora_down/lora_up/alpha (no DoRA, LyCORIS or PEFT)",
+                path.c_str(), unmatched.front().c_str());
+        }
         if (matched == 0) die("%s matched no tensors -- wrong LoRA format?", path.c_str());
         files.push_back(std::move(st));
     }
@@ -493,7 +548,11 @@ struct LoraSet {
         // q/k/v tensor is fetched repeatedly. Recomputing the rank-R product each
         // time made the merge cost more than the whole rest of the conversion.
         auto c = cache.find(key);
-        if (c != cache.end()) { w = c->second; return; }
+        if (c != cache.end()) {
+            cache_order.splice(cache_order.begin(), cache_order, c->second.recent);
+            w = c->second.weight;
+            return;
+        }
 
         for (const LoraMod& m : it->second) {
             std::vector<int64_t> ds, us;
@@ -521,10 +580,28 @@ struct LoraSet {
         }
         // Match what a merged checkpoint saved as fp16 would hold.
         for (float& x : w) x = Safetensors::half_to_float(Safetensors::float_to_half(x));
-        cache.emplace(key, w);
+        size_t bytes = w.size() * sizeof(float);
+        if (bytes <= cache_limit_bytes) {
+            while (cache_bytes > cache_limit_bytes - bytes) {
+                auto old = cache.find(cache_order.back());
+                cache_bytes -= old->second.weight.size() * sizeof(float);
+                cache.erase(old);
+                cache_order.pop_back();
+            }
+            cache_order.push_front(key);
+            cache.emplace(key, CachedWeight{w, cache_order.begin()});
+            cache_bytes += bytes;
+        }
     }
 
-    mutable std::unordered_map<std::string, std::vector<float>> cache;
+    struct CachedWeight {
+        std::vector<float> weight;
+        std::list<std::string>::iterator recent;
+    };
+    const size_t cache_limit_bytes;
+    mutable size_t cache_bytes = 0;
+    mutable std::list<std::string> cache_order;
+    mutable std::unordered_map<std::string, CachedWeight> cache;
 };
 
 // tpl_apply.src_of: fp16 -> f32, optional recipe-sized head slice, then a permute with
@@ -548,11 +625,19 @@ std::vector<float> src_of(const Safetensors& st, const Entry& e) {
         v.swap(cut);
         shape[0] = (int64_t)d;
     }
-    // Pad the source shape with trailing 1s so it has the recipe's rank.
+    // QNN represents VAE 1x1 attention convolutions as matrices. Only trailing
+    // singleton axes may be removed; all other shape differences are errors.
     std::vector<int64_t> s = shape;
+    while ((int)s.size() > e.ndims && s.back() == 1) s.pop_back();
     while ((int)s.size() < e.ndims) s.push_back(1);
     if ((int)s.size() != e.ndims) die("%s: rank %zu cannot map to %d dims",
                                       e.binvar.c_str(), s.size(), (int)e.ndims);
+    if (e.nperm != e.ndims || v.size() != e.count())
+        die("%s: source size or permutation rank mismatch", e.binvar.c_str());
+    for (int k = 0; k < e.ndims; k++) {
+        if (e.perm[k] >= e.ndims || s[e.perm[k]] != e.dims[k])
+            die("%s: source shape mismatch on axis %d", e.binvar.c_str(), k);
+    }
     // out axis k reads source axis perm[k]  (numpy transpose semantics)
     int64_t sstride[4] = {1, 1, 1, 1};
     for (int i = e.ndims - 1, acc = 1; i >= 0; i--) { sstride[i] = acc; acc *= (int)s[i]; }
@@ -645,6 +730,10 @@ int main(int argc, char** argv) {
                 pe.len = tpl[it->second].len;
                 break;
             }
+            case R_FLOAT16:
+            case R_FLOAT32:
+                pe.len = n * (e.rule == R_FLOAT16 ? 2 : 4);
+                break;
             case R_I8_AXIS: {
                 std::vector<float> W = src_of(st, e);
                 int ax = e.axis;
@@ -760,6 +849,24 @@ int main(int argc, char** argv) {
             case R_TEMPLATE: {
                 const PackEntry& t = tpl[tpl_idx[e.binvar]];
                 fwrite(tplm.p + t.off, 1, (size_t)t.len, f);
+                break;
+            }
+            case R_FLOAT16: {
+                const std::vector<float> values = src_of(st, e);
+                std::vector<uint16_t> halves(n);
+                for (size_t k = 0; k < n; k++) {
+                    halves[k] = Safetensors::float_to_half(values[k]);
+                    if ((halves[k] & 0x7c00) == 0x7c00)
+                        die("%s: non-finite or out-of-range FP16 weight", e.source.c_str());
+                }
+                fwrite(halves.data(), sizeof(uint16_t), n, f);
+                break;
+            }
+            case R_FLOAT32: {
+                const std::vector<float> values = src_of(st, e);
+                for (float value : values)
+                    if (!std::isfinite(value)) die("%s: non-finite FP32 weight", e.source.c_str());
+                fwrite(values.data(), sizeof(float), n, f);
                 break;
             }
             case R_I8_AXIS: {

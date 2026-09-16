@@ -7,6 +7,23 @@ measurement** are at the bottom — those are the expensive ones to re-propose.
 Status as of 2026-09-14: the converter works end to end as an Android app on one
 device, with LoRA. `HANDOFF.md` has the live state.
 
+## Current priority: validate checkpoint-owned components
+
+On 2026-09-16, the user reported success with the Pony CLIP-only diagnostic ZIP.
+Seven CLIP files were replaced with checkpoint-owned weights; hashes verified
+that the baseline UNet, VAE, tokenizer and model markers were unchanged. This
+supports shared CLIP substitution as the cause of this Pony failure and overturns
+the earlier rejection based on limited SD1.5 measurements.
+
+Native checkpoint-owned CLIP and VAE conversion now covers SD1.5 and SDXL.
+The user subsequently confirmed excellent `waiIllustriousSDXL_v170` output from
+the expanded SDXL pipeline at 1024 × 1024, 30 steps and CFG 7. Next validate
+SD1.5, image-to-image and additional checkpoints. Text-encoder LoRA merging
+and Vivo compilation remain unresolved. Separate nubia reports establish
+DMD2 F16/F32 conversion and generation success before this update.
+See [component conversion](docs/SDXL-COMPONENTS.md).
+See [the SDXL investigation](docs/SDXL-INVESTIGATION.md).
+
 ---
 
 ## ⏸ Parked by decision (2026-09-14) — not blocked, deliberately not now
@@ -35,10 +52,12 @@ phone" and "works on phones".
   `contextBlobVersion 3.2.0` / spillFill 0 / buildId 2.28 plus a quality gate —
   the same bar the last 2.28 rebuild met.
 
-### P2. An anime template
+### P2. An anime template — historical SD1.5 proposal
 
-Anime checkpoints convert cleanly and render noise; the cause is measured
-(`docs/LIMITS.md`). The fix is a second template calibrated on anime prompts.
+The tested MistoonAnime checkpoint converts but renders noise; evidence points
+to borrowed activation ranges (`docs/LIMITS.md`). A second template calibrated
+on anime prompts is a proposed fix, not yet validated. This SD1.5 evidence does
+not describe the Pony SDXL failure resolved by replacing its CLIPs.
 
 - **Cost:** ~50 min calibration + ~2 h 20 m quantize on the PC, then the same
   9-minute Phase 1/2 re-derivation. No new machinery — the pipeline is generic
@@ -109,8 +128,8 @@ spanning both roots and the merged middle is an afternoon.
 
 ### 1b. Build the template from base SD1.5, not DreamShaper — free, at the next rebuild
 
-Measured (`docs/CHECKPOINT-FAMILIES.md` §5): every SD1.5 text encoder is within
-**0.2–0.4%** of stock SD1.5's, anime included, and CyberRealistic's baked VAE
+Measured (`docs/CHECKPOINT-FAMILIES.md` §5): the two inspected SD1.5 text encoders
+are within **0.2–0.4%** of stock SD1.5's by median tensor difference, and CyberRealistic's baked VAE
 **is** `vae-ft-mse-840000-ema-pruned` to 0.021%. So stock CLIP + ft-mse VAE is
 the neutral, licence-clean default, and it costs nothing to adopt at a rebuild
 that is happening anyway.
@@ -208,7 +227,6 @@ Neither blocks development. Both block release.
 | idea | why not |
 |---|---|
 | **Runtime LoRA** via `UPDATEABLE_STATIC` tensors | **2.8× slower** inference (83 ms/pass → 281), and a cliff, not a slope — 24 tensors cost the same as 768. Merging before conversion is free at generation time |
-| **Converting the text encoder and VAE** | Measured unnecessary: across checkpoints they differ by a median of 0.13–0.39%, and a deliberate CLIP/VAE mismatch is visually indistinguishable (the 2×2 in `README.md`). Real but small fidelity cost, large build cost |
 | **Running the full QAIRT converter/quantizer on the phone** | The PC recipe needs >11 GB RAM plus swap, and 400 calibration passes take ~2 h 20 m. The template+recipe split exists precisely to avoid it |
 | **Gating correctness on the context binary's md5** | The compile is not byte-reproducible — same phone, same pack, two different md5s, identical renders. Gate on the weight pack, which *is* exact |
 | **Using 1-step renders to separate two models** | Only works when the models are already numerically near-identical (46 dB). Between genuinely different models everything lands at 16–19 dB because a 1-step image is mostly noise |

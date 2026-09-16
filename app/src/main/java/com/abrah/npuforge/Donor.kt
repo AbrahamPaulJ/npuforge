@@ -13,13 +13,14 @@ import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 
 /**
- * Shared components for the UNet-only conversion pipeline.
- * Downloads shared components by model family, or imports an explicit local ZIP.
- * Both are cached separately and reused for subsequent conversions.
+ * Legacy shared-component archives, retained for backup and restore.
+ * New conversions read component weights from the checkpoint and never use this cache.
  */
 object Donor {
 
@@ -45,7 +46,7 @@ object Donor {
         model: CheckpointInfo.Model,
         archive: Uri?,
         onProgress: (Long, Long) -> Unit,
-    ) {
+    ) = withContext(Dispatchers.IO) {
         val operation = currentCoroutineContext()
         val out = File(context.filesDir, model.donorDirectory)
         val staging = Files.createTempDirectory(context.filesDir.toPath(), "components-").toFile()
@@ -119,7 +120,7 @@ object Donor {
         model: CheckpointInfo.Model,
         archive: Uri,
         onProgress: (Long, Long) -> Unit,
-    ) {
+    ) = withContext(Dispatchers.IO) {
         val operation = currentCoroutineContext()
         val directory = File(context.filesDir, model.donorDirectory)
         val total = model.components.sumOf { File(directory, it).length() }

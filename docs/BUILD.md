@@ -20,9 +20,14 @@ A source checkout does not contain all runtime/model artifacts (see `NOTICE`):
   `libqnn_model.so`, `recipe.bin` and `tpl_trim.pack`. The source list and
   O=3 configuration are tracked. These generated SDXL artifacts are not
   distributed by this source push; a fresh clone needs them before conversion.
-- The shared SDXL CLIP/VAE ZIP downloads at runtime from
-  [Mr-J-369/SDXL-OnDevice-Conversion](https://huggingface.co/Mr-J-369/SDXL-OnDevice-Conversion).
-  It contains shared components, not the missing UNet template artifacts.
+- In `app/src/main/assets/components_sdxl/`, supply the sparse CLIP recipe,
+  tokenizer, component manifests and both VAE template bundles described in
+  [SDXL-COMPONENTS.md](SDXL-COMPONENTS.md). New SDXL conversions use checkpoint
+  weights and do not download shared CLIP/VAE weights.
+- In `app/src/main/assets/components_sd15/`, supply the SD1.5 CLIP recipe and
+  tokenizer, component manifests and both 512px VAE template bundles described
+  in [SD15-COMPONENTS.md](SD15-COMPONENTS.md). SD1.5 also converts the checkpoint's
+  own component weights; it no longer downloads the DreamShaper donor archive.
 
 Gradle builds the first-party converter and compiler allocator. SDK and model
 binaries remain gitignored. The older SD1.5 measurements below came from the
@@ -52,6 +57,11 @@ c++ -O2 -std=c++17 -ffp-contract=off -o tplconv native/tplconv.cpp
 ```
 
 No dependencies beyond libc++ and POSIX `mmap` for `tplconv`.
+
+`:app:compileComponentconv` builds `native/componentconv.cpp` with the same NDK
+and linker settings, packaging it as `libcomponentconv.so`. It reconstructs the
+selected family's MNN text encoder(s) directly from the checkpoint and sparse recipe; PyTorch,
+ONNX and the MNN converter are authoring tools, not phone dependencies.
 
 `:app:compileCompilerHeap` also builds `native/compiler_heap.c` into
 `libcompiler_heap.so` for debug and release. Its symbol map, `-fno-builtin` and

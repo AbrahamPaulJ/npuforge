@@ -11,16 +11,16 @@
     <string name="tab_convert">转换</string>
     <string name="tab_info">说明</string>
     <string name="tab_components">备份</string>
-    <string name="components_title">备份共享模型组件</string>
-    <string name="components_description">保存已下载的 CLIP 和 VAE 文件，避免重复下载。这些组件用于理解提示词以及编解码图像。重新安装应用或更换手机后可恢复此 ZIP 备份，原下载 ZIP 也同样有效。</string>
+    <string name="components_title">旧版共享文件备份</string>
+    <string name="components_description">保留或恢复旧版应用的 CLIP 和 VAE 备份。新的 SD1.5 和 SDXL 转换使用检查点自身的组件，不使用这些共享文件。</string>
     <string name="components_ready">已保存在本设备</string>
-    <string name="components_missing">共享组件尚未下载</string>
+    <string name="components_missing">未保存旧版文件</string>
     <string name="components_backup">保存备份</string>
     <string name="components_restore">恢复备份</string>
     <string name="components_backing_up">正在保存共享组件…</string>
     <string name="components_restoring">正在恢复共享组件…</string>
     <string name="components_backup_done">已备份 %1$s 的共享组件。</string>
-    <string name="components_restore_done">已恢复 %1$s 的共享组件，无需再次下载即可转换。</string>
+    <string name="components_restore_done">已恢复 %1$s 旧版文件。新的转换使用所选检查点中的组件。</string>
 
     <plurals name="inside_title">
         <item quantity="other">文件包含：%1$s，%2$d 个张量</item>
@@ -32,9 +32,6 @@
     <plurals name="missing_title">
         <item quantity="other">缺失模板所需的 %1$d 个张量，无法进行转换。</item>
     </plurals>
-    <string name="will_swap">主图像生成模型来自您选取的模型文件。文本提示解析与图像解码使用共享的 CLIP 和 VAE 组件，因此生成结果可能与原模型略有差异。</string>
-    <string name="sdxl_components">首次进行 SDXL 转换时将下载约 1 GB 的共享组件，后续转换将直接复用。</string>
-    <string name="stage_donor">正在准备共享模型组件（首次使用）…</string>
     <string name="stage_import">正在复制模型文件…</string>
     <string name="stage_lora">正在读取 LoRA…</string>
     <string name="add_lora">添加 LoRA</string>
@@ -44,7 +41,7 @@
     <string name="name_dot">不能以点号 (.) 开头。</string>
     <string name="name_space">首尾不能包含空格。</string>
     <string name="remove">移除</string>
-    <string name="lora_note">LoRA 微调权重会在转换时与模型权重直接融合。在生成图像时不会降低速度，但每个权重组合都需要单独转换。文本编码器部分的修改不予保留，因此风格类 LoRA 效果优于依赖触发词的 LoRA。</string>
+    <string name="lora_note">LoRA 在转换时合并到 UNet 中，每种组合都需要单独转换。文本编码器的 LoRA 权重不会合并。</string>
     <string name="stage_weights">正在准备模型权重…</string>
     <string name="stage_compile">正在为手机 NPU 编译模型…</string>
     <string name="stage_assemble">正在保存转换后的模型…</string>
@@ -60,10 +57,10 @@
 
     <string name="done_title">转换完成，耗时 %1$d 分 %2$d 秒</string>
     <string name="done_where">已保存至 %1$s。请在绘图应用中将其作为自定义模型导入。</string>
-    <string name="done_note">转换后的模型包含用于读取提示词和解码图像的共享文件。SD1.5 使用 DreamShaper 组件；SDXL 使用首次运行所下载的共享组件。</string>
+    <string name="done_note">转换后的模型使用检查点自身的文本编码器和 VAE。SDXL 包含两个文本编码器。</string>
     <string name="failed_title">转换失败</string>
 
-    <string name="caveats">SD1.5：512 × 512 分辨率，适配骁龙 8 Gen 2。SDXL：1024 × 1024 分辨率，适配骁龙 8 Gen 3。已在 Galaxy S25 Ultra 上完成实机验证，其他机型兼容性尚待确认。</string>
+    <string name="caveats">SD1.5：512 × 512，目标芯片骁龙 8 Gen 2。SDXL：1024 × 1024，目标芯片骁龙 8 Gen 3。用户已确认 WAI Illustrious v170 的完整 SDXL 手机端转换成功。SD1.5 完整组件转换仍需在手机上验证。</string>
     <string name="export_conversion_report">保存完整排错日志</string>
 
     <!-- Language Selection -->
@@ -75,14 +72,12 @@
 
     <!-- Additional UI Labels and Statuses -->
     <string name="part_status_converted">✓ 已转换</string>
-    <string name="part_status_not_converted">✗ 未转换</string>
     <string name="part_status_absent">—</string>
     <string name="copy_log">复制日志</string>
     <string name="log_copied">日志已复制到剪贴板</string>
     <string name="ram_status_optimal">充足</string>
     <string name="ram_status_moderate">中等</string>
     <string name="ram_status_high">较高</string>
-    <string name="model_selected">已选模型</string>
     <string name="lora_adapters">LoRA 适配器</string>
     <string name="lora_weight">权重：%1$.1f</string>
     <string name="active_process">转换正在进行中</string>
@@ -98,41 +93,51 @@
     <string name="info_scope_b2">• SD1.5：512 × 512 分辨率，目标芯片骁龙 8 Gen 2 (v73)</string>
     <string name="info_scope_b3">• SDXL：1024 × 1024 分辨率，目标芯片骁龙 8 Gen 3 (v75)</string>
     <string name="info_scope_b4">• QAIRT 2.50；SDXL UNet 采用 INT8 权重与 16 位激活值</string>
-    <string name="info_scope_b5">• 包含共享的 VAE 编码器与解码器，支持文生图和图生图</string>
+    <string name="info_scope_b5">• 两个模型家族都转换自身的文本编码器以及 VAE 编码器和解码器</string>
 
-    <string name="info_converted_title">转换与复用组件</string>
-    <string name="info_converted_p1">转换过程替换检查点模型中的 UNet 网络。SD1.5 首次使用时会下载一次共享的 DreamShaper 文本编码器与 VAE。</string>
-    <string name="info_converted_p2">SDXL 共享组件从 Mr-J-369 的 SDXL-OnDevice-Conversion 仓库下载一次（约 1 GB），应用将保存其 MNN 文本编码器和 QNN VAE 编解码器供后续复用。</string>
-    <string name="info_converted_p3">当前 SDXL 组件基于 madebyollin/sdxl-vae-fp16-fix、QAIRT 2.50 与 1024 × 1024 v75 VAE 构建。提示词解析与色彩倾向遵循共享组件。</string>
+    <string name="info_converted_title">检查点组件</string>
+    <string name="info_converted_p1">SD1.5 在手机上转换检查点中的 UNet、文本编码器以及 VAE 编码器和解码器。</string>
+    <string name="info_converted_p2">SDXL 在手机上转换检查点中的 UNet、两个文本编码器（CLIP-L 和 CLIP-G）以及 VAE 编码器和解码器。</string>
+    <string name="info_converted_p3">检查点必须包含所有必需组件。缺失或不兼容的张量会中止转换，不会替换成其他模型的权重。分词器仍使用标准版本。</string>
 
     <string name="info_compatibility_title">模型兼容性</string>
-    <string name="info_compatibility_p1">CyberRealistic、DreamShaper 8 和 AbsoluteReality 均已验证可正常转换并生成图像。MistoonAnime 在实测中虽转换成功，但出图呈现噪点。</string>
-    <string name="info_compatibility_p2">模板复用了校准后的动态范围，适用性因模型权重分布而异；MistoonAnime 的结果并不代表所有二次元动漫模型均无法使用。</string>
+    <string name="info_compatibility_p1">之前 CyberRealistic、DreamShaper 8 和 AbsoluteReality 的 UNet 转换已成功。MistoonAnime 使用共享 CLIP 和 VAE 文件时生成了噪声，尚未测试该模型自身的组件。</string>
+    <string name="info_compatibility_p2">仅替换文本编码器就修复了已测试的 Pony 模型。用户也确认，使用 WAI Illustrious v170 自身组件完成完整转换后，生成效果出色。其他检查点仍未经验证；UNet 继续使用固定的校准激活范围。</string>
 
     <string name="info_lora_title">LoRA 适配器</string>
-    <string name="info_lora_p1">LoRA 权重在转换阶段直接与主模型融合，因此在生图推理时完全不增加额外耗时。支持单次合并多个 LoRA。</string>
-    <string name="info_lora_p2">支持格式：标准 kohya LoRA (lora_down / lora_up / alpha)。</string>
+    <string name="info_lora_p1">UNet 适配器权重在转换时合并，不增加生成时的计算量。支持组合多个适配器。</string>
+    <string name="info_lora_p2">支持标准 kohya 格式的 UNet LoRA（lora_down / lora_up / alpha）。</string>
     <string name="info_lora_p3">暂不支持：diffusers/PEFT 格式、LoCon、LyCORIS、LoHa、DoRA、IA3。遇到此类格式会直接提示错误，避免产生损坏模型。</string>
     <string name="info_lora_p4">目前已验证注意力模块 (attention)；卷积模块理论可行但尚未实测验证。</string>
-    <string name="info_lora_p5">转换会丢弃 LoRA 的文本编码器部分，因此画风风格类 LoRA 的表现通常好于依赖特定触发词的 LoRA。</string>
+    <string name="info_lora_p5">文本编码器的 LoRA 权重不会合并。仅包含文本编码器权重的适配器不受支持。</string>
     <string name="info_lora_p6">权重强度在转换时固化到模型中：调整强度需要重新转换一次模型。</string>
 
     <string name="info_requirements_title">设备与系统要求</string>
     <string name="info_requirements_b1">• arm64 架构，Android 13 或更高版本系统</string>
     <string name="info_requirements_b2">• 早期 SD1.5 转换实测峰值内存占用约 4.8 GB</string>
-    <string name="info_requirements_b3">• SD1.5 转换过程需要约 4 GB 可用存储空间</string>
-    <string name="info_requirements_b4">• SD1.5 导出大小约 1.3 GB；实测 SDXL 导出压缩包约 3.5 GB</string>
-    <string name="info_requirements_b5">• 实测 SDXL O=3 优化转换耗时 7 分 17 秒</string>
+    <string name="info_requirements_b3">• 之前仅转换 SD1.5 UNet 需要约 4 GB 工作存储空间；完整组件转换需要额外空间</string>
+    <string name="info_requirements_b4">• 之前导出的 SD1.5 约为 1.3 GB，SDXL 约为 3.5 GB；使用检查点自身组件后大小可能改变</string>
+    <string name="info_requirements_b5">• 之前 SDXL UNet 转换耗时 7 分 17 秒；转换 CLIP 和 VAE 会增加耗时</string>
     <string name="info_requirements_b6">• SDXL 通过存储暂存机制降低运行内存占用，需预留充足剩余存储空间</string>
     <string name="info_requirements_b7">• SDXL 手机端峰值内存消耗尚未完全测定</string>
 
     <string name="info_troubleshooting_title">常见异常与排查</string>
-    <string name="info_troubleshooting_p1">生成画面出现高饱和斑驳噪点，通常表示该模型的权重分布超出了模板的校准激活范围。</string>
+    <string name="info_troubleshooting_p1">噪声可能与不兼容的权重、模板激活范围或生成设置有关。请先检查转换日志再判断原因。</string>
     <string name="info_troubleshooting_p2">模型能否成功加载取决于目标芯片架构以及生图软件内的 QNN 运行库版本。</string>
-    <string name="info_troubleshooting_p3">提示词解析不符合预期通常与共享的 CLIP 文本编码器相关。</string>
+    <string name="info_troubleshooting_p3">旧版 SDXL 导出使用共享 CLIP 权重，导致已测试的 Pony 模型生成异常。重新转换可包含该模型自身的文本编码器。</string>
     <string name="info_troubleshooting_p4">色彩或细节异常需要具体日志分析，仅凭外观画面无法直接判定原因。</string>
 
     <string name="info_tested_title">实机测试记录</string>
-    <string name="info_tested_p1">测试设备：Samsung Galaxy S25 Ultra (SM8750，Hexagon v79)。SD1.5 与 SDXL 转换及生成均已测试成功。</string>
-    <string name="info_tested_p2">SDXL O=3 产物在 Aura 中 1024 × 1024、8 步、CFG 1、LCM/Karras 条件下实测出图用时 15 秒（单次运行数据，非多机型基准对比）。</string>
+    <string name="info_tested_p1">之前 SD1.5 和 SDXL 的 UNet 转换已在 Samsung Galaxy S25 Ultra 上成功。用户现已确认 SDXL 完整组件转换成功，WAI Illustrious v170 生成效果良好。SD1.5 完整组件转换仍未经手机端验证。</string>
+    <string name="info_tested_p2">用户提供的 WAI Illustrious v170 结果使用 NPU、1024 × 1024、30 步、CFG 7、种子 418928922，生成耗时 45.8 秒。这是一次用户报告的结果，并非多机型性能测试。</string>
+
+    <string name="stage_validate">正在检查检查点组件…</string>
+    <string name="stage_clip">正在转换文本编码器…</string>
+    <string name="stage_vae_encoder_weights">正在准备图像编码器权重…</string>
+    <string name="stage_vae_encoder_compile">正在编译图像编码器…</string>
+    <string name="stage_vae_decoder_weights">正在准备图像解码器权重…</string>
+    <string name="stage_vae_decoder_compile">正在编译图像解码器…</string>
+
+    <string name="components_legacy_family">%1$s · 旧版文件</string>
+    <string name="checkpoint_components">UNet、文本编码器和 VAE 均从此检查点转换。SDXL 包含两个文本编码器，无需下载共享模型。</string>
 </resources>

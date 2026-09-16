@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -48,7 +49,7 @@ fun ComponentsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val state by ConvertService.state.collectAsState()
     val running = state is ConvertService.State.Running
-    var selected by rememberSaveable { mutableStateOf(CheckpointInfo.Model.SDXL.name) }
+    var selected by rememberSaveable { mutableStateOf(CheckpointInfo.Model.SD15.name) }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val backup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) {
@@ -103,13 +104,15 @@ fun ComponentsScreen(onBack: () -> Unit) {
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Text(
-                            text = if (model == CheckpointInfo.Model.SD15) "Stable Diffusion 1.5" else "Stable Diffusion XL",
+                            text = stringResource(R.string.components_legacy_family,
+                                if (model == CheckpointInfo.Model.SD15) "Stable Diffusion 1.5" else "Stable Diffusion XL"),
+                            modifier = Modifier.align(Alignment.CenterVertically),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                         )

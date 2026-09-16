@@ -1,7 +1,7 @@
 # Scope and limits — what npuforge converts, and where it fails
 
 Results are from one Samsung SM-S938B (SM8750, HTP v79), recorded on
-2026-09-13 through 2026-09-15. Historical SD1.5 findings are retained below;
+2026-09-13 through 2026-09-16. Historical SD1.5 findings are retained below;
 [SDXL.md](SDXL.md) records the new SDXL pipeline and its validation limits.
 
 ## Current scope
@@ -10,16 +10,19 @@ Results are from one Samsung SM-S938B (SM8750, HTP v79), recorded on
 |---|---|---|
 | input | single-file .safetensors | single-file .safetensors |
 | image size | 512 × 512 | 1024 × 1024 |
-| converted component | UNet | UNet, W8A16 |
+| converted components | UNet, CLIP, embeddings, VAE | UNet (W8A16), both CLIPs, embeddings, VAE |
 | target | v73, 8 MB VTCM | v75 / soc57, 8 MB VTCM |
 | current runtime | QAIRT 2.50.0.260828 | QAIRT 2.50.0.260828 |
-| shared components | downloaded DreamShaper CLIP/VAE | downloaded MNN CLIPs and QNN VAE encoder/decoder |
+| component weights | checkpoint-owned; new full pipeline awaits phone validation | checkpoint-owned; user reports successful full Illustrious conversion and generation |
 | conversion measurement | original run: 117 s | user-reported O=3 total: 437 s |
 
-Header inspection selects the model family and checks the selected recipe's
-source names. SD2 and diffusers-layout files remain unsupported. Standard kohya
-UNet LoRA merging remains implemented; SDXL LoRA has not been validated by the
-recorded full-model phone runs.
+Header inspection selects the model family, checks recipe source names, and
+validates CLIP/VAE shapes and dtypes. SD2 and diffusers-layout files remain unsupported. Standard kohya
+UNet LoRA merging remains implemented. A supplied nubia NX789J report records
+one successful SDXL conversion with 722 matched adapter modules. The same tester
+reports DMD2 F16 and F32 conversion/generation success before the component update,
+with rendered screenshots. Broader adapter coverage and a controlled comparison
+of the LoRA's effect remain unverified.
 
 SDXL O=1 and O=3 outputs both generated recognizable images in Aura at
 1024 × 1024, 8 steps, CFG 1, LCM/Karras. The individual runs took 20 and 15
@@ -90,8 +93,9 @@ version reports the number rather than inventing a cutoff.
 - *"The checkpoint is corrupt."* It is not. Its UNet weights are healthy; the
   NaNs it contains are in the **VAE**, and NaNs in an fp16 SD1.5 merge's VAE are
   common and authentic. This was over-called once and retracted after measuring.
-- *"The borrowed CLIP/VAE break it."* Ruled out by a 2×2 (`README.md`): giving the
-  broken UNet the checkpoint's **own** CLIP and VAE leaves it noise (0.358 vs
+- *"The borrowed CLIP/VAE break this SD1.5 checkpoint."* Ruled out by a 2×2
+  (`README.md`): giving the broken UNet the checkpoint's **own** CLIP and VAE
+  leaves it noise (0.358 vs
   0.331 saturated pixels), and giving a good UNet the **mismatched** template
   CLIP/VAE leaves it clean (0.049 vs 0.029). The failure is in the converted
   UNet.
@@ -102,15 +106,16 @@ and AbsoluteReality have working conversions. `CHECKPOINT-FAMILIES.md` records
 why the broader photoreal-versus-anime classification is not established;
 checkpoint-specific calibration or range changes still need validation.
 
-## The text encoder and VAE are borrowed, on purpose
+## Shared text encoders and VAE: historical SD1.5 justification
 
-A converted model keeps the **template's** CLIP and VAE. This was measured before
-it was accepted:
+Earlier SD1.5 exports kept shared CLIP/VAE components. New conversions use
+checkpoint-owned weights. The original shared-component decision used the
+following measurements; they do not establish interchangeability across models:
 
-- The **text encoder** barely moves, across the whole population. Median relative
+- The **text encoder** changed little in the two checkpoints inspected. Median relative
   difference against stock SD1.5's CLIP: **0.204%** (CyberRealistic) and
-  **0.363%** (MistoonAnime) — anime included, because SD1.5 finetunes train the
-  UNet.
+  **0.363%** (MistoonAnime). These values describe those checkpoints, not every
+  finetune's training choices.
 - **Photoreal checkpoints' VAEs are the same file.** CyberRealistic's baked VAE
   *is* `vae-ft-mse-840000-ema-pruned`, to **0.021%**. Baking that file is what
   checkpoint authors do.
@@ -126,10 +131,15 @@ For such a checkpoint the borrowed VAE is an **improvement**, not a compromise �
 the converted model gets a decoder the source file no longer has.
 `docs/CHECKPOINT-FAMILIES.md` §5.
 
-**Cost:** prompt interpretation follows the template. A checkpoint that leans on
-a heavily-trained text encoder, or on `clip_skip 2`, will not behave exactly as
-it does elsewhere. That is a fidelity limit, not a failure — and converting CLIP
-and the VAE is therefore **not worth building** at present.
+**SDXL counterexample:** on 2026-09-16, the user reported that the Pony CLIP-only
+test worked. Seven CLIP files were replaced with checkpoint-owned weights;
+hashes verified the baseline UNet, VAE, tokenizer and model markers were
+unchanged. This supports shared CLIP substitution as the cause of this Pony
+failure. The user subsequently reports excellent `waiIllustriousSDXL_v170` output
+from the full checkpoint-owned component pipeline: 1024 × 1024, 30 steps, CFG 7,
+45.8 seconds on NPU. This does not establish support for every derivative. Vivo
+conversion failures and broader SDXL LoRA coverage remain separate work; see
+[the SDXL investigation](SDXL-INVESTIGATION.md).
 
 ## LoRA
 
@@ -145,8 +155,12 @@ a cliff, not a slope — 24 tensors cost the same as 768.
 | linear and 1×1/k×k conv shapes | — |
 
 Only **attention** modules have been exercised (192/192 on the tested adapter);
-conv adapters are implemented and unverified. An unsupported file is reported,
-not silently half-merged.
+conv shapes are implemented, but diffusers-style ResNet/conv module-name mapping
+is incomplete. The native converter and Python reference now reject unconsumed
+UNet adapter tensors, including mixed unsupported formats, rather than accepting
+a file because some attention modules matched. Both report dropped text-encoder
+modules. The merged-weight cache is capped at 128 MiB; its previous unbounded
+growth was a significant SDXL memory defect. See [the investigation](SDXL-INVESTIGATION.md).
 
 ⚠ **The text-encoder half (`lora_te_*`) is dropped** — CLIP comes from the
 template — so style adapters carry over better than trigger-word ones.
@@ -179,6 +193,7 @@ still cause compilation to fail.
 |---|---|
 | model will not load in the generator at all | fp16 stamp, or the chip is below v73 |
 | saturated, blotchy noise on every prompt, statistics near-identical **across different prompts** | possible mismatch with the template's activation ranges; observed for MistoonAnime |
+| Pony SDXL striped output with the shared CLIPs | replacing the CLIPs alone worked in the user-reported test; shared encoder substitution is supported as the cause |
 | clean image, prompt read oddly | the borrowed text encoder |
 | clean image, colour slightly off or detail soft | the borrowed VAE |
 | conversion refused before it starts | wrong architecture, or missing tensors — the reason is on the checkpoint card |

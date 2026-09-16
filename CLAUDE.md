@@ -20,7 +20,10 @@ artifact provenance. SDK/model binaries are still excluded from this source repo
 | Doc | Read it when |
 |---|---|
 | `HANDOFF.md` | **always, first** — live state, next step, what not to redo |
-| `docs/SDXL.md` | SDXL template contract, compiler OOM investigation, successful phone results and shared component download |
+| `docs/SDXL.md` | SDXL template contract, compiler OOM investigation, successful phone results and checkpoint-owned components |
+| `docs/SDXL-COMPONENTS.md` | SDXL CLIP/VAE phone pipeline, generated assets, validation and FP16 limits |
+| `docs/SD15-COMPONENTS.md` | SD1.5 checkpoint-owned components, clip-skip 2, 512px VAE templates and quality limits |
+| `docs/SDXL-INVESTIGATION.md` | Pony fixed with checkpoint-owned CLIPs, Vivo mapping-limit evidence, bounded LoRA cache and successful Illustrious full-component conversion |
 | `docs/LIMITS.md` | **before saying what this supports**, or when a conversion produced something wrong. Scope, the fp16 stamp, the anime failure and its dead hypotheses, LoRA support matrix, how to read a failure |
 | `ROADMAP.md` | planning. Also lists what is **parked by decision** (2.28 build, anime template) and what was **rejected on measurement** — check before proposing anything |
 | `docs/CHECKPOINT-FAMILIES.md` | **before planning a second template, a second resolution, or changing whose CLIP/VAE ships**. Which SD1.5 checkpoints exist and where they came from, the 0.9 MB span probe, why "photoreal vs anime" may be the wrong split, and what another resolution costs |

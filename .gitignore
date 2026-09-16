@@ -24,6 +24,8 @@ qnn-*
 *.apk
 
 # Generated from QAIRT converter output; regenerate per docs/BUILD.md
+app/src/main/assets/components_sdxl/
+app/src/main/assets/components_sd15/
 libqnn_model.so
 lib_arm/
 lib_tpl/

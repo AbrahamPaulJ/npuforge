@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import org.json.JSONObject
 import java.io.DataInputStream
+import java.io.File
 import java.io.InputStream
 
 /**
@@ -19,9 +20,7 @@ import java.io.InputStream
  *  1. **Say what will and will not carry over.** A single-file SD1.5 checkpoint
  *     holds three models: the UNet (`model.diffusion_model.*`), the VAE
  *     (`first_stage_model.*`) and the text encoder (`cond_stage_model.*`).
- *     Conversion covers the UNet alone, so a checkpoint with a baked-in VAE
- *     loses it. Better to show that before two minutes of work than to explain
- *     it afterwards.
+ *     Both families convert all three components; SDXL has two text encoders.
  *  2. **Refuse what cannot work, early.** Each recipe names its exact tensors. If
  *     any is absent the conversion fails partway through; checking the header
  *     turns that into an instant, specific answer — and catches SD2 and
@@ -32,14 +31,15 @@ object CheckpointInfo {
 
     enum class Model(
         val templateDirectory: String,
+        val componentDirectory: String,
         val donorDirectory: String,
         val components: Set<String>,
     ) {
-        SD15("template", "donor", setOf(
+        SD15("template", "components_sd15", "donor", setOf(
             "clip_v2.mnn", "pos_emb.bin", "token_emb.bin", "tokenizer.json",
             "vae_encoder.bin", "vae_decoder.bin",
         )),
-        SDXL("template_sdxl", "donor_sdxl", setOf(
+        SDXL("template_sdxl", "components_sdxl", "donor_sdxl", setOf(
             "clip.mnn", "clip_2.mnn", "clip_2.mnn.weight", "tokenizer.json",
             "pos_emb.bin", "token_emb.bin", "pos_emb_2.bin", "token_emb_2.bin",
             "vae_encoder.bin", "vae_decoder.bin",
@@ -86,7 +86,25 @@ object CheckpointInfo {
     fun inspect(context: Context, uri: Uri): Report {
         val header = context.contentResolver.openInputStream(uri)?.use { readHeader(it) }
             ?: throw Converter.Failure("cannot open the selected file")
+        return inspectHeader(context, header)
+    }
 
+    /** Rechecks the imported file, including conversions started outside the UI. */
+    fun validate(context: Context, file: File, expectedModel: Model): Report {
+        val report = file.inputStream().use { inspectHeader(context, readHeader(it)) }
+        if (report.model != expectedModel) {
+            throw Converter.Failure("The checkpoint is ${report.model.name}, not ${expectedModel.name}.")
+        }
+        report.fatal?.let { throw Converter.Failure(it) }
+        if (report.missing.isNotEmpty()) {
+            throw Converter.Failure(
+                "Required checkpoint tensors are missing: ${report.missing.take(3).joinToString()}",
+            )
+        }
+        return report
+    }
+
+    private fun inspectHeader(context: Context, header: JSONObject): Report {
         var unetN = 0; var unetB = 0L
         var vaeN = 0; var vaeB = 0L
         var clipN = 0; var clipB = 0L
@@ -115,8 +133,52 @@ object CheckpointInfo {
         }
 
         val model = if (sdxlClip || "${UNET}label_emb.0.0.weight" in names) Model.SDXL else Model.SD15
-        val required = context.assets.open("${model.templateDirectory}/sources.txt").use {
+        val unetRequired = context.assets.open("${model.templateDirectory}/sources.txt").use {
             it.bufferedReader().readLines().filter(String::isNotBlank)
+        }
+        val required = unetRequired.toMutableSet()
+        var invalid: String? = null
+        for (name in unetRequired) {
+            val tensor = header.optJSONObject(name) ?: continue
+            if (tensor.optString("dtype") !in setOf("F16", "F32") && invalid == null) {
+                invalid = "$name has unsupported dtype ${tensor.optString("dtype")}; expected F16 or F32."
+            }
+        }
+        for (manifest in listOf(
+            "${model.componentDirectory}/clip_requirements.json",
+            "${model.componentDirectory}/vae_encoder/requirements.json",
+            "${model.componentDirectory}/vae_decoder/requirements.json",
+        )) {
+            val specification = try {
+                context.assets.open(manifest).use {
+                    JSONObject(it.bufferedReader().readText()).getJSONArray("tensors")
+                }
+            } catch (e: Exception) {
+                throw Converter.Failure(
+                    "This app build is missing valid ${model.name} conversion assets ($manifest). " +
+                        "Rebuild with the complete component assets. ${e.message.orEmpty()}",
+                )
+            }
+            if (specification.length() == 0) {
+                throw Converter.Failure("This app build has an empty ${model.name} component manifest: $manifest")
+            }
+            for (index in 0 until specification.length()) {
+                val requirement = specification.getJSONObject(index)
+                val name = requirement.getString("name")
+                required.add(name)
+                val tensor = header.optJSONObject(name) ?: continue
+                val shape = requirement.getJSONArray("shape")
+                val actual = tensor.optJSONArray("shape")
+                val matches = actual != null && actual.length() == shape.length() &&
+                    (0 until shape.length()).all { actual.optLong(it, -1) == shape.getLong(it) }
+                val dtypes = requirement.getJSONArray("dtypes")
+                val dtype = tensor.optString("dtype")
+                if (!matches && invalid == null) {
+                    invalid = "$name has shape $actual; expected $shape."
+                } else if ((0 until dtypes.length()).none { dtypes.getString(it) == dtype } && invalid == null) {
+                    invalid = "$name has unsupported dtype $dtype; expected $dtypes."
+                }
+            }
         }
         val missing = required.filterNot { it in names }
 
@@ -124,11 +186,11 @@ object CheckpointInfo {
         val fatal = when {
             unetN == 0 && names.any { it.startsWith("down_blocks.") || it.startsWith("mid_block.") } ->
                 "This is a diffusers-layout folder file, not a single-file checkpoint."
-            missing.size == required.size && unetN > 0 ->
+            unetRequired.none { it in names } && unetN > 0 ->
                 "This UNet does not match the SD1.5 or SDXL template."
             unetN == 0 ->
                 "No UNet found (no model.diffusion_model.* tensors)."
-            else -> null
+            else -> invalid
         }
 
         val arch = when {

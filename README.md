@@ -116,8 +116,12 @@ on x86 and on the phone, and the app's output renders byte-identical PNGs to
 the PC build.
 
 ⚠ The merge is cached per source tensor: the recipe reads an attention weight
-once per head, so a q/k/v tensor is fetched 8 times and recomputing the rank-R
-product each time cost more than the rest of the conversion (126 s -> 55 s).
+once per head, so recomputing the rank-R product for every head is expensive.
+The cache is now bounded to 128 MiB; the earlier unbounded cache could retain
+8.14 GiB for a broad SDXL adapter. Evicted weights are recomputed without changing
+the merge arithmetic. A nubia tester reports successful SDXL DMD2 F16/F32
+conversion and generation before this update; broader adapter coverage remains pending;
+see [the investigation](docs/SDXL-INVESTIGATION.md).
 
 | | |
 |---|---|
@@ -132,16 +136,17 @@ uses **LDM** ones, so the block prefix needs translating. Build the kohya name
 forwards from each checkpoint key -- reversing it is ambiguous, because
 `to_out_0`, `ff_net_0_proj` and `transformer_blocks_0` all collide under
 `"." -> "_"`.
-⚠ The text-encoder half (`lora_te_*`) is dropped, since CLIP comes from the
-template. For the style LoRA tested, the UNet half still carried the effect.
+⚠ Text-encoder LoRA weights (`lora_te_*`, `lora_te1_*`, `lora_te2_*`) are
+not merged. This remains unsupported even when SDXL converts its own CLIPs. For the style LoRA tested, the UNet half still carried the effect.
 ⚠ Standard kohya LoRA only; LoCon/LoHa/DoRA need their own merge formulas.
 
-## Is borrowing the template's CLIP and VAE a problem? Measured: no
+## Shared CLIP/VAE: scope of the measurements
 
-Conversion covers the UNet, so a converted model keeps the **template's** text
-encoder and VAE. The obvious worry is that this mismatch degrades or breaks
-output. It does not, and the test was run on the worst mismatch available -- an
-anime checkpoint whose VAE differs from the template's by up to **8x**:
+Both SD1.5 and SDXL convert their CLIP encoder(s), embeddings and VAE graphs
+from the selected checkpoint. Only the standard tokenizer is shared. Neither
+conversion downloads donor model weights. See [SD1.5 component conversion](docs/SD15-COMPONENTS.md).
+A historical SD1.5 comparison found that the borrowed components did not explain
+that checkpoint's noise failure:
 
 | UNet | CLIP + VAE | saturated px | result |
 |---|---|---|---|
@@ -150,18 +155,24 @@ anime checkpoint whose VAE differs from the template's by up to **8x**:
 | official build | the checkpoint's own | 0.029 | clean |
 | official build | **template (mismatched)** | 0.049 | **still clean** |
 
-Giving a broken UNet its matched CLIP/VAE does not rescue it; giving a good UNet
-a mismatched one does not break it. The two clean rows are visually
-indistinguishable.
+For this SD1.5 checkpoint, giving the broken UNet its matched CLIP/VAE did not
+rescue it; giving the good UNet mismatched components did not break it. The two
+clean rows are visually indistinguishable.
 
-Weight-level agreement says the same thing more cheaply -- across checkpoints the
-text encoder and VAE barely move (median 0.13-0.39% relative difference), because
-SD1.5 finetunes train the UNet. **Converting them is not worth building.**
-
-⚠ What this does NOT cover: a converted model inherits the template's *prompt
-interpretation*, so a checkpoint relying on a heavily-trained text encoder --
-or on `clip_skip 2` -- will not behave exactly like it does elsewhere. That is a
-fidelity limit, not a failure.
+The two inspected SD1.5 text encoders were close to stock weights. This does
+not establish interchangeability across SDXL finetunes, or across VAEs.
+**On 2026-09-16, the user reported that the Pony CLIP-only test worked.** The
+diagnostic ZIP replaced seven CLIP files with checkpoint-owned weights; hashes
+verified that the baseline UNet, VAE, tokenizer and model markers were unchanged.
+This supports shared CLIP substitution as the cause of this Pony failure.
+Matching encoder architecture does not mean matching trained weights.
+The app now includes native SDXL component conversion; see
+[component conversion](docs/SDXL-COMPONENTS.md) for validation and build assets.
+The user subsequently confirmed excellent `waiIllustriousSDXL_v170` output from
+the expanded app pipeline: 1024 × 1024, 30 steps, CFG 7, 45.8 seconds on NPU.
+SD1.5 full-component phone validation, additional checkpoints and the Vivo
+conversion failure remain separate follow-up work.
+See [the SDXL evidence](docs/SDXL-INVESTIGATION.md).
 
 ## Status
 
@@ -177,9 +188,9 @@ nothing).
 
 Before picking a file it reads the safetensors **header** (a short read, not a
 2 GB copy) and shows what the checkpoint contains — UNet, VAE, text encoder —
-which of those conversion keeps, and whether all 686 tensors the recipe needs
-are present. An SDXL, SD2 or diffusers-layout file is refused immediately
-instead of failing two minutes in.
+which components conversion keeps, and whether required tensors are present.
+SDXL additionally checks component shapes and dtypes. SD2, diffusers-layout
+files and incomplete SDXL checkpoints are refused before conversion.
 
 ⚠ **Getting QNN to run inside an app took four separate fixes**, each producing
 the same "Device Creation failure". If you touch the packaging or the library
@@ -241,5 +252,5 @@ section stating it is rewritten rather than annotated.
 `docs/TEMPLATE-AUTHORING.md` says how.
 
 ⚠ **`NOTICE` is not optional reading.** The QAIRT runtime is
-redistribution-restricted, the app fetches a CLIP/VAE donor at runtime from the
-same non-commercial project, and checkpoints carry their own terms.
+redistribution-restricted, legacy donor archives have their own terms, and
+checkpoint-owned conversion does not change the checkpoint's licence.

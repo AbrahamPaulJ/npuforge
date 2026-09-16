@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">npuforge</string>
     <string name="blurb">Convert SD1.5 and SDXL image models to run on your phone’s Qualcomm AI processor.</string>
     <string name="pick">Choose a .safetensors model</string>
@@ -10,16 +10,16 @@
     <string name="tab_convert">Convert</string>
     <string name="tab_info">Info</string>
     <string name="tab_components">Backups</string>
-    <string name="components_title">Back up shared model files</string>
-    <string name="components_description">Save the downloaded CLIP and VAE files so you do not have to download them again. These files help the model understand prompts and read or create images. Restore the ZIP after reinstalling or on another phone. The original download ZIP works too.</string>
+    <string name="components_title">Legacy shared-file backups</string>
+    <string name="components_description">Keep or restore CLIP and VAE backups from older app versions. New SD1.5 and SDXL conversions use the components in your checkpoint and do not use these shared files.</string>
     <string name="components_ready">Saved on this phone</string>
-    <string name="components_missing">Shared files not downloaded yet</string>
+    <string name="components_missing">No legacy files saved</string>
     <string name="components_backup">Save backup</string>
     <string name="components_restore">Restore backup</string>
     <string name="components_backing_up">Saving shared model files…</string>
     <string name="components_restoring">Restoring shared model files…</string>
     <string name="components_backup_done">%1$s shared files backed up.</string>
-    <string name="components_restore_done">%1$s shared files restored. You can convert without downloading them again.</string>
+    <string name="components_restore_done">%1$s legacy files restored. New conversions use the selected checkpoint instead.</string>
 
     <plurals name="inside_title">
         <item quantity="one">Inside this file: %1$s, %2$d tensor</item>
@@ -33,9 +33,6 @@
         <item quantity="one">%1$d tensor the template needs is absent, so this cannot convert.</item>
         <item quantity="other">%1$d tensors the template needs are absent, so this cannot convert.</item>
     </plurals>
-    <string name="will_swap">The main image model comes from your file. Prompt reading and image decoding use shared CLIP and VAE files, so results may differ from the original model.</string>
-    <string name="sdxl_components">The first SDXL conversion downloads about 1 GB of shared files. Later conversions reuse them.</string>
-    <string name="stage_donor">Preparing shared model files (first use)…</string>
     <string name="stage_import">Copying your model…</string>
     <string name="stage_lora">Reading LoRA…</string>
     <string name="add_lora">Add LoRA</string>
@@ -45,13 +42,14 @@
     <string name="name_dot">Cannot start with a dot.</string>
     <string name="name_space">No leading or trailing spaces.</string>
     <string name="remove">Remove</string>
-    <string name="lora_note">LoRAs are combined with the model during conversion. They do not slow down image generation, but each combination needs its own conversion. Changes to the text encoder are not included, so style LoRAs may work better than ones that depend on trigger words.</string>
+    <string name="lora_note">LoRAs are merged into the UNet during conversion. Each combination needs its own conversion. Text-encoder LoRA weights are not merged.</string>
     <string name="stage_weights">Preparing model weights…</string>
     <string name="stage_compile">Building the model for your phone…</string>
     <string name="stage_assemble">Saving the converted model…</string>
     <string name="keep_open">The screen stays on while the app is open. Conversion continues if you switch apps.</string>
     <string name="unrestricted_background">Allow conversion in the background</string>
-    <string name="elapsed">Time elapsed: %1$d min %2$d sec</string>
+    <!-- Abbreviated min/sec labels are invariant for singular and plural values. -->
+    <string name="elapsed" tools:ignore="PluralsCandidate">Time elapsed: %1$d min %2$d sec</string>
     <string name="phone_ram_used">Phone memory · %1$d%% used</string>
     <string name="phone_ram_details">%1$.2f of %2$.2f GiB used · %3$.2f GiB available</string>
     <string name="conversion_log">Technical log · latest 200 lines</string>
@@ -59,12 +57,13 @@
     <string name="follow_log">Follow latest output</string>
     <string name="waiting_output">Waiting for the next update…</string>
 
-    <string name="done_title">Done in %1$d min %2$d sec</string>
+    <!-- Abbreviated min/sec labels are invariant for singular and plural values. -->
+    <string name="done_title" tools:ignore="PluralsCandidate">Done in %1$d min %2$d sec</string>
     <string name="done_where">Saved to %1$s. Open your image app and import it as a custom model.</string>
-    <string name="done_note">Your converted model includes shared files for reading prompts and decoding images. SD1.5 uses DreamShaper files; SDXL uses the files downloaded on first use.</string>
+    <string name="done_note">Your converted model uses the text encoder and VAE from your checkpoint. SDXL includes both text encoders.</string>
     <string name="failed_title">Conversion failed</string>
 
-    <string name="caveats">SD1.5: 512 × 512 images, built for Snapdragon 8 Gen 2. SDXL: 1024 × 1024 images, built for Snapdragon 8 Gen 3. Both have worked on a Galaxy S25 Ultra. Other phones are not yet confirmed.</string>
+    <string name="caveats">SD1.5: 512 × 512, Snapdragon 8 Gen 2 target. SDXL: 1024 × 1024, Snapdragon 8 Gen 3 target. Full SDXL conversion worked in the reported WAI Illustrious v170 phone test. Full SD1.5 component conversion still needs phone validation.</string>
     <string name="export_conversion_report">Save full troubleshooting log</string>
 
     <!-- Language Selection -->
@@ -76,14 +75,12 @@
 
     <!-- Additional UI Labels and Statuses -->
     <string name="part_status_converted">✓ converted</string>
-    <string name="part_status_not_converted">✗ not converted</string>
     <string name="part_status_absent">—</string>
     <string name="copy_log">Copy log</string>
     <string name="log_copied">Log copied to clipboard</string>
     <string name="ram_status_optimal">Optimal</string>
     <string name="ram_status_moderate">Moderate</string>
     <string name="ram_status_high">High</string>
-    <string name="model_selected">Model Selected</string>
     <string name="lora_adapters">LoRA Adapters</string>
     <string name="lora_weight">Weight: %1$.1f</string>
     <string name="active_process">Conversion in progress</string>
@@ -99,41 +96,51 @@
     <string name="info_scope_b2">• SD1.5: 512 × 512, Snapdragon 8 Gen 2 target (v73)</string>
     <string name="info_scope_b3">• SDXL: 1024 × 1024, Snapdragon 8 Gen 3 target (v75)</string>
     <string name="info_scope_b4">• QAIRT 2.50; SDXL UNet uses INT8 weights and 16-bit activations</string>
-    <string name="info_scope_b5">• Shared VAE encoder and decoder are included for image-to-image and text-to-image</string>
+    <string name="info_scope_b5">• Both families convert their own text encoders and VAE encoder/decoder</string>
 
-    <string name="info_converted_title">What is converted, and what is borrowed</string>
-    <string name="info_converted_p1">Conversion replaces the UNet from your checkpoint. SD1.5 downloads the shared DreamShaper text encoder and VAE once.</string>
-    <string name="info_converted_p2">For SDXL, the shared components download once from Mr-J-369\'s SDXL-OnDevice-Conversion repository (about 1 GB). The app saves its MNN text encoders and QNN VAE encoder/decoder for reuse.</string>
-    <string name="info_converted_p3">The current SDXL components use madebyollin/sdxl-vae-fp16-fix, QAIRT 2.50 and the 1024 × 1024 v75 VAE. Prompt interpretation and colour follow these shared components.</string>
+    <string name="info_converted_title">Checkpoint components</string>
+    <string name="info_converted_p1">SD1.5 converts the checkpoint UNet, text encoder, and VAE encoder and decoder on your phone.</string>
+    <string name="info_converted_p2">SDXL converts the checkpoint UNet, both text encoders (CLIP-L and CLIP-G), and the VAE encoder and decoder on your phone.</string>
+    <string name="info_converted_p3">The checkpoint must contain all required components. Missing or incompatible tensors stop conversion; another model’s weights are not substituted. The standard tokenizer is reused.</string>
 
     <string name="info_compatibility_title">Checkpoint compatibility</string>
-    <string name="info_compatibility_p1">CyberRealistic, DreamShaper 8 and AbsoluteReality have working conversions. MistoonAnime produced noise in the documented test despite converting successfully.</string>
-    <string name="info_compatibility_p2">The template reuses calibrated activation ranges. Their suitability varies by checkpoint; the MistoonAnime result does not establish that all anime models fail.</string>
+    <string name="info_compatibility_p1">Earlier UNet conversions worked for CyberRealistic, DreamShaper 8 and AbsoluteReality. MistoonAnime produced noise when using shared CLIP and VAE files; checkpoint-owned components have not yet been tested for that model.</string>
+    <string name="info_compatibility_p2">Replacing only Pony’s text encoders fixed the tested Pony model. The user also reports excellent output after full checkpoint-owned conversion of WAI Illustrious v170. Other checkpoints remain unverified; the UNet still uses fixed calibrated activation ranges.</string>
 
     <string name="info_lora_title">LoRA</string>
-    <string name="info_lora_p1">Adapters are merged into the weights during conversion, so they cost nothing at generation time. Several stack in one pass.</string>
-    <string name="info_lora_p2">Supported: standard kohya LoRAs (lora_down / lora_up / alpha).</string>
+    <string name="info_lora_p1">UNet adapter weights are merged during conversion, with no extra work at generation time. Several adapters can be combined.</string>
+    <string name="info_lora_p2">Supported: standard kohya UNet LoRAs (lora_down / lora_up / alpha).</string>
     <string name="info_lora_p3">Not supported: diffusers/PEFT format, LoCon, LyCORIS, LoHa, DoRA, IA3. These fail with a clear message rather than producing a bad model.</string>
     <string name="info_lora_p4">Only attention modules have been tested; convolution adapters should work but are unverified.</string>
-    <string name="info_lora_p5">The text-encoder half of a LoRA is dropped, so style adapters work better than trigger-word ones.</string>
+    <string name="info_lora_p5">Text-encoder LoRA weights are not merged. Adapters containing only text-encoder weights are unsupported.</string>
     <string name="info_lora_p6">Strength is baked in, not a slider you can move later: two strengths of one adapter are two separate models.</string>
 
     <string name="info_requirements_title">What it needs from your phone</string>
     <string name="info_requirements_b1">• arm64, Android 13 or newer</string>
     <string name="info_requirements_b2">• Earlier SD1.5 conversion measured about 4.8 GB of RAM at peak</string>
-    <string name="info_requirements_b3">• SD1.5 needs about 4 GB of working storage</string>
-    <string name="info_requirements_b4">• SD1.5 output is roughly 1.3 GB; the tested SDXL ZIP was about 3.5 GB</string>
-    <string name="info_requirements_b5">• Tested SDXL O=3 conversion completed in 7 minutes 17 seconds</string>
+    <string name="info_requirements_b3">• Earlier UNet-only SD1.5 conversion needed about 4 GB of working storage; full component conversion needs additional space</string>
+    <string name="info_requirements_b4">• Earlier exports were about 1.3 GB for SD1.5 and 3.5 GB for SDXL; checkpoint-owned components can change the size</string>
+    <string name="info_requirements_b5">• The earlier SDXL UNet conversion took 7 minutes 17 seconds; converting CLIP and VAE adds work</string>
     <string name="info_requirements_b6">• SDXL uses temporary files to reduce RAM use, so it needs extra free storage</string>
     <string name="info_requirements_b7">• Peak SDXL phone RAM has not been measured</string>
 
     <string name="info_troubleshooting_title">How to tell what went wrong</string>
-    <string name="info_troubleshooting_p1">Saturated, blotchy noise can indicate that the checkpoint does not fit the template\'s activation ranges, as in the MistoonAnime test.</string>
+    <string name="info_troubleshooting_p1">Noise can involve incompatible weights, template activation ranges or generation settings. Check the conversion log before drawing conclusions.</string>
     <string name="info_troubleshooting_p2">Model loading depends on the target chip and the QNN runtime in your generator.</string>
-    <string name="info_troubleshooting_p3">Unexpected prompt results can involve the shared prompt reader (CLIP).</string>
+    <string name="info_troubleshooting_p3">Older SDXL exports used shared CLIP weights, which broke the tested Pony model. Reconvert to include its own text encoders.</string>
     <string name="info_troubleshooting_p4">Colour or detail problems need investigation; appearance alone does not identify the cause.</string>
 
     <string name="info_tested_title">Tested on</string>
-    <string name="info_tested_p1">One device: Samsung Galaxy S25 Ultra (SM8750, Hexagon v79). SD1.5 and SDXL conversion and generation both worked on this phone.</string>
-    <string name="info_tested_p2">The SDXL O=3 output generated in Aura in 15 seconds at 1024 × 1024, 8 steps, CFG 1, LCM/Karras. This is one run, not a cross-device benchmark.</string>
+    <string name="info_tested_p1">Earlier SD1.5 and SDXL UNet conversions worked on a Samsung Galaxy S25 Ultra. The user now confirms full SDXL component conversion and good output for WAI Illustrious v170. Full SD1.5 component conversion remains unverified on a phone.</string>
+    <string name="info_tested_p2">The reported WAI Illustrious v170 result used NPU, 1024 × 1024, 30 steps, CFG 7 and seed 418928922; generation took 45.8 seconds. This is one reported run, not a cross-device benchmark.</string>
+
+    <string name="stage_validate">Checking checkpoint components…</string>
+    <string name="stage_clip">Converting text encoders…</string>
+    <string name="stage_vae_encoder_weights">Preparing image encoder weights…</string>
+    <string name="stage_vae_encoder_compile">Building the image encoder…</string>
+    <string name="stage_vae_decoder_weights">Preparing image decoder weights…</string>
+    <string name="stage_vae_decoder_compile">Building the image decoder…</string>
+
+    <string name="components_legacy_family">%1$s · legacy files</string>
+    <string name="checkpoint_components">The UNet, text encoder and VAE are converted from this checkpoint. SDXL includes both text encoders. No shared model download is needed.</string>
 </resources>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Merge a kohya LoRA into an SD1.5 checkpoint, in checkpoint space.
+"""Merge a kohya UNet LoRA into an SD1.5/SDXL checkpoint, in checkpoint space.
 
     lora_merge.py <base.safetensors> <lora.safetensors> <strength> [out.safetensors]
 
@@ -20,9 +20,8 @@ by reversing it. kohya forms its names by replacing "." with "_" in the LDM path
 and that is not reversible -- `transformer_blocks`, `to_q`, `skip_connection` and
 `emb_layers` all contain legitimate underscores. Going forwards is exact.
 
-⚠ The text-encoder half of the LoRA (`lora_te_*`) is DROPPED: conversion covers
-the UNet only and CLIP comes from the template. For a style LoRA that loses part
-of the effect. It is reported, not silently ignored.
+⚠ The text-encoder half of the LoRA (`lora_te_*`) is DROPPED: this merger covers
+the UNet only. For a style LoRA that loses part of the effect. It is reported, not silently ignored.
 """
 import re
 import sys
@@ -32,6 +31,8 @@ from safetensors.numpy import load_file, save_file
 
 
 def merge(base_path, lora_path, strength, out_path=None):
+    if not np.isfinite(strength):
+        raise SystemExit("LoRA strength must be finite")
     base = load_file(base_path)
     lora = load_file(lora_path)
 
@@ -79,7 +80,20 @@ def merge(base_path, lora_path, strength, out_path=None):
     SUF = ".lora_down.weight"
     modules = sorted(k[: -len(SUF)] for k in lora
                      if k.startswith("lora_unet_") and k.endswith(SUF))
-    te = sum(1 for k in lora if k.startswith("lora_te") and k.endswith(SUF))
+    text_keys = {k for k in lora if k.startswith(("lora_te", "text_encoder.", "text_encoder_2."))}
+    te = sum(k.endswith((SUF, ".lora_A.weight")) for k in text_keys)
+    used = set(text_keys)
+    for module in modules:
+        if module in kohya_of and module + ".lora_up.weight" in lora:
+            used.update(module + suffix for suffix in (SUF, ".lora_up.weight", ".alpha")
+                        if module + suffix in lora)
+    unmatched = sorted(set(lora) - used)
+    print(f"LoRA modules: {len(modules)} unet, {te} text-encoder (DROPPED -- text-encoder LoRA merging unsupported)")
+    if unmatched:
+        raise SystemExit(f"{len(unmatched)} unsupported or unmatched adapter tensors, first: {unmatched[0]}; "
+                         "requires standard kohya UNet lora_down/lora_up/alpha (no DoRA, LyCORIS or PEFT)")
+    if not modules:
+        raise SystemExit("LoRA matched no UNet tensors")
 
     merged = dict(base)
     applied = skipped = 0
@@ -91,8 +105,16 @@ def merge(base_path, lora_path, strength, out_path=None):
             continue
         down = lora[m + ".lora_down.weight"].astype(np.float32)
         up = lora[m + ".lora_up.weight"].astype(np.float32)
+        if (down.ndim not in (2, 4) or up.ndim not in (2, 4)
+                or min(down.shape) <= 0 or min(up.shape) <= 0 or down.shape[0] != up.shape[1]):
+            raise SystemExit(f"{m}: invalid LoRA down/up shapes or rank")
+        if up.ndim == 4 and up.shape[-2:] != (1, 1):
+            raise SystemExit(f"{m}: spatial LoRA up kernels are unsupported")
         rank = down.shape[0]
-        alpha = float(lora[m + ".alpha"]) if (m + ".alpha") in lora else float(rank)
+        alpha_values = lora.get(m + ".alpha", np.array(rank)).reshape(-1)
+        if alpha_values.size != 1 or not np.isfinite(alpha_values[0]):
+            raise SystemExit(f"{m}: LoRA alpha must be one finite value")
+        alpha = float(alpha_values[0])
         scale = strength * alpha / rank
 
         W = base[target].astype(np.float32)
@@ -110,7 +132,6 @@ def merge(base_path, lora_path, strength, out_path=None):
         merged[target] = new.astype(base[target].dtype)
         applied += 1
 
-    print(f"LoRA modules: {len(modules)} unet, {te} text-encoder (DROPPED -- CLIP is the template's)")
     print(f"merged {applied}, unmatched {skipped}, strength {strength}")
     if deltas:
         d = np.array(deltas)

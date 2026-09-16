@@ -19,13 +19,15 @@ generator renders; this writes models that any generator can import.
 
 ## The pipeline, as the app runs it
 
-| stage | file | note |
-|---|---|---|
-| inspect | `CheckpointInfo.kt` | safetensors **header only** — a short read, not a 2 GB copy. Selects SD1.5 or SDXL; checks the selected recipe sources; SD2 and diffusers layouts remain unsupported |
-| donor | `Donor.kt` | downloads SD1.5 components once; SDXL downloads the shared component ZIP once, reusing the existing cache |
-| weights | `Converter.kt` → `libtplconv.so` | applies the selected recipe, merging LoRAs before quantization |
-| compile | `Converter.kt` → `libqnncontextgen.so` | SD1.5 or SDXL config; SDXL preloads the storage-backed allocator. Foreground service, screen on |
-| assemble | `Converter.kt` | one **uncompressed** zip via MediaStore — these are quantized weights, deflate would cost a minute of CPU to save nothing |
+| stage    | file                                   | note                                                                                                                                                                 |
+| -------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| inspect  | `CheckpointInfo.kt`                    | reads the safetensors header; checks required sources and SDXL component shapes/dtypes; service revalidates its local copy |
+| archives | `Donor.kt`                            | legacy shared-component backup/restore; neither conversion reads this cache |
+| CLIP     | `Converter.kt` → `libcomponentconv.so` | reconstructs the selected family's MNN encoder(s) and embeddings from checkpoint tensors |
+| VAE      | `Converter.kt` → native converters    | writes and compiles 512px or 1024px encoder/decoder packs sequentially, then removes their temporary files |
+| weights  | `Converter.kt` → `libtplconv.so`       | applies the selected recipe, merging LoRAs before quantization                                                                                                       |
+| compile  | `Converter.kt` → `libqnncontextgen.so` | SD1.5 or SDXL config; SDXL preloads the storage-backed allocator. Foreground service, screen on                                                                      |
+| assemble | `Converter.kt`                         | one **uncompressed** zip via MediaStore — these are quantized weights, deflate would cost a minute of CPU to save nothing                                            |
 
 `ConvertService.kt` owns the foreground service and the progress parsing; its
 LoRA extras are plain `"uri|strength"` strings so the whole flow can be driven

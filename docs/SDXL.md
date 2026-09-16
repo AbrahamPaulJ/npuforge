@@ -5,6 +5,10 @@ completed on a Samsung Galaxy S25 Ultra (SM-S938B, SM8750, HTP v79) on
 2026-09-15. The current configuration is O=3 with source-destructive memory
 reuse disabled. SD1.5 retains its separate template and conversion path.
 
+[SDXL investigation](SDXL-INVESTIGATION.md) records the user-reported successful
+Pony CLIP-only test and full-component Illustrious success separately from
+outstanding Vivo mapping exhaustion and broader LoRA validation.
+
 ## Recorded phone results
 
 Checkpoint: `mopMixtureOfPerverts_instaV1`. Shared VAE source:
@@ -26,7 +30,7 @@ not peak RAM. The O=1 allocator log peaked at 11,220 MiB of storage-backed
 allocations; that is allocated file backing, not resident RAM. No continuous
 peak-RAM measurement was captured for either successful run.
 
-## Model contract and shared components
+## Model contract and checkpoint components
 
 - UNet uses W8A16: INT8 weights, 16-bit activations, no INT4 overrides.
 - Batch one; four-channel 128 × 128 latents for 1024 × 1024 images.
@@ -34,18 +38,41 @@ peak-RAM measurement was captured for either successful run.
   `231_masked_v1`; output also carries the `SDXL` marker.
 - QAIRT 2.50.0.260828, v75 / soc_model 57, 8 MB VTCM, burst profile.
   The target is fixed; it is not selected automatically from the phone's chip.
-- Shared components are MNN CLIP-L/CLIP-G, embeddings and tokenizer, plus QNN
-  VAE encoder and decoder. Their weights are borrowed, not converted from the
-  selected checkpoint. Image-to-image with this SDXL output is not yet recorded.
+- New conversions write checkpoint-owned MNN CLIP-L/CLIP-G and embeddings,
+  and compile checkpoint-owned QNN VAE encoder/decoder graphs. Only the standard
+  tokenizer is shared. No SDXL donor download is used.
+- CLIP-L stores FP16 weights; CLIP-G uses the verified MNN INT8 representation.
+  VAE graph arithmetic on HTP is FP16, with float32 planar external tensors.
+  This does not establish compatibility with VAEs requiring float32 arithmetic.
 
-At first SDXL conversion, the app downloads the approximately 1 GB
-[shared component ZIP](https://huggingface.co/Mr-J-369/SDXL-OnDevice-Conversion/resolve/main/sdxl-shared-mnn-clips-qnn250-vae1024-v75.zip).
-It extracts the shared files into its existing SDXL cache. Subsequent conversions
-reuse that cache, including components previously imported locally. The service
-still accepts an explicit local component URI for debug-driven imports.
-The tested exported ZIP was about 3.5 GB. The automatic download was wired after
-the successful phone runs; its endpoint was checked, but the new download flow
-has not yet been tested on the phone.
+The historical successful phone exports used shared components and were about
+3.5 GB. The expanded component pipeline now has a successful user-reported
+Illustrious text-to-image result; image-to-image still needs validation. Legacy shared-component backups are
+retained but are not inputs to new SDXL conversions. See
+[component conversion and authoring](SDXL-COMPONENTS.md).
+
+### Pony CLIP-only test — user-reported success, 16 September 2026
+
+The user reported that `v6-Pony-CLIP-test.zip` worked. This diagnostic package
+replaced seven CLIP files with Pony's checkpoint-owned weights: `clip.mnn`,
+`clip_2.mnn`, `clip_2.mnn.weight`, both token-embedding files and both
+position-embedding files. SHA-256 checks verified that its UNet, VAE encoder and
+decoder, tokenizer and model markers match the exact baseline phone export.
+
+This supports shared CLIP substitution as the cause of this Pony failure.
+The local exporter passed strict checkpoint loading, reference-encoder
+comparisons and host MNN checks using the emitted embedding files. It preserves
+the existing FP16 CLIP-L and INT8 CLIP-G formats and runtime padding behavior.
+Native on-phone component conversion is implemented separately from this
+diagnostic and was subsequently tested with Illustrious, below. Vivo compilation
+and broader LoRA coverage remain separate; see
+[the investigation](SDXL-INVESTIGATION.md) for evidence and remaining limits.
+
+### Full-component Illustrious test — user-reported success, 16 September 2026
+
+The user reports excellent quality after full app conversion of `waiIllustriousSDXL_v170`. The supplied screenshot shows 1024 × 1024, 30 steps, CFG 7, seed 418928922 and 45.8 seconds on NPU. This validates conversion and text-to-image for this checkpoint; it does not isolate CLIP versus VAE effects or establish compatibility with every derivative.
+No conversion timing or peak-memory measurement was supplied. Other derivatives
+and image-to-image remain to be validated.
 
 ## Why earlier compilation ran out of memory
 
@@ -146,10 +173,10 @@ artifacts described in [BUILD.md](BUILD.md) to produce a working APK. Local
 registration code was built with `-O0 -g0`; those C++ flags are separate from
 QNN's O=3 graph preparation setting.
 
-The phone run is the validation for this change. No additional host conversion,
-benchmark, build or phone deployment was performed while recording these
-findings. Other phones, CFG > 1, SDXL LoRA, repeated quality comparisons and
-inference peak memory remain unverified by the recorded runs.
+The recorded MOP phone runs validate the original compiler configuration.
+The later Pony diagnostic separately verified local CLIP export and received a
+user-reported successful render. Other phones, SDXL LoRA, repeated quality
+comparisons and inference peak memory remain unverified by these results.
 
 ### Vivo repeat failure, 15 September 2026
 
@@ -158,12 +185,14 @@ still aborted. It reached 65,530 process mappings: 64,563 were Scudo
 secondary mappings, while only 503 were compiler backing files. The slab
 change reduced our mappings but did not resolve the remaining allocations.
 
-The preload library now exports C++ new/delete entry points, including array,
+The preload library exports C++ new/delete entry points, including array,
 aligned, sized-delete and nothrow variants, alongside the C allocator APIs.
 A small native probe on the connected Samsung verified that QAIRT 2.50
 libQnnHtpPrepare.so resolves its malloc, new and new[] relocations to the
-preload library. This does not establish the Vivo's original binding or
-prove that its full conversion now completes; that device test is pending.
+preload library. The later 11:23 UTC Vivo report already includes the C++ hooks
+and still aborts at 65,530 mappings, including 64,575 Scudo-secondary mappings.
+Interception on Samsung does not establish the originating allocation path on
+Vivo. This failure remains unresolved; see [the investigation](SDXL-INVESTIGATION.md).
 
 The 9.1 MB report included all 65,530 mappings from the crash handler. The
 handler now emits registers and process status without dumping every map.
