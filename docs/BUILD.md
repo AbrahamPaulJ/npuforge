@@ -108,9 +108,28 @@ From the repository root:
 
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
 - Lint report: `app/build/reports/lint-results-debug.html`
-- Unsigned release build: `./gradlew :app:assembleRelease`
+- Release build: `./gradlew :app:assembleRelease`
 
-Signing credentials are not included. The debug source set exports diagnostic
+Release signing reads `Keys/signing.properties` in the project root, or the file
+named by `NPUFORGE_SIGNING_PROPERTIES`. The `Keys/` directory is excluded from
+Git. Store the local keystore there as well. The properties are:
+
+```properties
+storeFile=/absolute/path/to/npuforge/Keys/npuforge-release.p12
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyAlias=npuforge-release
+keyPassword=YOUR_KEYSTORE_PASSWORD
+```
+
+Use the same password for the PKCS12 keystore and key. Without a default signing
+file or an explicit path, the build produces an unsigned APK. An explicitly
+configured path must exist. With signing configured, the output is
+`app/build/outputs/apk/release/app-release.apk`.
+
+Back up the keystore and credentials securely; future updates must use the same
+signing key. Signing credentials are never included in source control.
+
+The debug source set exports diagnostic
 services and is intended for development. Its optional DSP probe additionally
 needs the external probe backend and canary assets described in [app/README.md](../app/README.md).
 They are not used by ordinary conversion.

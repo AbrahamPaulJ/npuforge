@@ -11,6 +11,14 @@ local.properties
 *.iml
 .idea/
 
+# Private Android release-signing material.
+/Keys/
+*.jks
+*.keystore
+*.p12
+signing.properties
+keystore.properties
+
 # ⛔ Local Dream's backend -- built from CC BY-NC 4.0 source. It is used ONLY by
 # the debug DSP probe and must never be committed to this MIT repo. See NOTICE.
 libstable_diffusion_core.so

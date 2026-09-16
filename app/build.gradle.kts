@@ -1,10 +1,18 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 import javax.inject.Inject
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+val signingPropertiesPath = providers.environmentVariable("NPUFORGE_SIGNING_PROPERTIES").orNull
+val signingPropertiesFile = signingPropertiesPath?.let { file(it) }
+    ?: rootProject.file("Keys/signing.properties")
+val releaseSigningProperties = if (signingPropertiesPath != null || signingPropertiesFile.isFile) {
+    Properties().apply { signingPropertiesFile.inputStream().use { load(it) } }
+} else null
 
 android {
     namespace = "com.abrah.npuforge"
@@ -16,11 +24,21 @@ android {
         // Android 13 is the app's minimum for its Snapdragon 8 Gen 2+ audience.
         minSdk = 33
         targetSdk = 37
-        versionCode = 3
-        versionName = "0.2.1"
+        versionCode = 1
+        versionName = "1.0.0"
         // Qualcomm's device compiler and HTP runtime are arm64-only.
         //noinspection ChromeOsAbiSupport
         ndk { abiFilters += "arm64-v8a" }
+    }
+
+    releaseSigningProperties?.let { properties ->
+        signingConfigs.create("npuforgeRelease") {
+            storeFile = file(properties.getProperty("storeFile"))
+            storeType = "PKCS12"
+            storePassword = properties.getProperty("storePassword")
+            keyAlias = properties.getProperty("keyAlias")
+            keyPassword = properties.getProperty("keyPassword")
+        }
     }
 
     buildTypes {
@@ -31,6 +49,9 @@ android {
             isMinifyEnabled = false
         }
         release {
+            if (releaseSigningProperties != null) {
+                signingConfig = signingConfigs.getByName("npuforgeRelease")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
