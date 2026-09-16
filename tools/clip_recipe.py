@@ -76,8 +76,11 @@ class Checkpoint:
 
     def tensor(self, key):
         info = self.header[key]
-        dtype = {"F16": "<f2", "F32": "<f4"}[info["dtype"]]
-        return np.memmap(self.path, dtype=dtype, mode="r", shape=tuple(info["shape"]), offset=self.base + info["data_offsets"][0])
+        dtype = {"F16": "<f2", "F32": "<f4", "BF16": "<u2"}[info["dtype"]]
+        values = np.memmap(self.path, dtype=dtype, mode="r", shape=tuple(info["shape"]), offset=self.base + info["data_offsets"][0])
+        if info["dtype"] == "BF16":
+            return (values.astype("<u4") << 16).view("<f4")
+        return values
 
 
 def source_for(encoder, name, suffix, family="sdxl"):
@@ -325,7 +328,7 @@ def author(clips, checkpoint_path, output, family="sdxl", clip_skip=1):
                                      rule["source_cols"], rule["source_row"], rule["multiplier"]))
             write_string(rule["source"])
     (output / "clip_requirements.json").write_text(json.dumps({"tensors": [
-        {"name": name, "shape": shape, "dtypes": ["F16", "F32"]}
+        {"name": name, "shape": shape, "dtypes": ["F16", "F32", "BF16"]}
         for name, shape in sorted(requirements.items())
     ]}, indent=2) + "\n")
     report = {"checkpoint": str(checkpoint_path), "checkpoint_header_sha256": checkpoint.header_hash,

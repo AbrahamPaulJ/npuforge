@@ -18,7 +18,7 @@ QNN context contract. Device/runtime requirements apply in both apps.
 | | SD1.5 | SDXL |
 |---|---|---|
 | Input | Single-file `.safetensors`, supported LDM layout | Single-file `.safetensors`, supported SDXL-base layout |
-| Input weight dtypes | F16/F32 | F16/F32 |
+| Input weight dtypes | F16/F32/BF16 | F16/F32/BF16 |
 | Image size | 512 × 512 | 1024 × 1024 |
 | Checkpoint-owned components | UNet, CLIP and embeddings, VAE encoder and decoder | UNet, CLIP-L/CLIP-G and embeddings, VAE encoder and decoder |
 | Fixed compiler target | v73, 8 MB VTCM | v75 / soc57, 8 MB VTCM |
@@ -30,12 +30,14 @@ selected checkpoint. New conversions do not download donor CLIP/VAE weights.
 Both VAE graphs are included, even for a text-to-image workload that uses only
 the decoder. Legacy component backup/restore is separate from conversion.
 
-SD2, diffusers-layout checkpoints, BF16 inputs and arbitrary architectures are
+SD2, diffusers-layout checkpoints and arbitrary architectures are
 unsupported. Required component names, shapes and dtypes must match the bundled
 graphs. Standard architecture compatibility does not guarantee image quality:
 the UNet retains the template's calibration rather than being recalibrated for
 each checkpoint. VAE internal arithmetic is FP16 despite float32 external I/O;
 a checkpoint requiring float32 VAE arithmetic may not work faithfully.
+BF16 checkpoint and adapter inputs are expanded into FP32 before the existing
+weight conversion; this does not enable BF16 graph execution.
 
 See [SD1.5 components](SD15-COMPONENTS.md),
 [SDXL components](SDXL-COMPONENTS.md) and [SDXL.md](SDXL.md) for contracts.
@@ -52,7 +54,7 @@ a separate exported model. The app's strength slider spans −1.0 to 2.0.
 | Standard kohya `lora_down`, `lora_up`, optional `alpha` | General PEFT/diffusers adapter file layouts |
 | Attention, ResNet, input/output convolution, down/up sampling and time/additional embedding mappings | Arbitrary adapter naming schemes |
 | Linear and convolution down weights with a 1×1 up kernel | Spatial up kernels and format-specific LoCon/LyCORIS/LoHa/DoRA/IA3 arithmetic |
-| F16/F32 adapters | BF16 adapters |
+| F16/F32/BF16 adapters | Other weight dtypes |
 | UNet merging | Text-encoder LoRA, including checkpoint-owned CLIPs |
 
 Kohya adapters may use module names derived from diffusers; that naming support

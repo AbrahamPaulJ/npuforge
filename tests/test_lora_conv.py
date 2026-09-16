@@ -125,6 +125,29 @@ def read_pack(path):
     return entries
 
 
+def save_typed_tensors(path, tensors, dtypes=None):
+    if dtypes is None:
+        save_file(tensors, str(path))
+        return
+    header, payload = {}, bytearray()
+    for name, values in tensors.items():
+        dtype = dtypes[name]
+        if dtype == "BF16":
+            words = np.asarray(values, dtype="<f4").view("<u4")
+            if np.any(words & 0xffff):
+                raise AssertionError("BF16 fixtures must be exactly representable")
+            data = (words >> 16).astype("<u2").tobytes()
+        else:
+            data = np.asarray(values, dtype="<f2" if dtype == "F16" else "<f4").tobytes()
+        start = len(payload)
+        payload.extend(data)
+        header[name] = dict(dtype=dtype, shape=list(values.shape),
+                            data_offsets=[start, len(payload)])
+    encoded = json.dumps(header).encode()
+    encoded += b" " * (-len(encoded) % 8)
+    path.write_bytes(struct.pack("<Q", len(encoded)) + encoded + payload)
+
+
 class LoraConvolutionTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -135,9 +158,10 @@ class LoraConvolutionTest(unittest.TestCase):
                         str(ROOT / "native/tplconv.cpp"), "-o", str(cls.binary)],
                        check=True, capture_output=True, text=True, timeout=45)
 
-    def native(self, directory, base, adapter, recipes, name="merged"):
+    def native(self, directory, base, adapter, recipes, name="merged", *,
+               base_dtypes=None, adapter_dtypes=None):
         checkpoint = directory / f"{name}.safetensors"
-        save_file(base, str(checkpoint))
+        save_typed_tensors(checkpoint, base, base_dtypes)
         recipe_json = directory / "recipe.json"
         recipe_json.write_text(json.dumps({"entries": recipes}))
         recipe = directory / "recipe.bin"
@@ -149,10 +173,45 @@ class LoraConvolutionTest(unittest.TestCase):
         command = [str(self.binary), str(recipe), str(template), str(checkpoint), str(output)]
         if adapter is not None:
             lora = directory / "adapter.safetensors"
-            save_file(adapter, str(lora))
+            save_typed_tensors(lora, adapter, adapter_dtypes)
             command += ["--lora", str(lora) + ":0.75"]
         result = subprocess.run(command, capture_output=True, text=True, timeout=10)
         return result, output
+
+    def test_mixed_bf16_unet_and_lora_match_expanded_fp32_packs(self):
+        def mixed_storage(tensors):
+            expanded, dtypes = {}, {}
+            for index, (name, values) in enumerate(tensors.items()):
+                # Rotate each module too, so down, up and scalar alpha each
+                # exercise BF16, F16 and F32 rather than one fixed dtype.
+                dtype = ("BF16", "F16", "F32")[(index + index // 3) % 3]
+                values = values.astype(np.float32)
+                if dtype == "BF16":
+                    words = values.view(np.uint32) & np.uint32(0xffff0000)
+                    values = np.asarray(words).view(np.float32)
+                elif dtype == "F16":
+                    values = values.astype(np.float16).astype(np.float32)
+                expanded[name], dtypes[name] = values, dtype
+            return expanded, dtypes
+
+        for family, cases in FAMILIES.items():
+            for with_lora in (False, True):
+                with self.subTest(family=family, lora=with_lora), tempfile.TemporaryDirectory() as tmp:
+                    directory = Path(tmp)
+                    base, adapter, _, recipes = fixtures(cases, np.float32)
+                    base, base_dtypes = mixed_storage(base)
+                    adapter, adapter_dtypes = mixed_storage(adapter)
+                    if not with_lora:
+                        adapter = None
+                    result, actual = self.native(directory, base, adapter, recipes,
+                                                  base_dtypes=base_dtypes,
+                                                  adapter_dtypes=adapter_dtypes)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    result, reference = self.native(directory, base, adapter, recipes, "reference")
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    # Includes transformed float32 weights and quantized UNet
+                    # weights/scales, with the existing FP16 LoRA merge rounding.
+                    self.assertEqual(actual.read_bytes(), reference.read_bytes())
 
     def test_native_all_conv_resnet_and_embedding_mappings(self):
         for family, cases in FAMILIES.items():

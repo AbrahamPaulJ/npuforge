@@ -140,7 +140,8 @@ Remaining limits:
 
 - Text-encoder adapters are reported and skipped, including with checkpoint-owned
   CLIPs. A UNet-only merge cannot reproduce their encoder changes.
-- Supported input dtypes are F16/F32. BF16 support is deferred.
+- Supported on-device input dtypes are F16/F32/BF16. BF16 values are expanded
+  into FP32 before the existing conversion and merge operations.
 - Standard kohya module naming is supported; arbitrary PEFT/diffusers file
   layouts and format-specific DoRA/LyCORIS arithmetic are not implemented.
 - Correct merge arithmetic does not establish adapter/checkpoint training-family

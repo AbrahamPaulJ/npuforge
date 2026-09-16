@@ -87,55 +87,20 @@
     <string name="lora_adapters">Адаптеры LoRA</string>
     <string name="lora_weight">Вес: %1$.1f</string>
     <string name="active_process">Выполняется конвертация</string>
-    <string name="chip_qualcomm_npu">Qualcomm AI NPU</string>
 
     <!-- Info Screen -->
-    <string name="info_what_title">Назначение</string>
-    <string name="info_what_p1">Конвертирует модели генерации изображений SD1.5 и SDXL для запуска на процессоре Qualcomm AI (NPU) вашего смартфона.</string>
-    <string name="info_what_p2">Приложение содержит подготовленную структуру нейросети. Телефон заполняет ее весами вашей модели и компилирует готовый бинарный файл.</string>
-
-    <string name="info_scope_title">Поддерживаемые форматы</string>
-    <string name="info_scope_b1">• Модели чекпоинтов .safetensors в одном файле</string>
-    <string name="info_scope_b2">• SD1.5: 512 × 512, цель Snapdragon 8 Gen 2 (v73)</string>
-    <string name="info_scope_b3">• SDXL: 1024 × 1024, цель Snapdragon 8 Gen 3 (v75)</string>
-    <string name="info_scope_b4">• QAIRT 2.50; UNet SDXL использует веса INT8 и активации fp16</string>
-    <string name="info_scope_b5">• Оба семейства конвертируют собственные текстовые энкодеры, энкодер и декодер VAE</string>
-
-    <string name="info_converted_title">Компоненты чекпоинта</string>
-    <string name="info_converted_p1">SD1.5 конвертирует на телефоне UNet чекпоинта, текстовый энкодер, а также энкодер и декодер VAE.</string>
-    <string name="info_converted_p2">SDXL конвертирует на телефоне UNet чекпоинта, оба текстовых энкодера (CLIP-L и CLIP-G), а также энкодер и декодер VAE.</string>
-    <string name="info_converted_p3">Чекпоинт должен содержать все необходимые компоненты. Отсутствующие или несовместимые тензоры останавливают конвертацию; веса другой модели не подставляются. Используется стандартный токенизатор.</string>
-
-    <string name="info_compatibility_title">Совместимость чекпоинтов</string>
-    <string name="info_compatibility_p1">Прежние конвертации UNet работали для CyberRealistic, DreamShaper 8 и AbsoluteReality. MistoonAnime выдавал шум с общими файлами CLIP и VAE; собственные компоненты этой модели ещё не проверены.</string>
-    <string name="info_compatibility_p2">Замена только текстовых энкодеров исправила проверенную модель Pony. Пользователь также сообщил об отличном результате после полной конвертации собственных компонентов WAI Illustrious v170. Другие чекпоинты ещё не проверены; UNet использует фиксированные диапазоны активаций.</string>
-
-    <string name="info_lora_title">LoRA</string>
-    <string name="info_lora_p1">Веса адаптеров UNet объединяются при конвертации без дополнительных затрат при генерации. Можно объединить несколько адаптеров.</string>
-    <string name="info_lora_p2">Поддерживаются стандартные LoRA kohya для UNet (lora_down / lora_up / alpha).</string>
-    <string name="info_lora_p3">Не поддерживаются: форматы diffusers/PEFT, LoCon, LyCORIS, LoHa, DoRA, IA3. Конвертер выведет понятное сообщение об ошибке вместо создания поврежденной модели.</string>
-    <string name="info_lora_p4">Протестированы только модули внимания; свёрточные адаптеры должны работать, но пока не верифицированы.</string>
-    <string name="info_lora_p5">Веса текстовых энкодеров LoRA не объединяются. Адаптеры только для текстовых энкодеров не поддерживаются.</string>
-    <string name="info_lora_p6">Сила адаптера жестко впекается в модель: изменение силы требует повторной конвертации.</string>
-
-    <string name="info_requirements_title">Требования к устройству</string>
-    <string name="info_requirements_b1">• Архитектура arm64, Android 13 или новее</string>
-    <string name="info_requirements_b2">• В замерах SD1.5 пиковое потребление ОЗУ составило около 4.8 ГБ</string>
-    <string name="info_requirements_b3">• Прежняя конвертация только UNet SD1.5 требовала около 4 ГБ рабочего пространства; полная конвертация компонентов требует дополнительного места</string>
-    <string name="info_requirements_b4">• Прежние файлы экспорта занимали около 1.3 ГБ для SD1.5 и 3.5 ГБ для SDXL; собственные компоненты чекпоинта могут изменить размер</string>
-    <string name="info_requirements_b5">• Прежняя конвертация UNet SDXL заняла 7 минут 17 секунд; конвертация CLIP и VAE требует дополнительного времени</string>
-    <string name="info_requirements_b6">• SDXL использует временные файлы для экономии памяти, поэтому требуется дополнительное место на диске</string>
-    <string name="info_requirements_b7">• Пиковое потребление памяти для SDXL пока не измерено</string>
-
-    <string name="info_troubleshooting_title">Диагностика проблем</string>
-    <string name="info_troubleshooting_p1">Шум может быть связан с несовместимыми весами, диапазонами активаций шаблона или настройками генерации. Перед выводами проверьте журнал конвертации.</string>
-    <string name="info_troubleshooting_p2">Загрузка модели зависит от процессора устройства и версии рантайма QNN в генераторе.</string>
-    <string name="info_troubleshooting_p3">Старые экспорты SDXL использовали общие веса CLIP, из-за которых проверенная модель Pony работала неверно. Повторная конвертация включит её собственные текстовые энкодеры.</string>
-    <string name="info_troubleshooting_p4">Дефекты цвета или деталей требуют отдельного анализа; внешний вид сам по себе не указывает на причину.</string>
-
-    <string name="info_tested_title">Протестировано на устройствах</string>
-    <string name="info_tested_p1">Прежние конвертации UNet SD1.5 и SDXL работали на Samsung Galaxy S25 Ultra. Пользователь теперь подтвердил полную конвертацию компонентов SDXL и хороший результат WAI Illustrious v170. Полная конвертация компонентов SD1.5 на телефоне ещё не проверена.</string>
-    <string name="info_tested_p2">В сообщённом результате WAI Illustrious v170 использованы NPU, 1024 × 1024, 30 шагов, CFG 7 и seed 418928922; генерация заняла 45.8 секунды. Это единичный результат пользователя, а не тест на нескольких устройствах.</string>
+    <string name="info_use_title">Как использовать готовую модель</string>
+    <string name="info_use_body">Сконвертируйте чекпоинт SD1.5 или SDXL в формате .safetensors, затем импортируйте ZIP из Download/npuforge в Local Dream или Fancy AI. Конвертация работает без интернета.</string>
+    <string name="info_black_title">SDXL выдаёт чёрные изображения?</string>
+    <string name="info_black_body">Если конвертация прошла успешно, но изображения получаются чёрными, попробуйте заменить VAE:</string>
+    <string name="info_black_step1">1. Скачайте VAE.zip кнопкой ниже и распакуйте его.</string>
+    <string name="info_black_step2">2. В ZIP-архиве сконвертированной модели замените оба файла — vae_encoder.bin и vae_decoder.bin — файлами из VAE.zip. Сохраните их имена и расположение в архиве.</string>
+    <string name="info_black_step3">3. Сохраните обновлённый ZIP-архив модели и снова импортируйте его в Local Dream или Fancy AI. Повторно конвертировать чекпоинт не нужно.</string>
+    <string name="info_black_download">Скачать VAE для SDXL</string>
+    <string name="info_formats_title">Модели и LoRA</string>
+    <string name="info_formats_body">Чекпоинты SD1.5 и SDXL поддерживают веса F16, F32 и BF16. Добавьте LoRA для UNet перед конвертацией; их сила фиксируется в готовой модели. Веса LoRA для текстовых энкодеров не объединяются.</string>
+    <string name="info_help_title">Не удалось сконвертировать?</string>
+    <string name="info_help_body">Нажмите «Экспортировать отчет для отладки» на вкладке «Конвертация». При сообщении о проблеме приложите журнал и укажите модель телефона и название чекпоинта.</string>
 
     <string name="stage_validate">Проверка компонентов чекпоинта…</string>
     <string name="stage_clip">Конвертация текстовых энкодеров…</string>

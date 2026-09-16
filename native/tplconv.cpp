@@ -199,7 +199,7 @@ struct Safetensors {
         }
     }
 
-    // Every source tensor in every recipe so far is F16; F32 costs two lines.
+    // Expand checkpoint storage types to the float32 working representation.
     std::vector<float> get_f32(const std::string& name, std::vector<int64_t>& shape) const {
         auto it = tensors.find(name);
         if (it == tensors.end()) die("checkpoint has no tensor '%s'", name.c_str());
@@ -213,7 +213,7 @@ struct Safetensors {
         }
         if (t.end < t.begin || t.end > m.len - (size_t)(data - m.p))
             die("%s: tensor data exceeds checkpoint", name.c_str());
-        const size_t width = t.dtype == "F16" ? 2 : t.dtype == "F32" ? 4 : 0;
+        const size_t width = (t.dtype == "F16" || t.dtype == "BF16") ? 2 : t.dtype == "F32" ? 4 : 0;
         if (!width) die("%s: unsupported dtype %s", name.c_str(), t.dtype.c_str());
         if (n > std::numeric_limits<size_t>::max() / width || t.end - t.begin != n * width)
             die("%s: tensor byte count does not match shape", name.c_str());
@@ -225,6 +225,13 @@ struct Safetensors {
                 uint16_t h;
                 memcpy(&h, src + 2 * k, 2);
                 out[k] = half_to_float(h);
+            }
+        } else if (t.dtype == "BF16") {
+            for (size_t k = 0; k < n; k++) {
+                uint16_t b;
+                memcpy(&b, src + 2 * k, 2);
+                const uint32_t bits = static_cast<uint32_t>(b) << 16;
+                memcpy(&out[k], &bits, sizeof(bits));
             }
         } else if (t.dtype == "F32") {
             if (t.end - t.begin != n * 4) die("%s: F32 size mismatch", name.c_str());

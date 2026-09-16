@@ -14,7 +14,7 @@ checkpoint. Other derivatives, image-to-image and other phones still need testin
 ## Runtime
 
 1. Read the checkpoint header and validate required component names, shapes and
-   F16/F32 dtypes. The foreground service repeats validation on the imported file.
+   F16/F32/BF16 dtypes. The foreground service repeats validation on the imported file.
 2. `libcomponentconv.so` reconstructs both MNN graphs and four embedding files
    from `components_sdxl/clip_recipe.bin`. The recipe contains sparse graph bytes
    and tensor mappings, without learned donor payloads. Output weights come from

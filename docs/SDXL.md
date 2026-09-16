@@ -215,7 +215,9 @@ separate reported success after the regression fixes.
 Native/Python tests cover LoRA mapping and merge parity, including ResNet and
 sampling layers, mixed files with unmatched tensors, bounded-cache recomputation
 and F16/F32 weights. Extra unsupported tensors now warn while recognized UNet
-layers merge. Text-encoder LoRA and BF16 remain unsupported.
+layers merge. Native readers also accept BF16 checkpoints and adapters by
+expanding their values to FP32; graph precision is unchanged. Text-encoder LoRA
+remains unsupported.
 
 Crash diagnostics include signal-time mapping counts, compact process status,
 available RAM/storage and native tombstone summaries when Android retains them.

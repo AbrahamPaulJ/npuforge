@@ -189,6 +189,10 @@ float fromHalf(uint16_t half) {
     else bits = sign | ((exponent + 112) << 23) | (mantissa << 13);
     float result; std::memcpy(&result, &bits, 4); return result;
 }
+float fromBfloat16(uint16_t bfloat) {
+    const uint32_t bits = static_cast<uint32_t>(bfloat) << 16;
+    float result; std::memcpy(&result, &bits, 4); return result;
+}
 uint16_t toHalf(float value) {
     uint32_t bits; std::memcpy(&bits, &value, 4);
     const uint32_t sign = (bits >> 16) & 0x8000, mantissa = bits & 0x7fffff;
@@ -265,8 +269,8 @@ void convert(const char* directory, const char* checkpointPath, const char* dest
         const auto& tensor = *rule.tensor;
         const std::vector<uint64_t> expected = rule.rank == 1 ? std::vector<uint64_t>{rule.sourceRows} : std::vector<uint64_t>{rule.sourceRows, rule.sourceCols};
         if ((rule.rank != 1 && rule.rank != 2) || tensor.shape != expected || (rule.rank == 1 && rule.sourceCols != 1)) fail("CLIP tensor shape mismatch: " + rule.source);
-        if (tensor.dtype != "F16" && tensor.dtype != "F32") fail("unsupported CLIP tensor dtype " + tensor.dtype + ": " + rule.source);
-        const uint64_t tensorBytes = static_cast<uint64_t>(rule.sourceRows) * rule.sourceCols * (tensor.dtype == "F16" ? 2 : 4);
+        if (tensor.dtype != "F16" && tensor.dtype != "F32" && tensor.dtype != "BF16") fail("unsupported CLIP tensor dtype " + tensor.dtype + ": " + rule.source);
+        const uint64_t tensorBytes = static_cast<uint64_t>(rule.sourceRows) * rule.sourceCols * (tensor.dtype == "F32" ? 4 : 2);
         if (tensor.offsets.size() != 2 || tensor.offsets[1] < tensor.offsets[0] || tensor.offsets[1] - tensor.offsets[0] != tensorBytes || tensor.offsets[1] > checkpoint.mapping.size - checkpoint.base) fail("invalid CLIP tensor data range: " + rule.source);
         const uint64_t inputRows = (rule.flags & 1) ? rule.cols : rule.rows;
         const uint64_t inputCols = (rule.flags & 1) ? rule.rows : rule.cols;
@@ -301,6 +305,7 @@ void convert(const char* directory, const char* checkpointPath, const char* dest
                 const uint64_t index = (rule.flags & 1) ? static_cast<uint64_t>(rule.sourceRow + c) * rule.sourceCols + r : static_cast<uint64_t>(rule.sourceRow + r) * rule.sourceCols + c;
                 float value;
                 if (tensor.dtype == "F16") { uint16_t bits; std::memcpy(&bits, source + index * 2, 2); value = fromHalf(bits); }
+                else if (tensor.dtype == "BF16") { uint16_t bits; std::memcpy(&bits, source + index * 2, 2); value = fromBfloat16(bits); }
                 else std::memcpy(&value, source + index * 4, 4);
                 value *= rule.multiplier;
                 if (!std::isfinite(value)) fail("nonfinite CLIP weight: " + rule.source);

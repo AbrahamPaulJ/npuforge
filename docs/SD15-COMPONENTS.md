@@ -6,7 +6,7 @@ bundled, and conversion does not download or read shared model weights. Legacy
 component backup/restore remains available for existing archives.
 
 The app selects `components_sd15` assets for SD1.5 and `components_sdxl` for SDXL.
-Both paths check required tensor names, shapes and F16/F32 dtypes before running
+Both paths check required tensor names, shapes and F16/F32/BF16 dtypes before running
 native conversion. Missing components are errors; donor substitution is not a
 fallback. Native writers reject non-finite component weights and FP16 overflow.
 

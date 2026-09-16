@@ -125,8 +125,9 @@ See [build instructions](docs/BUILD.md), [test coverage](docs/TESTING.md), and
 
 ## Current scope
 
-- SD1.5 at 512 × 512 and SDXL at 1024 × 1024; complete LDM-layout F16/F32
-  checkpoints. BF16 conversion is not implemented.
+- SD1.5 at 512 × 512 and SDXL at 1024 × 1024; complete LDM-layout F16/F32/BF16
+  checkpoints, including mixed weight dtypes. BF16 input is expanded to FP32;
+  compiled graph precision is unchanged.
 - Supported UNet LoRA layers include attention, ResNets and sampler convolutions.
   Unmatched tensors produce a warning; matched layers still merge. Text-encoder
   LoRAs and complete DoRA/LyCORIS semantics are not supported.

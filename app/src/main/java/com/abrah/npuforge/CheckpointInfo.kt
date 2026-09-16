@@ -140,8 +140,8 @@ object CheckpointInfo {
         var invalid: String? = null
         for (name in unetRequired) {
             val tensor = header.optJSONObject(name) ?: continue
-            if (tensor.optString("dtype") !in setOf("F16", "F32") && invalid == null) {
-                invalid = "$name has unsupported dtype ${tensor.optString("dtype")}; expected F16 or F32."
+            if (tensor.optString("dtype") !in setOf("F16", "F32", "BF16") && invalid == null) {
+                invalid = "$name has unsupported dtype ${tensor.optString("dtype")}; expected F16, F32 or BF16."
             }
         }
         for (manifest in listOf(

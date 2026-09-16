@@ -101,7 +101,7 @@ def recipe(args):
         if used != expected:
             raise ValueError(f"Incomplete VAE mapping: missing={sorted(expected-used)}, extra={sorted(used-expected)}")
         requirements = {"tensors": [{"name": key, "shape": list(source.get_slice(key).get_shape()),
-                                      "dtypes": ["F16", "F32"]} for key in sorted(used)]}
+                                      "dtypes": ["F16", "F32", "BF16"]} for key in sorted(used)]}
     # A template constant must never conceal an unmapped checkpoint-sized tensor.
     constants = [entry for entry in entries if entry["rule"] == "template"]
     if any(math.prod(entry["dims"]) > 4 for entry in constants):

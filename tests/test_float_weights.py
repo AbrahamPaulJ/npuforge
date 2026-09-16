@@ -23,7 +23,13 @@ class FloatWeightsTest(unittest.TestCase):
         cls.directory.cleanup()
 
     def convert(self, values, shape, dtype, rule, dims, perm, truncate=0):
-        data = struct.pack("<" + ("e" if dtype == "F16" else "f") * len(values), *values)
+        if dtype == "BF16":
+            words = [struct.unpack("<I", struct.pack("<f", value))[0] for value in values]
+            self.assertTrue(all(word & 0xffff == 0 for word in words),
+                            "BF16 test values must be exactly representable")
+            data = struct.pack("<" + "H" * len(words), *(word >> 16 for word in words))
+        else:
+            data = struct.pack("<" + ("e" if dtype == "F16" else "f") * len(values), *values)
         header = json.dumps({"first_stage_model.weight": {
             "dtype": dtype, "shape": shape, "data_offsets": [0, len(data)]}}).encode()
         checkpoint = self.work / "input.safetensors"
@@ -69,6 +75,27 @@ class FloatWeightsTest(unittest.TestCase):
                     for h in range(2) for w in range(2)
                     for i in range(2) for o in range(2)]
         self.assertEqual(actual, struct.pack("<16f", *expected))
+
+    def test_bf16_expands_exactly_to_fp32_including_full_exponent_range(self):
+        values = [0.0, -0.0, 2**-133, -2**-133, 2**-126, 1 + 2**-7,
+                  -(1 + 2**-7), 2**127, (2 - 2**-7) * 2**127]
+        result, actual = self.convert(values, [len(values)], "BF16", "float32",
+                                      [len(values)], [0])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(actual, struct.pack("<" + "f" * len(values), *values))
+
+    def test_bf16_vae_weights_match_fp32_control_for_both_output_precisions(self):
+        values = [0.0, -0.0, 2**-24, -2**-24, 2**-14, 65280.0,
+                  1 + 2**-7, -(1 + 2**-7)]
+        for output in ("float16", "float32"):
+            with self.subTest(output=output):
+                result, actual = self.convert(values, [2, 2, 1, 2], "BF16", output,
+                                              [1, 2, 2, 2], [2, 3, 1, 0])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                result, reference = self.convert(values, [2, 2, 1, 2], "F32", output,
+                                                 [1, 2, 2, 2], [2, 3, 1, 0])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(actual, reference)
 
     def test_attention_squeezes_only_trailing_singletons(self):
         values = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]

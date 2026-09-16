@@ -1,4 +1,5 @@
 """Exercise native CLIP output bytes and malformed checkpoint handling, without models."""
+import importlib.util
 import json
 from pathlib import Path
 import struct
@@ -40,7 +41,13 @@ class ComponentConversionTest(unittest.TestCase):
                 truncate=0, recipe_truncate=0):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
-            payload = struct.pack("<" + ("e" if dtype == "F16" else "f") * len(values), *values)
+            if dtype == "BF16":
+                bits = [struct.unpack("<I", struct.pack("<f", value))[0] for value in values]
+                # These fixtures use exactly BF16-representable floats; no rounding is hidden here.
+                self.assertTrue(all(value & 0xffff == 0 for value in bits))
+                payload = struct.pack("<" + "H" * len(bits), *(value >> 16 for value in bits))
+            else:
+                payload = struct.pack("<" + ("e" if dtype == "F16" else "f") * len(values), *values)
             header = {"weight": {"dtype": dtype, "shape": shape,
                                   "data_offsets": [0, len(payload)]}}
             if header_change:
@@ -78,6 +85,70 @@ class ComponentConversionTest(unittest.TestCase):
         values = [0.0, -0.0, 2**-24, -2**-24, 2**-14, 65504.0]
         data = self.successful(values, [6], [rule(rows=6, source_shape=[6])], dtype="F16")
         self.assertEqual(data[4:28], struct.pack("<6f", *values))
+
+    def test_bfloat16_exact_expansion_including_sign_and_subnormals(self):
+        patterns = [0x0000, 0x8000, 0x0001, 0x8001, 0x007f, 0x807f,
+                    0x0080, 0x8080, 0x3f80, 0xbf80, 0x7f7f, 0xff7f]
+        values = [struct.unpack("<f", struct.pack("<I", bits << 16))[0] for bits in patterns]
+        data = self.successful(values, [len(values)],
+                               [rule(rows=len(values), source_shape=[len(values)])], dtype="BF16")
+        self.assertEqual(data[4:4 + 4*len(values)],
+                         b"".join(struct.pack("<I", bits << 16) for bits in patterns))
+
+    def test_bfloat16_output_and_slice_transpose_match_f32(self):
+        values = [-127, -1.5, -0.5, 0.5, 1.5, 127,
+                  -10, -9.5, -8.5, 245, 7, 7,
+                  0, 0, 0, 0, 0, 0,
+                  -2, -1, -0.0, 0.0, 1, 2]
+        layouts = [dict(rows=4, cols=6),
+                   dict(rows=2, cols=6, source_row=1),
+                   dict(flags=1, rows=6, cols=4),
+                   dict(flags=1, rows=6, cols=2, source_row=1)]
+        for encoding in range(4):
+            for layout in layouts:
+                with self.subTest(encoding=encoding, layout=layout):
+                    rules = [rule(encoding=encoding, source_shape=[4, 6], **layout)]
+                    expected = self.successful(values, [4, 6], rules)
+                    self.assertEqual(self.successful(values, [4, 6], rules, dtype="BF16"), expected)
+
+    def test_bfloat16_denormal_flag_and_fp16_output_match_f32(self):
+        values = [-0.0, 2**-133, -2**-133, 2**-126, 2**-24, -2**-24]
+        for encoding in (0, 1):
+            for flags in (0, 4):
+                with self.subTest(encoding=encoding, flags=flags):
+                    rules = [rule(encoding=encoding, flags=flags, cols=len(values))]
+                    expected = self.successful(values, [1, len(values)], rules)
+                    self.assertEqual(self.successful(values, [1, len(values)], rules, dtype="BF16"), expected)
+
+    def test_recipe_author_reads_mixed_checkpoint_dtypes(self):
+        spec = importlib.util.spec_from_file_location("clip_recipe", ROOT / "tools/clip_recipe.py")
+        clip_recipe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(clip_recipe)
+        bfloat_bits = [0x0000, 0x8000, 0x0001, 0x8001, 0x3fc0, 0xc000]
+        tensors = {
+            "half": ("F16", [2, 2], struct.pack("<4e", 0, -0.0, 1.5, -2),
+                     struct.pack("<4f", 0, -0.0, 1.5, -2)),
+            "bfloat": ("BF16", [2, 3], struct.pack("<6H", *bfloat_bits),
+                       b"".join(struct.pack("<I", bits << 16) for bits in bfloat_bits)),
+            "float": ("F32", [2], struct.pack("<2f", 0.25, -4.125),
+                      struct.pack("<2f", 0.25, -4.125)),
+        }
+        header, payload = {}, b""
+        for name, (dtype, shape, data, _) in tensors.items():
+            header[name] = {"dtype": dtype, "shape": shape,
+                            "data_offsets": [len(payload), len(payload) + len(data)]}
+            payload += data
+        raw = json.dumps(header).encode()
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "mixed.safetensors"
+            path.write_bytes(struct.pack("<Q", len(raw)) + raw + payload)
+            checkpoint = clip_recipe.Checkpoint(path)
+            with checkpoint.file:
+                for name, (_, shape, _, expected) in tensors.items():
+                    with self.subTest(tensor=name):
+                        values = checkpoint.tensor(name)
+                        self.assertEqual(values.shape, tuple(shape))
+                        self.assertEqual(values.astype("<f4").tobytes(), expected)
 
     def test_fused_qkv_slice(self):
         data = self.successful(list(range(18)), [6, 3],
@@ -127,7 +198,7 @@ class ComponentConversionTest(unittest.TestCase):
             "missing": lambda h: h.clear(),
             "shape": lambda h: h["weight"].update(shape=[2, 1]),
             "rank": lambda h: h["weight"].update(shape=[2]),
-            "dtype": lambda h: h["weight"].update(dtype="BF16"),
+            "dtype": lambda h: h["weight"].update(dtype="F64"),
             "bytes": lambda h: h["weight"].update(data_offsets=[0, 4]),
             "range": lambda h: h["weight"].update(data_offsets=[8, 16]),
         }
