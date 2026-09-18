@@ -42,6 +42,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -92,17 +93,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import com.abrah.npuforge.ui.ComponentsScreen
 import com.abrah.npuforge.ui.InfoScreen
 import com.abrah.npuforge.ui.theme.NpuForgeTheme
-import java.io.File
-import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -233,18 +233,12 @@ private fun AppScreen() {
                 onClick = { focus.clearFocus(); tab = 1 },
                 text = { Text(stringResource(R.string.tab_info), fontWeight = if (tab == 1) FontWeight.Bold else FontWeight.Normal) },
             )
-            Tab(
-                selected = tab == 2,
-                onClick = { focus.clearFocus(); tab = 2 },
-                text = { Text(stringResource(R.string.tab_components), fontWeight = if (tab == 2) FontWeight.Bold else FontWeight.Normal) },
-            )
         }
 
         savedTabs.SaveableStateProvider(tab) {
             when (tab) {
                 0 -> ConvertScreen()
-                1 -> InfoScreen()
-                else -> ComponentsScreen { tab = 0 }
+                else -> InfoScreen()
             }
         }
     }
@@ -331,6 +325,12 @@ private fun ConvertScreen() {
     }
 
     var inspectError by remember { mutableStateOf<String?>(null) }
+    val isVaeMissing = remember {
+        val vaeDir = File(context.filesDir, "vae_sdxl")
+        !File(vaeDir, "vae_decoder.bin").isFile || !File(vaeDir, "vae_encoder.bin").isFile
+    }
+    var showVaeDownloadDialog by rememberSaveable { mutableStateOf(isVaeMissing) }
+    var pendingConversionModel by remember { mutableStateOf<CheckpointInfo.Model?>(null) }
 
     LaunchedEffect(picked) {
         report = null
@@ -543,11 +543,6 @@ private fun ConvertScreen() {
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Text(
-                            stringResource(R.string.done_note),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                         FilledTonalButton(
                             onClick = { ConvertService.reset() },
                             shape = RoundedCornerShape(12.dp),
@@ -585,7 +580,7 @@ private fun ConvertScreen() {
                 }
             }
 
-            ConvertService.State.Idle, is ConvertService.State.ComponentsDone -> {
+            ConvertService.State.Idle -> {
                 if (!unrestricted) {
                     OutlinedButton(
                         onClick = {
@@ -641,14 +636,25 @@ private fun ConvertScreen() {
 
                     LoraList(loras) { loraPicker.launch(arrayOf("*/*")) }
 
+                    val startConversion = {
+                        val model = report!!.model
+                        notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        ConvertService.start(
+                            context, picked!!, modelName, loras.map { it.first to it.third },
+                            model = model,
+                        )
+                    }
+
                     Button(
                         onClick = {
-                            val model = report!!.model
-                            notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            ConvertService.start(
-                                context, picked!!, modelName, loras.map { it.first to it.third },
-                                model = model,
-                            )
+                            val vaeDir = File(context.filesDir, "vae_sdxl")
+                            val missing = !File(vaeDir, "vae_decoder.bin").isFile || !File(vaeDir, "vae_encoder.bin").isFile
+                            if (report?.model == CheckpointInfo.Model.SDXL && missing) {
+                                pendingConversionModel = CheckpointInfo.Model.SDXL
+                                showVaeDownloadDialog = true
+                            } else {
+                                startConversion()
+                            }
                         },
                         enabled = nameError == null && report?.convertible == true,
                         modifier = Modifier.fillMaxWidth(),
@@ -663,11 +669,43 @@ private fun ConvertScreen() {
                     }
                 }
 
-                Text(
-                    stringResource(R.string.caveats),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (showVaeDownloadDialog) {
+                    AlertDialog(
+                        onDismissRequest = {
+                            showVaeDownloadDialog = false
+                            pendingConversionModel = null
+                        },
+                        title = { Text(stringResource(R.string.vae_download_dialog_title)) },
+                        text = { Text(stringResource(R.string.vae_download_dialog_message)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showVaeDownloadDialog = false
+                                notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                val pending = pendingConversionModel
+                                pendingConversionModel = null
+                                if (pending != null) {
+                                    val model = report!!.model
+                                    ConvertService.start(
+                                        context, picked!!, modelName, loras.map { it.first to it.third },
+                                        model = model,
+                                    )
+                                } else {
+                                    ConvertService.downloadVae(context)
+                                }
+                            }) {
+                                Text(stringResource(R.string.vae_download_dialog_confirm))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = {
+                                showVaeDownloadDialog = false
+                                pendingConversionModel = null
+                            }) {
+                                Text(stringResource(R.string.vae_download_dialog_cancel))
+                            }
+                        },
+                    )
+                }
             }
         }
 
@@ -675,7 +713,7 @@ private fun ConvertScreen() {
             is ConvertService.State.Running -> s.log.joinToString("\n")
             is ConvertService.State.Done -> s.log
             is ConvertService.State.Failed -> s.log
-            ConvertService.State.Idle, is ConvertService.State.ComponentsDone -> null
+            ConvertService.State.Idle -> null
         }
         if (log != null) {
             val logScroll = rememberScrollState()
@@ -814,21 +852,12 @@ private fun CheckpointCard(r: CheckpointInfo.Report) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (r.convertible) {
-                Text(
-                    stringResource(R.string.checkpoint_components),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
 
 @Composable
 private fun PartRow(label: String, p: CheckpointInfo.Part) {
-    val statusText = stringResource(if (p.present) R.string.part_status_converted else R.string.part_status_absent)
-    val statusColor = if (p.present) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
     val size = if (p.bytes > 0) " · ${p.bytes / 1_000_000} MB" else ""
 
     Row(
@@ -841,12 +870,14 @@ private fun PartRow(label: String, p: CheckpointInfo.Part) {
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f),
         )
-        Text(
-            text = statusText,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold,
-            color = statusColor,
-        )
+        if (!p.present) {
+            Text(
+                text = stringResource(R.string.part_status_absent),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

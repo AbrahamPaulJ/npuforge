@@ -24,13 +24,13 @@ Activate the environment before running tests: one test launches `python3` as
 a subprocess. The suite compiles its native test executables automatically.
 Keep the environment outside source control.
 
-| Area | Coverage |
-| --- | --- |
-| Weight conversion | FP16/FP32 rounding, convolution layout, attention reshaping, native/reference pack comparisons |
-| CLIP writer | Quantization, QKV slicing, projection transpose, sparse recipe boundaries |
-| LoRA | F16/F32 mappings, convolution/ResNet/embedding layers, stacked adapters, cache eviction, warning-and-continue behavior for unmatched tensors |
-| VAE recipe authoring | Source attribution and ambiguous mappings after half-precision rounding |
-| Compiler allocator | Pooled small objects, alignment, calloc/realloc, C++ allocation, cross-thread use, foreign pointers and crash reporting |
+| Area                 | Coverage                                                                                                                                     |
+|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| Weight conversion    | FP16/FP32 rounding, convolution layout, attention reshaping, native/reference pack comparisons                                               |
+| CLIP writer          | Quantization, QKV slicing, projection transpose, sparse recipe boundaries                                                                    |
+| LoRA                 | F16/F32 mappings, convolution/ResNet/embedding layers, stacked adapters, cache eviction, warning-and-continue behavior for unmatched tensors |
+| VAE recipe authoring | Source attribution and ambiguous mappings after half-precision rounding                                                                      |
+| Compiler allocator   | Pooled small objects, alignment, calloc/realloc, C++ allocation, cross-thread use, foreign pointers and crash reporting                      |
 
 The allocator tests use `LD_PRELOAD` in child processes. Their crash-report case
 deliberately aborts a child and checks that the original signal is preserved.
@@ -73,7 +73,7 @@ A phone check should record:
 1. App/build version, device/SoC, Android version and available RAM/storage.
 2. Checkpoint identity and family; adapter identity, dtype and strength.
 3. Completion of CLIP, **both** VAE components, UNet and ZIP export.
-4. Local Dream or Fancy-Ai version, sampler, prediction mode, seed, steps, CFG
+4. Fancy-Ai or Nightmare Mobile version, sampler, prediction mode, seed, steps, CFG
    and size; output models currently work only in these two apps.
 5. A generated result and the full conversion log, including any warnings.
 

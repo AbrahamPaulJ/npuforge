@@ -344,7 +344,9 @@ object Converter {
         val files = listOf(unet to "unet.bin") +
             model.components.map { File(components, it) to it }
         for ((file, entryName) in files) {
-            if (!file.isFile || file.length() == 0L) throw Failure("missing converted component: $entryName")
+            if (!file.isFile || file.length() == 0L) {
+                throw Failure("missing converted component: $entryName")
+            }
         }
 
         val values = ContentValues().apply {

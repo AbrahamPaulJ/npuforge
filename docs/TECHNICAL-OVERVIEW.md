@@ -4,8 +4,8 @@ npuforge demonstrates checkpoint-to-QNN conversion inside an Android app.
 A user supplies an SD1.5 or SDXL checkpoint and optional UNet LoRAs. Native tools
 populate pre-authored graphs with those weights and invoke Qualcomm's ARM64
 context generator on the phone. Output models work only with
-[Local Dream](https://github.com/xororz/local-dream) and
-[Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai).
+[Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai) and
+[Nightmare Mobile](https://github.com/AbrahamPaulJ/nightmare-mobile).
 
 ## The engineering contribution
 
@@ -23,14 +23,14 @@ other assets; they are not an APK size claim.
 
 ## Preparation and phone execution
 
-| Phase | Workstation, once per template | Phone, for each checkpoint |
-|---|---|---|
-| Graph definition | Export graph and choose tensor interfaces | Load bundled graph library |
-| Quantization | Calibrate fixed activation ranges | Recompute checkpoint-dependent weight encodings |
-| Weight mapping | Author layout/quantization recipes | Stream checkpoint tensors through those recipes |
-| LoRA | No per-adapter host preparation required for supported formats | Merge supported UNet tensors before quantization |
-| Compilation | Build the ARM64 pack-loading model library | Run QAIRT `qnn-context-binary-generator` |
-| Export | Bundle required developer assets in APK | Write component files and importable ZIP |
+| Phase            | Workstation, once per template                                 | Phone, for each checkpoint                       |
+|------------------|----------------------------------------------------------------|--------------------------------------------------|
+| Graph definition | Export graph and choose tensor interfaces                      | Load bundled graph library                       |
+| Quantization     | Calibrate fixed activation ranges                              | Recompute checkpoint-dependent weight encodings  |
+| Weight mapping   | Author layout/quantization recipes                             | Stream checkpoint tensors through those recipes  |
+| LoRA             | No per-adapter host preparation required for supported formats | Merge supported UNet tensors before quantization |
+| Compilation      | Build the ARM64 pack-loading model library                     | Run QAIRT `qnn-context-binary-generator`         |
+| Export           | Bundle required developer assets in APK                        | Write component files and importable ZIP         |
 
 A new architecture, graph shape or calibration strategy still requires template
 authoring. This implementation does not perform fresh activation calibration
@@ -38,13 +38,13 @@ for each checkpoint on the phone.
 
 ## Components and formats
 
-| Component | SD1.5 | SDXL | Export/runtime |
-|---|---|---|---|
-| UNet | 512 × 512 template | 1024 × 1024 template | QNN context; W8A16 |
-| Text encoders | CLIP-L, clip-skip 2 contract | CLIP-L and CLIP-G | MNN graphs and embeddings |
-| VAE encoder | Checkpoint weights | Checkpoint weights | QNN context; FP16 internal arithmetic |
-| VAE decoder | Checkpoint weights | Checkpoint weights | QNN context; FP16 internal arithmetic |
-| Tokenizer | Bundled standard tokenizer | Bundled standard tokenizer | JSON |
+| Component     | SD1.5                        | SDXL                       | Export/runtime                        |
+|---------------|------------------------------|----------------------------|---------------------------------------|
+| UNet          | 512 × 512 template           | 1024 × 1024 template       | QNN context; W8A16                    |
+| Text encoders | CLIP-L, clip-skip 2 contract | CLIP-L and CLIP-G          | MNN graphs and embeddings             |
+| VAE encoder   | Checkpoint weights           | Checkpoint weights         | QNN context; FP16 internal arithmetic |
+| VAE decoder   | Checkpoint weights           | Checkpoint weights         | QNN context; FP16 internal arithmetic |
+| Tokenizer     | Bundled standard tokenizer   | Bundled standard tokenizer | JSON                                  |
 
 CLIP-L uses FP16 weights; SDXL CLIP-G uses the established MNN INT8 format.
 CLIP output semantics and the consumer's conditioning layout must agree.

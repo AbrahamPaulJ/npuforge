@@ -24,8 +24,8 @@ android {
         // Android 13 is the app's minimum for its Snapdragon 8 Gen 2+ audience.
         minSdk = 33
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
         // Qualcomm's device compiler and HTP runtime are arm64-only.
         //noinspection ChromeOsAbiSupport
         ndk { abiFilters += "arm64-v8a" }
@@ -52,12 +52,7 @@ android {
             if (releaseSigningProperties != null) {
                 signingConfig = signingConfigs.getByName("npuforgeRelease")
             }
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
+            isMinifyEnabled = false
         }
     }
 

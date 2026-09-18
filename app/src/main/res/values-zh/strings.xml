@@ -10,17 +10,7 @@
     <string name="stop_conversion">停止转换</string>
     <string name="tab_convert">转换</string>
     <string name="tab_info">说明</string>
-    <string name="tab_components">备份</string>
-    <string name="components_title">旧版共享文件备份</string>
-    <string name="components_description">保留或恢复旧版应用的 CLIP 和 VAE 备份。新的 SD1.5 和 SDXL 转换使用检查点自身的组件，不使用这些共享文件。</string>
-    <string name="components_ready">已保存在本设备</string>
-    <string name="components_missing">未保存旧版文件</string>
-    <string name="components_backup">保存备份</string>
-    <string name="components_restore">恢复备份</string>
-    <string name="components_backing_up">正在保存共享组件…</string>
-    <string name="components_restoring">正在恢复共享组件…</string>
-    <string name="components_backup_done">已备份 %1$s 的共享组件。</string>
-    <string name="components_restore_done">已恢复 %1$s 旧版文件。新的转换使用所选检查点中的组件。</string>
+
 
     <plurals name="inside_title">
         <item quantity="other">文件包含：%1$s，%2$d 个张量</item>
@@ -57,10 +47,8 @@
 
     <string name="done_title">转换完成，耗时 %1$d 分 %2$d 秒</string>
     <string name="done_where">已保存至 %1$s。请在绘图应用中将其作为自定义模型导入。</string>
-    <string name="done_note">转换后的模型使用检查点自身的文本编码器和 VAE。SDXL 包含两个文本编码器。</string>
     <string name="failed_title">转换失败</string>
 
-    <string name="caveats">SD1.5：512 × 512，目标芯片骁龙 8 Gen 2。SDXL：1024 × 1024，目标芯片骁龙 8 Gen 3。用户已确认 WAI Illustrious v170 的完整 SDXL 手机端转换成功。SD1.5 完整组件转换仍需在手机上验证。</string>
     <string name="export_conversion_report">保存完整排错日志</string>
 
     <!-- Language Selection -->
@@ -71,7 +59,7 @@
     <string name="language_zh">简体中文</string>
 
     <!-- Additional UI Labels and Statuses -->
-    <string name="part_status_converted">✓ 已转换</string>
+
     <string name="part_status_absent">—</string>
     <string name="copy_log">复制日志</string>
     <string name="log_copied">日志已复制到剪贴板</string>
@@ -84,17 +72,20 @@
 
     <!-- Info Screen -->
     <string name="info_use_title">使用转换后的模型</string>
-    <string name="info_use_body">转换 SD1.5 或 SDXL 的 .safetensors 检查点，然后将 Download/npuforge 中的 ZIP 导入 Local Dream 或 Fancy AI。转换可离线完成。</string>
-    <string name="info_black_title">SDXL 生成黑图？</string>
-    <string name="info_black_body">如果转换成功但生成的图片全黑，请尝试替换 VAE：</string>
-    <string name="info_black_step1">1. 点击下方按钮下载并解压 VAE.zip。</string>
-    <string name="info_black_step2">2. 在转换后的模型 ZIP 中，用 VAE.zip 中的文件替换 vae_encoder.bin 和 vae_decoder.bin。两个文件都要替换，并保持文件名及其在 ZIP 中的位置不变。</string>
-    <string name="info_black_step3">3. 保存更新后的模型 ZIP，再次导入 Local Dream 或 Fancy AI。无需重新转换检查点。</string>
-    <string name="info_black_download">下载 SDXL VAE</string>
+    <string name="info_use_body">转换 SD1.5 或 SDXL 的 .safetensors 检查点，然后将 Download/npuforge 中的 ZIP 导入 Fancy-Ai 或 Nightmare Mobile。转换可离线完成。</string>
+    <string name="stage_vae_download">下载 SDXL VAE…</string>
     <string name="info_formats_title">模型与 LoRA</string>
-    <string name="info_formats_body">SD1.5 和 SDXL 检查点支持 F16、F32 和 BF16 权重。请在转换前添加 UNet LoRA；其强度会固化到导出的模型中。文本编码器的 LoRA 权重不会合并。</string>
+    <string name="info_spec_sd15">SD1.5：512 × 512 — 骁龙 8 Gen 2 及更高版本</string>
+    <string name="info_spec_sdxl">SDXL：1024 × 1024 — 骁龙 8 Gen 3 及更高版本</string>
+    <string name="info_spec_weights">检查点：支持 F16、F32 和 BF16 权重</string>
+    <string name="info_spec_loras">LoRA：请在转换前添加 UNet LoRA；其强度会固化到导出的模型中（文本编码器的 LoRA 权重不会合并）</string>
     <string name="info_help_title">转换失败？</string>
     <string name="info_help_body">在“转换”页点击“保存完整排错日志”。报告问题时，请附上日志、手机型号和检查点名称。</string>
+
+    <string name="vae_download_dialog_title">下载 SDXL VAE</string>
+    <string name="vae_download_dialog_message">SDXL 需要一次性下载优化版 VAE 组件（约 192 MB）。是否现在下载以便后续离线转换？</string>
+    <string name="vae_download_dialog_confirm">下载</string>
+    <string name="vae_download_dialog_cancel">稍后</string>
 
     <string name="stage_validate">正在检查检查点组件…</string>
     <string name="stage_clip">正在转换文本编码器…</string>
@@ -103,6 +94,5 @@
     <string name="stage_vae_decoder_weights">正在准备图像解码器权重…</string>
     <string name="stage_vae_decoder_compile">正在编译图像解码器…</string>
 
-    <string name="components_legacy_family">%1$s · 旧版文件</string>
-    <string name="checkpoint_components">UNet、文本编码器和 VAE 均从此检查点转换。SDXL 包含两个文本编码器，无需下载共享模型。</string>
+
 </resources>

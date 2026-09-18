@@ -1,8 +1,8 @@
 # Developer overview
 
 npuforge converts SD1.5 and SDXL checkpoints into importable Qualcomm NPU model
-bundles on Android for [Local Dream](https://github.com/xororz/local-dream) and
-[Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai). Output compatibility is limited
+bundles on Android for [Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai) and
+[Nightmare Mobile](https://github.com/AbrahamPaulJ/nightmare-mobile). Output compatibility is limited
 to those two apps. Start with [README.md](README.md) for the project overview
 and [docs/BUILD.md](docs/BUILD.md) for dependencies and build instructions.
 
@@ -40,16 +40,16 @@ results. BF16 work is deferred.
 
 ## Source navigation
 
-| Area | Entry point |
-|---|---|
-| Android conversion lifecycle | `app/src/main/java/com/abrah/npuforge/ConvertService.kt` |
-| Native process staging and export | `app/src/main/java/com/abrah/npuforge/Converter.kt` |
-| Model family and component requirements | `app/src/main/java/com/abrah/npuforge/CheckpointInfo.kt` |
-| Weight conversion and UNet LoRA | `native/tplconv.cpp`, `tools/tpl_apply.py`, `tools/lora_merge.py` |
-| CLIP component writer | `native/componentconv.cpp`, `tools/clip_recipe.py` |
-| VAE template authoring | `tools/vae_template.py` |
-| Compiler allocation backing | `native/compiler_heap.c`, `native/compiler_heap.map` |
-| Regression coverage | `tests/` |
+| Area                                    | Entry point                                                       |
+|-----------------------------------------|-------------------------------------------------------------------|
+| Android conversion lifecycle            | `app/src/main/java/com/abrah/npuforge/ConvertService.kt`          |
+| Native process staging and export       | `app/src/main/java/com/abrah/npuforge/Converter.kt`               |
+| Model family and component requirements | `app/src/main/java/com/abrah/npuforge/CheckpointInfo.kt`          |
+| Weight conversion and UNet LoRA         | `native/tplconv.cpp`, `tools/tpl_apply.py`, `tools/lora_merge.py` |
+| CLIP component writer                   | `native/componentconv.cpp`, `tools/clip_recipe.py`                |
+| VAE template authoring                  | `tools/vae_template.py`                                           |
+| Compiler allocation backing             | `native/compiler_heap.c`, `native/compiler_heap.map`              |
+| Regression coverage                     | `tests/`                                                          |
 
 ## Development conventions
 

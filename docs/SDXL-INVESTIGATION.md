@@ -12,14 +12,14 @@ be measured.
 
 ## Summary
 
-| Finding | Evidence | Current implementation or result |
-|---|---|---|
-| Compiler mapping exhaustion | Vivo report reaches 65,530 mappings, 64,575 belonging to Scudo; a later Nubia trace identifies a 40-byte allocation | Small objects now share storage-backed slabs instead of remaining in Scudo |
-| Backing file creation fails despite free storage | Test APK 2 reports `openat` ENOENT during VAE decoder compilation; deleted-directory host reproduction matches it | Active work moved from cache to `noBackupFilesDir/conversion-work` |
-| LoRA merge retains too much memory | Calculated broad-SDXL merged-weight cache payload is 8.14 GiB without eviction | Retained payload capped at 128 MiB; evicted tensors are recomputed |
-| Previously accepted DMD2 adapters rejected | 722 modules matched, but 198 extra tensors triggered a new hard rejection | ResNet/sampling mappings added; remaining unmatched tensors warn while matched layers merge |
-| Pony output is striped noise | Successful reported test replacing only seven CLIP files, with the UNet/VAE/tokenizer/markers preserved | Checkpoint-owned CLIPs resolve this reported case |
-| Illustrious component fidelity | Successful full-component `waiIllustriousSDXL_v170` conversion and recognizable output | App converts checkpoint-owned CLIPs and both VAE graphs without changing the UNet template |
+| Finding                                          | Evidence                                                                                                            | Current implementation or result                                                            |
+|--------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| Compiler mapping exhaustion                      | Vivo report reaches 65,530 mappings, 64,575 belonging to Scudo; a later Nubia trace identifies a 40-byte allocation | Small objects now share storage-backed slabs instead of remaining in Scudo                  |
+| Backing file creation fails despite free storage | Test APK 2 reports `openat` ENOENT during VAE decoder compilation; deleted-directory host reproduction matches it   | Active work moved from cache to `noBackupFilesDir/conversion-work`                          |
+| LoRA merge retains too much memory               | Calculated broad-SDXL merged-weight cache payload is 8.14 GiB without eviction                                      | Retained payload capped at 128 MiB; evicted tensors are recomputed                          |
+| Previously accepted DMD2 adapters rejected       | 722 modules matched, but 198 extra tensors triggered a new hard rejection                                           | ResNet/sampling mappings added; remaining unmatched tensors warn while matched layers merge |
+| Pony output is striped noise                     | Successful reported test replacing only seven CLIP files, with the UNet/VAE/tokenizer/markers preserved             | Checkpoint-owned CLIPs resolve this reported case                                           |
+| Illustrious component fidelity                   | Successful full-component `waiIllustriousSDXL_v170` conversion and recognizable output                              | App converts checkpoint-owned CLIPs and both VAE graphs without changing the UNet template  |
 
 ## 1. Compiler allocation and workspace failures
 
@@ -175,14 +175,14 @@ after replacing its CLIPs; that case does not require a calibration change.
 
 Additional saved artifacts from `pony-inspection` narrow the diagnosis:
 
-| Artifact | Result | What it does not prove |
-|---|---|---|
-| `pony-pack-arithmetic.json` and audit script | 19,464 entries inspected, including 9,060 mapped entries; zero reported arithmetic issues | Recipe correctness against the original floating-point graph, or compiler correctness |
-| `conditioning-ranges.json` | No context values outside the input range; one of 1,280 pooled values outside in one prompt | Internal activations fit their ranges |
-| `vae-comparison.json` | All 248 Pony VAE tensors / 83,653,863 values match the shared FP16-fix VAE after FP16 rounding | Every other checkpoint has the same VAE |
-| `dense-quantization-comparison.json` | For Pony's 15 selected high-error tensors, median relative RMSE is 6.96% for Pony versus 7.01% for xxmix | Full-model accuracy or harmlessness of quantization |
-| `aura-tensor.log` | Pony ran at 20 steps, CFG 7, Euler ancestral | A paired quality comparison against the original model |
-| `illustrious-negative-prompt.log` | Seven runs use 20 steps, CFG 5, Euler ancestral, with the negative branch executed | Correct text conditioning or internal UNet computation |
+| Artifact                                     | Result                                                                                                   | What it does not prove                                                                |
+|----------------------------------------------|----------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| `pony-pack-arithmetic.json` and audit script | 19,464 entries inspected, including 9,060 mapped entries; zero reported arithmetic issues                | Recipe correctness against the original floating-point graph, or compiler correctness |
+| `conditioning-ranges.json`                   | No context values outside the input range; one of 1,280 pooled values outside in one prompt              | Internal activations fit their ranges                                                 |
+| `vae-comparison.json`                        | All 248 Pony VAE tensors / 83,653,863 values match the shared FP16-fix VAE after FP16 rounding           | Every other checkpoint has the same VAE                                               |
+| `dense-quantization-comparison.json`         | For Pony's 15 selected high-error tensors, median relative RMSE is 6.96% for Pony versus 7.01% for xxmix | Full-model accuracy or harmlessness of quantization                                   |
+| `aura-tensor.log`                            | Pony ran at 20 steps, CFG 7, Euler ancestral                                                             | A paired quality comparison against the original model                                |
+| `illustrious-negative-prompt.log`            | Seven runs use 20 steps, CFG 5, Euler ancestral, with the negative branch executed                       | Correct text conditioning or internal UNet computation                                |
 
 The CLIP export code already selects the penultimate hidden state (`[-2]`) for
 both encoders; CLIP-G pooling uses the final layer and projection. The output
@@ -199,7 +199,7 @@ complete explanation here. [Illustrious model card](https://huggingface.co/Onoma
 
 Some derivatives use a different prediction type. npuforge exports
 architecture/context markers; the generation request supplies the prediction
-setting in Local Dream or Fancy-Ai. Verify it for the specific checkpoint rather
+setting in Fancy-Ai or Nightmare Mobile. Verify it for the specific checkpoint rather
 than assuming it from the name “anime” or “SDXL”.
 
 ### Original Pony v6 failure
@@ -235,12 +235,12 @@ weights. Token samples cover eight complete rows: 0, 1, 100, 320, 1125, 2368,
 49406 and 49407. Position comparisons cover all 77 rows. Shared position
 weights are rounded to FP16 before comparison; metrics use float64.
 
-| Shared embedding compared with checkpoint | Pony | XXMix |
-|---|---:|---:|
-| CLIP-L token sample | 28.87% | 6.74% |
-| CLIP-L positions | 58.61% | 17.64% |
-| CLIP-G token sample | 33.18% | 0.45% |
-| CLIP-G positions | 62.37% | 1.10% |
+| Shared embedding compared with checkpoint |   Pony |  XXMix |
+|-------------------------------------------|-------:|-------:|
+| CLIP-L token sample                       | 28.87% |  6.74% |
+| CLIP-L positions                          | 58.61% | 17.64% |
+| CLIP-G token sample                       | 33.18% |  0.45% |
+| CLIP-G positions                          | 62.37% |  1.10% |
 
 Each percentage is relative RMSE: the L2 norm of the weight difference divided
 by the checkpoint sample's L2 norm. These are **weight differences, not image
@@ -290,11 +290,11 @@ The emitted token/position files reproduce reference inputs exactly. Host MNN
 outputs were compared on one short prompt and an empty prompt; G additionally
 covered both EOS and zero padding:
 
-| Output | Relative RMSE versus checkpoint float32 reference |
-|---|---:|
-| CLIP-L hidden states | 0.080–0.090% |
-| CLIP-G hidden states | 1.92–2.92% |
-| CLIP-G EOS pooled vector | 0.91–1.29% |
+| Output                   | Relative RMSE versus checkpoint float32 reference |
+|--------------------------|--------------------------------------------------:|
+| CLIP-L hidden states     |                                      0.080–0.090% |
+| CLIP-G hidden states     |                                        1.92–2.92% |
+| CLIP-G EOS pooled vector |                                        0.91–1.29% |
 
 All outputs were finite and the original-encoder wrapper comparisons passed.
 These numerical results are host conditioning checks. A subsequent phone test

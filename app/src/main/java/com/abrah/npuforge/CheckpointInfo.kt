@@ -32,14 +32,13 @@ object CheckpointInfo {
     enum class Model(
         val templateDirectory: String,
         val componentDirectory: String,
-        val donorDirectory: String,
         val components: Set<String>,
     ) {
-        SD15("template", "components_sd15", "donor", setOf(
+        SD15("template", "components_sd15", setOf(
             "clip_v2.mnn", "pos_emb.bin", "token_emb.bin", "tokenizer.json",
             "vae_encoder.bin", "vae_decoder.bin",
         )),
-        SDXL("template_sdxl", "components_sdxl", "donor_sdxl", setOf(
+        SDXL("template_sdxl", "components_sdxl", setOf(
             "clip.mnn", "clip_2.mnn", "clip_2.mnn.weight", "tokenizer.json",
             "pos_emb.bin", "token_emb.bin", "pos_emb_2.bin", "token_emb_2.bin",
             "vae_encoder.bin", "vae_decoder.bin",
@@ -144,11 +143,16 @@ object CheckpointInfo {
                 invalid = "$name has unsupported dtype ${tensor.optString("dtype")}; expected F16, F32 or BF16."
             }
         }
-        for (manifest in listOf(
-            "${model.componentDirectory}/clip_requirements.json",
-            "${model.componentDirectory}/vae_encoder/requirements.json",
-            "${model.componentDirectory}/vae_decoder/requirements.json",
-        )) {
+        val manifests = if (model == Model.SDXL) {
+            listOf("${model.componentDirectory}/clip_requirements.json")
+        } else {
+            listOf(
+                "${model.componentDirectory}/clip_requirements.json",
+                "${model.componentDirectory}/vae_encoder/requirements.json",
+                "${model.componentDirectory}/vae_decoder/requirements.json",
+            )
+        }
+        for (manifest in manifests) {
             val specification = try {
                 context.assets.open(manifest).use {
                     JSONObject(it.bufferedReader().readText()).getJSONArray("tensors")

@@ -9,17 +9,7 @@
     <string name="stop_conversion">Stop conversion</string>
     <string name="tab_convert">Convert</string>
     <string name="tab_info">Info</string>
-    <string name="tab_components">Backups</string>
-    <string name="components_title">Legacy shared-file backups</string>
-    <string name="components_description">Keep or restore CLIP and VAE backups from older app versions. New SD1.5 and SDXL conversions use the components in your checkpoint and do not use these shared files.</string>
-    <string name="components_ready">Saved on this phone</string>
-    <string name="components_missing">No legacy files saved</string>
-    <string name="components_backup">Save backup</string>
-    <string name="components_restore">Restore backup</string>
-    <string name="components_backing_up">Saving shared model files…</string>
-    <string name="components_restoring">Restoring shared model files…</string>
-    <string name="components_backup_done">%1$s shared files backed up.</string>
-    <string name="components_restore_done">%1$s legacy files restored. New conversions use the selected checkpoint instead.</string>
+
 
     <plurals name="inside_title">
         <item quantity="one">Inside this file: %1$s, %2$d tensor</item>
@@ -60,10 +50,8 @@
     <!-- Abbreviated min/sec labels are invariant for singular and plural values. -->
     <string name="done_title" tools:ignore="PluralsCandidate">Done in %1$d min %2$d sec</string>
     <string name="done_where">Saved to %1$s. Open your image app and import it as a custom model.</string>
-    <string name="done_note">Your converted model uses the text encoder and VAE from your checkpoint. SDXL includes both text encoders.</string>
     <string name="failed_title">Conversion failed</string>
 
-    <string name="caveats">SD1.5: 512 × 512, Snapdragon 8 Gen 2 target. SDXL: 1024 × 1024, Snapdragon 8 Gen 3 target. Full SDXL conversion worked in the reported WAI Illustrious v170 phone test. Full SD1.5 component conversion still needs phone validation.</string>
     <string name="export_conversion_report">Save full troubleshooting log</string>
 
     <!-- Language Selection -->
@@ -74,7 +62,7 @@
     <string name="language_zh">简体中文</string>
 
     <!-- Additional UI Labels and Statuses -->
-    <string name="part_status_converted">✓ converted</string>
+
     <string name="part_status_absent">—</string>
     <string name="copy_log">Copy log</string>
     <string name="log_copied">Log copied to clipboard</string>
@@ -87,17 +75,20 @@
 
     <!-- Info Screen -->
     <string name="info_use_title">Use your converted model</string>
-    <string name="info_use_body">Convert an SD1.5 or SDXL .safetensors checkpoint, then import the ZIP from Download/npuforge into Local Dream or Fancy AI. Conversion works offline.</string>
-    <string name="info_black_title">Black images with SDXL?</string>
-    <string name="info_black_body">If conversion succeeds but images come out black, try replacing the VAE:</string>
-    <string name="info_black_step1">1. Download and extract VAE.zip using the button below.</string>
-    <string name="info_black_step2">2. In your converted model ZIP, replace both vae_encoder.bin and vae_decoder.bin with the files from VAE.zip. Keep their names and locations unchanged.</string>
-    <string name="info_black_step3">3. Save the updated model ZIP and import it again into Local Dream or Fancy AI. You do not need to reconvert the checkpoint.</string>
-    <string name="info_black_download">Download SDXL VAE</string>
+    <string name="info_use_body">Convert an SD1.5 or SDXL .safetensors checkpoint, then import the ZIP from Download/npuforge into Fancy-Ai or Nightmare Mobile. Conversion works offline.</string>
+    <string name="stage_vae_download">Downloading SDXL VAE…</string>
     <string name="info_formats_title">Models and LoRAs</string>
-    <string name="info_formats_body">SD1.5 and SDXL checkpoints support F16, F32 and BF16 weights. Add UNet LoRAs before converting; their strengths are baked into the exported model. Text-encoder LoRA weights are not merged.</string>
+    <string name="info_spec_sd15">SD1.5: 512 × 512 — Snapdragon 8 Gen 2 and above</string>
+    <string name="info_spec_sdxl">SDXL: 1024 × 1024 — Snapdragon 8 Gen 3 and above</string>
+    <string name="info_spec_weights">Checkpoints: Supports F16, F32, and BF16 weights</string>
+    <string name="info_spec_loras">LoRA: Add UNet LoRAs before converting; strengths are baked into the exported model (text-encoder LoRAs are not merged)</string>
     <string name="info_help_title">Conversion failed?</string>
     <string name="info_help_body">Use “Save full troubleshooting log” on the Convert tab. Include the log, phone model and checkpoint name when reporting the problem.</string>
+
+    <string name="vae_download_dialog_title">Download SDXL VAE</string>
+    <string name="vae_download_dialog_message">SDXL requires a one-time download of optimized VAE components (~192 MB). Download now to enable offline conversions later?</string>
+    <string name="vae_download_dialog_confirm">Download</string>
+    <string name="vae_download_dialog_cancel">Later</string>
 
     <string name="stage_validate">Checking checkpoint components…</string>
     <string name="stage_clip">Converting text encoders…</string>
@@ -106,6 +97,5 @@
     <string name="stage_vae_decoder_weights">Preparing image decoder weights…</string>
     <string name="stage_vae_decoder_compile">Building the image decoder…</string>
 
-    <string name="components_legacy_family">%1$s · legacy files</string>
-    <string name="checkpoint_components">The UNet, text encoder and VAE are converted from this checkpoint. SDXL includes both text encoders. No shared model download is needed.</string>
+
 </resources>

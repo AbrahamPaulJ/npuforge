@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -51,7 +53,6 @@ class ConvertService : Service() {
         ) : State
         data class Done(val dir: String, val seconds: Long, val log: String = "") : State
         data class Failed(val message: String, val log: String = "") : State
-        data class ComponentsDone(val message: String) : State
     }
 
     companion object {
@@ -59,17 +60,21 @@ class ConvertService : Service() {
         private const val CHANNEL = "convert"
         internal const val NOTE_ID = 1
         private const val ACTION_STOP = "com.abrah.npuforge.STOP_CONVERSION"
+        const val ACTION_DOWNLOAD_VAE = "com.abrah.npuforge.DOWNLOAD_VAE"
         private val WAKE_LOCK_LEASE = 10.minutes
         private val PERCENT = Regex("""(\d{1,3})%""")
         const val EXTRA_URI = "uri"
         const val EXTRA_NAME = "name"
         const val EXTRA_LORAS = "loras"
         const val EXTRA_MODEL = "model"
-        const val ACTION_BACKUP = "com.abrah.npuforge.BACKUP_COMPONENTS"
-        const val ACTION_RESTORE = "com.abrah.npuforge.RESTORE_COMPONENTS"
 
         private val _state = MutableStateFlow<State>(State.Idle)
         val state: StateFlow<State> = _state.asStateFlow()
+
+        fun downloadVae(context: Context) {
+            val i = Intent(context, ConvertService::class.java).setAction(ACTION_DOWNLOAD_VAE)
+            context.startForegroundService(i)
+        }
 
         fun start(
             context: Context,
@@ -163,12 +168,91 @@ class ConvertService : Service() {
         post(stage, t.take(80))
     }
 
+    private fun downloadSdxlVaeFiles(onProgress: (name: String, detail: String) -> Unit) {
+        val vaeDir = File(filesDir, "vae_sdxl").apply { mkdirs() }
+        for (name in listOf("vae_decoder.bin", "vae_encoder.bin")) {
+            val cached = File(vaeDir, name)
+            if (!cached.isFile || cached.length() == 0L) {
+                onProgress(name, "")
+                var u = "https://huggingface.co/Mr-J-369/Fancy-AI/resolve/main/$name"
+                var conn: HttpURLConnection
+                while (true) {
+                    conn = URL(u).openConnection() as HttpURLConnection
+                    conn.instanceFollowRedirects = true
+                    if (conn.responseCode in 301..308) {
+                        u = conn.getHeaderField("Location") ?: break
+                        conn.disconnect()
+                    } else break
+                }
+                val total = conn.contentLengthLong
+                val tmp = File(vaeDir, "$name.tmp")
+                var downloaded = 0L
+                conn.inputStream.use { input ->
+                    tmp.outputStream().use { out ->
+                        val buffer = ByteArray(65536)
+                        var read: Int
+                        while (input.read(buffer).also { read = it } >= 0) {
+                            out.write(buffer, 0, read)
+                            downloaded += read
+                            if (total > 0) {
+                                val pct = (downloaded * 100 / total).toInt()
+                                onProgress(name, "$pct%")
+                            } else {
+                                onProgress(name, "${downloaded / 1_000_000} MB")
+                            }
+                        }
+                    }
+                }
+                conn.disconnect()
+                tmp.renameTo(cached)
+            }
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             conversion?.cancel()
             if (conversion == null || conversion?.isCompleted == true) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
+            }
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_DOWNLOAD_VAE) {
+            val stage = getString(R.string.stage_vae_download)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTE_ID, note(stage),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(NOTE_ID, note(stage))
+            }
+            startedAt = SystemClock.elapsedRealtime()
+            logLines.clear()
+            step = 0
+            steps = 1
+            post(stage)
+            conversion = scope.launch {
+                val wakeLock = getSystemService(PowerManager::class.java)
+                    .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "npuforge:vae_download")
+                    .apply { setReferenceCounted(false) }
+                try {
+                    wakeLock.acquire(WAKE_LOCK_LEASE.inWholeMilliseconds)
+                    withContext(Dispatchers.IO) {
+                        downloadSdxlVaeFiles { name, progress ->
+                            post(stage, "$name $progress".trim())
+                        }
+                    }
+                    _state.value = State.Idle
+                } catch (e: CancellationException) {
+                    _state.value = State.Idle
+                    throw e
+                } catch (e: Exception) {
+                    _state.value = State.Failed(e.message ?: e.javaClass.simpleName, logLines.joinToString("\n"))
+                } finally {
+                    wakeLock.release()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
             }
             return START_NOT_STICKY
         }
@@ -184,6 +268,7 @@ class ConvertService : Service() {
         val model = CheckpointInfo.Model.valueOf(
             intent?.getStringExtra(EXTRA_MODEL) ?: CheckpointInfo.Model.SD15.name
         )
+        val templateDir = model.templateDirectory
         val loraSpecs: List<Pair<Uri, Float>> =
             (intent?.getStringArrayExtra(EXTRA_LORAS) ?: emptyArray()).mapNotNull { spec ->
                 val bar = spec.lastIndexOf('|')
@@ -196,11 +281,7 @@ class ConvertService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        val firstStage = getString(when (intent.action) {
-            ACTION_BACKUP -> R.string.components_backing_up
-            ACTION_RESTORE -> R.string.components_restoring
-            else -> R.string.stage_import
-        })
+        val firstStage = getString(R.string.stage_import)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTE_ID, note(firstStage),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -235,27 +316,11 @@ class ConvertService : Service() {
                 withContext(Dispatchers.IO) {
                     val diagnostic = ConversionReport(this@ConvertService, "$name (${model.name})")
                     report = diagnostic
-                    if (intent.action == ACTION_BACKUP || intent.action == ACTION_RESTORE) {
-                        val progress: (Long, Long) -> Unit = { bytes, total ->
-                            val percent = if (total > 0) " ${bytes * 100 / total}%" else ""
-                            post(firstStage, "${bytes / 1_000_000} MB$percent")
-                        }
-                        if (intent.action == ACTION_BACKUP) {
-                            Donor.backup(this@ConvertService, model, uri, progress)
-                        } else {
-                            Donor.ensure(this@ConvertService, model, uri, progress)
-                        }
-                        result = State.ComponentsDone(getString(
-                            if (intent.action == ACTION_BACKUP) R.string.components_backup_done
-                            else R.string.components_restore_done, model.name,
-                        ))
-                        return@withContext
-                    }
                     diagnostic.record("LoRA strengths=${loraSpecs.map { it.second }}")
                     work.deleteRecursively()
                     work.mkdirs()
                     diagnostic.record("Conversion workspace: ${work.absolutePath}")
-                    steps = 10 + loraSpecs.size
+                    steps = (if (model == CheckpointInfo.Model.SDXL) 6 else 10) + loraSpecs.size
                     step = 0
 
                     step++
@@ -283,33 +348,46 @@ class ConvertService : Service() {
                     Converter.stageClip(this@ConvertService, ckpt, work, componentFiles, model, diagnostic) {
                         logLine(getString(R.string.stage_clip), it)
                     }
-                    // Separate compiler processes and work directories keep the two VAE
-                    // packs out of memory and release temporary disk before the UNet.
-                    for ((component, weightsStage, compileStage) in listOf(
-                        Triple("vae_encoder", R.string.stage_vae_encoder_weights, R.string.stage_vae_encoder_compile),
-                        Triple("vae_decoder", R.string.stage_vae_decoder_weights, R.string.stage_vae_decoder_compile),
-                    )) {
-                        val componentWork = File(work, component).apply { mkdirs() }
-                        step++
-                        post(getString(weightsStage))
-                        val componentPack = Converter.stageWeights(
-                            this@ConvertService, ckpt, componentWork, model, diagnostic,
-                            templateDirectory = "${model.componentDirectory}/$component",
-                        ) { logLine(getString(weightsStage), it) }
-                        step++
-                        post(getString(compileStage))
-                        val output = Converter.stageCompile(
-                            this@ConvertService, componentPack, componentWork, model, diagnostic, component,
-                        ) { logLine(getString(compileStage), it) }
-                        if (!output.renameTo(File(componentFiles, "$component.bin"))) {
-                            throw Converter.Failure("could not retain $component.bin")
+                    if (model == CheckpointInfo.Model.SDXL) {
+                        downloadSdxlVaeFiles { name, progress ->
+                            post(getString(R.string.stage_vae_download), "$name $progress".trim())
                         }
-                        componentWork.deleteRecursively()
+                        val vaeDir = File(filesDir, "vae_sdxl")
+                        for (name in listOf("vae_decoder.bin", "vae_encoder.bin")) {
+                            File(vaeDir, name).copyTo(File(componentFiles, name), overwrite = true)
+                        }
+                    } else {
+                        // Separate compiler processes and work directories keep the two VAE
+                        // packs out of memory and release temporary disk before the UNet.
+                        for ((component, weightsStage, compileStage) in listOf(
+                            Triple("vae_encoder", R.string.stage_vae_encoder_weights, R.string.stage_vae_encoder_compile),
+                            Triple("vae_decoder", R.string.stage_vae_decoder_weights, R.string.stage_vae_decoder_compile),
+                        )) {
+                            val componentWork = File(work, component).apply { mkdirs() }
+                            step++
+                            post(getString(weightsStage))
+                            val componentPack = Converter.stageWeights(
+                                this@ConvertService, ckpt, componentWork, model, diagnostic,
+                                templateDirectory = "${model.componentDirectory}/$component",
+                            ) { logLine(getString(weightsStage), it) }
+                            step++
+                            post(getString(compileStage))
+                            val output = Converter.stageCompile(
+                                this@ConvertService, componentPack, componentWork, model, diagnostic, component,
+                            ) { logLine(getString(compileStage), it) }
+                            if (!output.renameTo(File(componentFiles, "$component.bin"))) {
+                                throw Converter.Failure("could not retain $component.bin")
+                            }
+                            componentWork.deleteRecursively()
+                        }
                     }
 
                     step++
                     post(getString(R.string.stage_weights))
-                    val pack = Converter.stageWeights(this@ConvertService, ckpt, work, model, diagnostic, loraFiles) {
+                    val pack = Converter.stageWeights(
+                        this@ConvertService, ckpt, work, model, diagnostic, loraFiles,
+                        templateDirectory = templateDir,
+                    ) {
                         logLine(getString(R.string.stage_weights), it)
                     }
 

@@ -88,7 +88,7 @@ are prerequisites.
 
 ### Workflow improvements
 
-- Document the existing Local Dream/Fancy-Ai import contract before extending
+- Document the existing Fancy-Ai/Nightmare Mobile import contract before extending
   output compatibility to other generation apps.
 - Investigate resuming completed stages after interruption.
 - Measure compilation memory and quality before adding resolutions. Current
@@ -97,13 +97,13 @@ are prerequisites.
 
 ## Approaches not selected
 
-| Approach | Existing evidence |
-|---|---|
-| Runtime LoRA through `UPDATEABLE_STATIC` | Historical inference measurement increased from 83 to 281 ms/pass; 24 updated tensors incurred the same cost as 768. Merging before conversion avoids that runtime path. |
-| Full workstation quantization on the phone | The original SD1.5 authoring run required over 11 GB RAM plus swap and approximately 2 h 20 m for 400 calibration passes. The reusable template/recipe split avoids repeating it per checkpoint. |
-| QNN context checksum as a correctness test | Recompiling the same pack can produce different context bytes with identical renders. Compare deterministic weight packs and numerical outputs instead. |
-| Shared CLIP/VAE weights as a universal substitute | The successful Pony CLIP-only replacement demonstrated a real conditioning mismatch. Both families now use checkpoint-owned weights. |
-| Rejecting an entire adapter for extra unmatched tensors | This rejected previously usable DMD2 adapters. The converter now warns, merges recognized layers and reports unsupported content. |
+| Approach                                                | Existing evidence                                                                                                                                                                                |
+|---------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Runtime LoRA through `UPDATEABLE_STATIC`                | Historical inference measurement increased from 83 to 281 ms/pass; 24 updated tensors incurred the same cost as 768. Merging before conversion avoids that runtime path.                         |
+| Full workstation quantization on the phone              | The original SD1.5 authoring run required over 11 GB RAM plus swap and approximately 2 h 20 m for 400 calibration passes. The reusable template/recipe split avoids repeating it per checkpoint. |
+| QNN context checksum as a correctness test              | Recompiling the same pack can produce different context bytes with identical renders. Compare deterministic weight packs and numerical outputs instead.                                          |
+| Shared CLIP/VAE weights as a universal substitute       | The successful Pony CLIP-only replacement demonstrated a real conditioning mismatch. Both families now use checkpoint-owned weights.                                                             |
+| Rejecting an entire adapter for extra unmatched tensors | This rejected previously usable DMD2 adapters. The converter now warns, merges recognized layers and reports unsupported content.                                                                |
 
 These decisions can be revisited when new measurements identify a specific
 benefit and preserve the existing working cases.

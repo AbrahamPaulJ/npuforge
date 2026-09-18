@@ -8,22 +8,22 @@ Vivo/Nubia device or checkpoint.
 
 ## Output application compatibility
 
-Output models work only with [Local Dream](https://github.com/xororz/local-dream)
-and [Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai). Their custom-model import
+Output models work only with [Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai)
+and [Nightmare Mobile](https://github.com/AbrahamPaulJ/nightmare-mobile). Their custom-model import
 path implements the exported component filenames, conditioning interfaces and
 QNN context contract. Device/runtime requirements apply in both apps.
 
 ## Current conversion contract
 
-| | SD1.5 | SDXL |
-|---|---|---|
-| Input | Single-file `.safetensors`, supported LDM layout | Single-file `.safetensors`, supported SDXL-base layout |
-| Input weight dtypes | F16/F32/BF16 | F16/F32/BF16 |
-| Image size | 512 × 512 | 1024 × 1024 |
-| Checkpoint-owned components | UNet, CLIP and embeddings, VAE encoder and decoder | UNet, CLIP-L/CLIP-G and embeddings, VAE encoder and decoder |
-| Fixed compiler target | v73, 8 MB VTCM | v75 / soc57, 8 MB VTCM |
-| Runtime | QAIRT 2.50.0.260828 | QAIRT 2.50.0.260828 |
-| Full-component phone evidence | New component path still needs a specific phone result | Reported successful Illustrious conversion and generation |
+|                               | SD1.5                                                  | SDXL                                                        |
+|-------------------------------|--------------------------------------------------------|-------------------------------------------------------------|
+| Input                         | Single-file `.safetensors`, supported LDM layout       | Single-file `.safetensors`, supported SDXL-base layout      |
+| Input weight dtypes           | F16/F32/BF16                                           | F16/F32/BF16                                                |
+| Image size                    | 512 × 512                                              | 1024 × 1024                                                 |
+| Checkpoint-owned components   | UNet, CLIP and embeddings, VAE encoder and decoder     | UNet, CLIP-L/CLIP-G and embeddings, VAE encoder and decoder |
+| Fixed compiler target         | v73, 8 MB VTCM                                         | v75 / soc57, 8 MB VTCM                                      |
+| Runtime                       | QAIRT 2.50.0.260828                                    | QAIRT 2.50.0.260828                                         |
+| Full-component phone evidence | New component path still needs a specific phone result | Reported successful Illustrious conversion and generation   |
 
 The graph templates and tokenizer are shared; component weights come from the
 selected checkpoint. New conversions do not download donor CLIP/VAE weights.
@@ -49,13 +49,13 @@ baked into the exported model, with no separate adapter computation at
 inference. Multiple adapters can be stacked; each strength combination produces
 a separate exported model. The app's strength slider spans −1.0 to 2.0.
 
-| Implemented | Outside current support |
-|---|---|
-| Standard kohya `lora_down`, `lora_up`, optional `alpha` | General PEFT/diffusers adapter file layouts |
-| Attention, ResNet, input/output convolution, down/up sampling and time/additional embedding mappings | Arbitrary adapter naming schemes |
-| Linear and convolution down weights with a 1×1 up kernel | Spatial up kernels and format-specific LoCon/LyCORIS/LoHa/DoRA/IA3 arithmetic |
-| F16/F32/BF16 adapters | Other weight dtypes |
-| UNet merging | Text-encoder LoRA, including checkpoint-owned CLIPs |
+| Implemented                                                                                          | Outside current support                                                       |
+|------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| Standard kohya `lora_down`, `lora_up`, optional `alpha`                                              | General PEFT/diffusers adapter file layouts                                   |
+| Attention, ResNet, input/output convolution, down/up sampling and time/additional embedding mappings | Arbitrary adapter naming schemes                                              |
+| Linear and convolution down weights with a 1×1 up kernel                                             | Spatial up kernels and format-specific LoCon/LyCORIS/LoHa/DoRA/IA3 arithmetic |
+| F16/F32/BF16 adapters                                                                                | Other weight dtypes                                                           |
+| UNet merging                                                                                         | Text-encoder LoRA, including checkpoint-owned CLIPs                           |
 
 Kohya adapters may use module names derived from diffusers; that naming support
 is distinct from accepting a PEFT/diffusers adapter file format. DMD2-related
@@ -95,14 +95,14 @@ of adapter effect and broader adapter coverage remain outstanding.
 
 ### Recorded measurements
 
-| Measurement | Scope |
-|---|---|
-| 117 seconds total conversion | Original SD1.5 pipeline on Samsung SM-S938B; predates checkpoint-owned component conversion |
-| Approximately 4.8 GB peak compile RAM, 0.87 GB minimum `MemAvailable` | Historical SD1.5 run on the same 12 GB-class phone with normal apps open |
-| 1.98 GB native weight-stage peak vs 5.07 GB Python | Historical SD1.5 comparison |
-| Approximately 4 GB free working storage; 1.3 GB finished model | Historical SD1.5 pipeline; not current full-pipeline or SDXL requirements |
-| 437 seconds total conversion, 15 seconds generation | Reported SDXL O=3 MOP run at 1024 × 1024, 8 steps, CFG 1, LCM/Karras; shared-component pipeline |
-| 45.8 seconds generation | Full-component `waiIllustriousSDXL_v170`, 1024 × 1024, 30 steps, CFG 7 |
+| Measurement                                                           | Scope                                                                                           |
+|-----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| 117 seconds total conversion                                          | Original SD1.5 pipeline on Samsung SM-S938B; predates checkpoint-owned component conversion     |
+| Approximately 4.8 GB peak compile RAM, 0.87 GB minimum `MemAvailable` | Historical SD1.5 run on the same 12 GB-class phone with normal apps open                        |
+| 1.98 GB native weight-stage peak vs 5.07 GB Python                    | Historical SD1.5 comparison                                                                     |
+| Approximately 4 GB free working storage; 1.3 GB finished model        | Historical SD1.5 pipeline; not current full-pipeline or SDXL requirements                       |
+| 437 seconds total conversion, 15 seconds generation                   | Reported SDXL O=3 MOP run at 1024 × 1024, 8 steps, CFG 1, LCM/Karras; shared-component pipeline |
+| 45.8 seconds generation                                               | Full-component `waiIllustriousSDXL_v170`, 1024 × 1024, 30 steps, CFG 7                          |
 
 The reported 41% phone RAM during the SDXL O=3 run was a snapshot, not a peak.
 Neither a universal RAM bound nor reliable operation on 8 GB devices has been
@@ -117,13 +117,13 @@ The historical MistoonAnime conversion exited successfully and loaded, but
 rendered saturated noise. Checkpoint weight spans relative to the DreamShaper 8
 template differed substantially:
 
-| Checkpoint | Maximum weight-span ratio | Historical output |
-|---|---:|---|
-| DreamShaper 8 | 1.000 | Recognizable |
-| AbsoluteReality | 1.020 | Recognizable |
-| CyberRealistic | 1.117 | Recognizable |
-| DreamShaper + rank-128 watercolour LoRA at 0.8 | 1.061 | Recognizable |
-| MistoonAnime | 49.4 | Noise |
+| Checkpoint                                     | Maximum weight-span ratio | Historical output |
+|------------------------------------------------|--------------------------:|-------------------|
+| DreamShaper 8                                  |                     1.000 | Recognizable      |
+| AbsoluteReality                                |                     1.020 | Recognizable      |
+| CyberRealistic                                 |                     1.117 | Recognizable      |
+| DreamShaper + rank-128 watercolour LoRA at 0.8 |                     1.061 | Recognizable      |
+| MistoonAnime                                   |                      49.4 | Noise             |
 
 A component-swap experiment kept the faulty UNet noisy with its own CLIP/VAE
 (saturated-pixel fractions 0.358 vs 0.331), while a working UNet stayed clean

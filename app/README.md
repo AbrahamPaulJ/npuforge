@@ -1,8 +1,8 @@
 # Android app
 
 `com.abrah.npuforge` converts a local SD1.5 or SDXL `.safetensors` checkpoint
-into an archive for [Local Dream](https://github.com/xororz/local-dream) or
-[Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai), the only supported output
+into an archive for [Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai) or
+[Nightmare Mobile](https://github.com/AbrahamPaulJ/nightmare-mobile), the only supported output
 consumers. It supports optional UNet
 LoRA merging and writes `Download/npuforge/<name>.zip` through MediaStore.
 Existing exports are preserved; the completion screen shows the actual filename.
@@ -14,14 +14,14 @@ are documented in [Limits](../docs/LIMITS.md).
 
 ## Conversion pipeline
 
-| Stage | Implementation | Output |
-| --- | --- | --- |
-| Import and inspect | `CheckpointInfo.kt`, `ConvertService.kt` | Local checkpoint and adapter copies |
-| Text encoders | `Converter.kt` → `libcomponentconv.so` | Checkpoint-owned MNN encoder(s), token and position embeddings |
-| VAE encoder | `Converter.kt` → `libtplconv.so` → `libqnncontextgen.so` | Compiled QNN encoder context |
-| VAE decoder | Same tools, separate compiler process | Compiled QNN decoder context |
-| UNet | `libtplconv.so` → `libqnncontextgen.so` | LoRA-merged weight pack, then QNN context |
-| Export | `Converter.kt` | Uncompressed ZIP with model components and tokenizer |
+| Stage              | Implementation                                           | Output                                                         |
+|--------------------|----------------------------------------------------------|----------------------------------------------------------------|
+| Import and inspect | `CheckpointInfo.kt`, `ConvertService.kt`                 | Local checkpoint and adapter copies                            |
+| Text encoders      | `Converter.kt` → `libcomponentconv.so`                   | Checkpoint-owned MNN encoder(s), token and position embeddings |
+| VAE encoder        | `Converter.kt` → `libtplconv.so` → `libqnncontextgen.so` | Compiled QNN encoder context                                   |
+| VAE decoder        | Same tools, separate compiler process                    | Compiled QNN decoder context                                   |
+| UNet               | `libtplconv.so` → `libqnncontextgen.so`                  | LoRA-merged weight pack, then QNN context                      |
+| Export             | `Converter.kt`                                           | Uncompressed ZIP with model components and tokenizer           |
 
 Both families use the selected checkpoint's CLIP and VAE weights. SDXL has two
 text encoders; SD1.5 has one. The tokenizer and graph templates are packaged
