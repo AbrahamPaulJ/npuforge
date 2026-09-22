@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">npuforge</string>
     <string name="blurb">Конвертация моделей SD1.5 и SDXL для запуска на процессоре искусственного интеллекта Qualcomm в вашем телефоне.</string>
@@ -10,8 +10,6 @@
     <string name="stop_conversion">Остановить конвертацию</string>
     <string name="tab_convert">Конвертация</string>
     <string name="tab_info">Справка</string>
-
-
     <plurals name="inside_title">
         <item quantity="one">Внутри файла: %1$s, %2$d тензор</item>
         <item quantity="few">Внутри файла: %1$s, %2$d тензора</item>
@@ -50,22 +48,15 @@
     <string name="pause_scroll">Приостановить автопрокрутку</string>
     <string name="follow_log">Следовать за выводом</string>
     <string name="waiting_output">Ожидание вывода…</string>
-
     <string name="done_title">Готово за %1$d мин %2$d сек</string>
     <string name="done_where">Сохранено в: %1$s. Откройте приложение для генерации и импортируйте как пользовательскую модель.</string>
     <string name="failed_title">Ошибка конвертации</string>
-
     <string name="export_conversion_report">Экспортировать отчет для отладки</string>
-
-    <!-- Language Selection -->
     <string name="language">Язык</string>
     <string name="language_system">Системный язык</string>
     <string name="language_en">English</string>
     <string name="language_ru">Русский</string>
     <string name="language_zh">简体中文</string>
-
-    <!-- Additional UI Labels and Statuses -->
-
     <string name="part_status_absent">—</string>
     <string name="copy_log">Скопировать журнал</string>
     <string name="log_copied">Журнал скопирован в буфер обмена</string>
@@ -75,8 +66,6 @@
     <string name="lora_adapters">Адаптеры LoRA</string>
     <string name="lora_weight">Вес: %1$.1f</string>
     <string name="active_process">Выполняется конвертация</string>
-
-    <!-- Info Screen -->
     <string name="info_use_title">Как использовать готовую модель</string>
     <string name="info_use_body">Сконвертируйте чекпоинт SD1.5 или SDXL в формате .safetensors, затем импортируйте ZIP из Download/npuforge в Fancy-Ai или Nightmare Mobile. Конвертация работает без интернета.</string>
     <string name="stage_vae_download">Загрузка VAE для SDXL…</string>
@@ -87,18 +76,27 @@
     <string name="info_spec_loras">LoRA: Добавьте LoRA для UNet перед конвертацией; сила фиксируется в модели (LoRA для текстовых энкодеров не объединяются)</string>
     <string name="info_help_title">Не удалось сконвертировать?</string>
     <string name="info_help_body">Нажмите «Экспортировать отчет для отладки» на вкладке «Конвертация». При сообщении о проблеме приложите журнал и укажите модель телефона и название чекпоинта.</string>
-
     <string name="vae_download_dialog_title">Загрузка VAE для SDXL</string>
     <string name="vae_download_dialog_message">Для SDXL требуется однократная загрузка оптимизированных компонентов VAE (~192 МБ). Скачать сейчас для последующей работы без интернета?</string>
     <string name="vae_download_dialog_confirm">Скачать</string>
     <string name="vae_download_dialog_cancel">Позже</string>
-
     <string name="stage_validate">Проверка компонентов чекпоинта…</string>
     <string name="stage_clip">Конвертация текстовых энкодеров…</string>
     <string name="stage_vae_encoder_weights">Подготовка весов энкодера изображений…</string>
     <string name="stage_vae_encoder_compile">Компиляция энкодера изображений…</string>
     <string name="stage_vae_decoder_weights">Подготовка весов декодера изображений…</string>
     <string name="stage_vae_decoder_compile">Компиляция декодера изображений…</string>
-
-
+    <string name="tab_utility">Утилиты</string>
+    <string name="clear_cache">Очистить кэш</string>
+    <string name="export_vae">Экспорт SDXL VAE</string>
+    <string name="import_vae">Импорт SDXL VAE</string>
+    <string name="cache_cleared">Кэш и временные файлы очищены.</string>
+    <string name="vae_exported">SDXL VAE экспортирован.</string>
+    <string name="vae_imported">SDXL VAE импортирован.</string>
+    <string name="vae_not_found">Файлы SDXL VAE не найдены. Сначала скачайте их.</string>
+    <string name="import_failed">Ошибка импорта.</string>
+    <string name="utility_storage_title">Управление памятью</string>
+    <string name="utility_storage_desc">Освободите место, удалив временные файлы конвертации и кэшированные данные. Экспортированные модели не будут удалены.</string>
+    <string name="utility_vae_title">Компоненты SDXL VAE</string>
+    <string name="utility_vae_desc">Экспортируйте или импортируйте скачанные файлы SDXL VAE, чтобы избежать повторной загрузки через сеть на других устройствах или после переустановки.</string>
 </resources>

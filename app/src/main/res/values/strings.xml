@@ -1,4 +1,5 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
+<?xml version='1.0' encoding='utf-8'?>
+<resources xmlns:ns0="http://schemas.android.com/tools">
     <string name="app_name">npuforge</string>
     <string name="blurb">Convert SD1.5 and SDXL image models to run on your phone’s Qualcomm AI processor.</string>
     <string name="pick">Choose a .safetensors model</string>
@@ -9,8 +10,6 @@
     <string name="stop_conversion">Stop conversion</string>
     <string name="tab_convert">Convert</string>
     <string name="tab_info">Info</string>
-
-
     <plurals name="inside_title">
         <item quantity="one">Inside this file: %1$s, %2$d tensor</item>
         <item quantity="other">Inside this file: %1$s, %2$d tensors</item>
@@ -38,31 +37,22 @@
     <string name="stage_assemble">Saving the converted model…</string>
     <string name="keep_open">The screen stays on while the app is open. Conversion continues if you switch apps.</string>
     <string name="unrestricted_background">Allow conversion in the background</string>
-    <!-- Abbreviated min/sec labels are invariant for singular and plural values. -->
-    <string name="elapsed" tools:ignore="PluralsCandidate">Time elapsed: %1$d min %2$d sec</string>
+    <string name="elapsed" ns0:ignore="PluralsCandidate">Time elapsed: %1$d min %2$d sec</string>
     <string name="phone_ram_used">Phone memory · %1$d%% used</string>
     <string name="phone_ram_details">%1$.2f of %2$.2f GiB used · %3$.2f GiB available</string>
     <string name="conversion_log">Technical log · latest 200 lines</string>
     <string name="pause_scroll">Pause auto-scroll</string>
     <string name="follow_log">Follow latest output</string>
     <string name="waiting_output">Waiting for the next update…</string>
-
-    <!-- Abbreviated min/sec labels are invariant for singular and plural values. -->
-    <string name="done_title" tools:ignore="PluralsCandidate">Done in %1$d min %2$d sec</string>
+    <string name="done_title" ns0:ignore="PluralsCandidate">Done in %1$d min %2$d sec</string>
     <string name="done_where">Saved to %1$s. Open your image app and import it as a custom model.</string>
     <string name="failed_title">Conversion failed</string>
-
     <string name="export_conversion_report">Save full troubleshooting log</string>
-
-    <!-- Language Selection -->
     <string name="language">Language</string>
     <string name="language_system">System default</string>
     <string name="language_en">English</string>
     <string name="language_ru">Русский</string>
     <string name="language_zh">简体中文</string>
-
-    <!-- Additional UI Labels and Statuses -->
-
     <string name="part_status_absent">—</string>
     <string name="copy_log">Copy log</string>
     <string name="log_copied">Log copied to clipboard</string>
@@ -72,8 +62,6 @@
     <string name="lora_adapters">LoRA Adapters</string>
     <string name="lora_weight">Weight: %1$.1f</string>
     <string name="active_process">Conversion in progress</string>
-
-    <!-- Info Screen -->
     <string name="info_use_title">Use your converted model</string>
     <string name="info_use_body">Convert an SD1.5 or SDXL .safetensors checkpoint, then import the ZIP from Download/npuforge into Fancy-Ai or Nightmare Mobile. Conversion works offline.</string>
     <string name="stage_vae_download">Downloading SDXL VAE…</string>
@@ -84,18 +72,27 @@
     <string name="info_spec_loras">LoRA: Add UNet LoRAs before converting; strengths are baked into the exported model (text-encoder LoRAs are not merged)</string>
     <string name="info_help_title">Conversion failed?</string>
     <string name="info_help_body">Use “Save full troubleshooting log” on the Convert tab. Include the log, phone model and checkpoint name when reporting the problem.</string>
-
     <string name="vae_download_dialog_title">Download SDXL VAE</string>
     <string name="vae_download_dialog_message">SDXL requires a one-time download of optimized VAE components (~192 MB). Download now to enable offline conversions later?</string>
     <string name="vae_download_dialog_confirm">Download</string>
     <string name="vae_download_dialog_cancel">Later</string>
-
     <string name="stage_validate">Checking checkpoint components…</string>
     <string name="stage_clip">Converting text encoders…</string>
     <string name="stage_vae_encoder_weights">Preparing image encoder weights…</string>
     <string name="stage_vae_encoder_compile">Building the image encoder…</string>
     <string name="stage_vae_decoder_weights">Preparing image decoder weights…</string>
     <string name="stage_vae_decoder_compile">Building the image decoder…</string>
-
-
+    <string name="tab_utility">Utility</string>
+    <string name="clear_cache">Clear Cache</string>
+    <string name="export_vae">Export SDXL VAE</string>
+    <string name="import_vae">Import SDXL VAE</string>
+    <string name="cache_cleared">Cache and temporary files cleared.</string>
+    <string name="vae_exported">SDXL VAE exported.</string>
+    <string name="vae_imported">SDXL VAE imported.</string>
+    <string name="vae_not_found">SDXL VAE files not found. Download them first.</string>
+    <string name="import_failed">Import failed.</string>
+    <string name="utility_storage_title">Storage management</string>
+    <string name="utility_storage_desc">Free up space by removing temporary conversion files and cached data. This will not delete your exported models.</string>
+    <string name="utility_vae_title">SDXL VAE components</string>
+    <string name="utility_vae_desc">Export or import downloaded SDXL VAE files to bypass the network download step on other devices or after a reinstall.</string>
 </resources>

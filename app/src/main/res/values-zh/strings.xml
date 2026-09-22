@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">npuforge</string>
     <string name="blurb">将 SD1.5 和 SDXL 图像模型转换为可在手机高通 AI 处理器上运行的格式。</string>
@@ -10,8 +10,6 @@
     <string name="stop_conversion">停止转换</string>
     <string name="tab_convert">转换</string>
     <string name="tab_info">说明</string>
-
-
     <plurals name="inside_title">
         <item quantity="other">文件包含：%1$s，%2$d 个张量</item>
     </plurals>
@@ -44,22 +42,15 @@
     <string name="pause_scroll">暂停自动滚动</string>
     <string name="follow_log">紧跟最新输出</string>
     <string name="waiting_output">等待后续输出…</string>
-
     <string name="done_title">转换完成，耗时 %1$d 分 %2$d 秒</string>
     <string name="done_where">已保存至 %1$s。请在绘图应用中将其作为自定义模型导入。</string>
     <string name="failed_title">转换失败</string>
-
     <string name="export_conversion_report">保存完整排错日志</string>
-
-    <!-- Language Selection -->
     <string name="language">语言</string>
     <string name="language_system">跟随系统</string>
     <string name="language_en">English</string>
     <string name="language_ru">Русский</string>
     <string name="language_zh">简体中文</string>
-
-    <!-- Additional UI Labels and Statuses -->
-
     <string name="part_status_absent">—</string>
     <string name="copy_log">复制日志</string>
     <string name="log_copied">日志已复制到剪贴板</string>
@@ -69,8 +60,6 @@
     <string name="lora_adapters">LoRA 适配器</string>
     <string name="lora_weight">权重：%1$.1f</string>
     <string name="active_process">转换正在进行中</string>
-
-    <!-- Info Screen -->
     <string name="info_use_title">使用转换后的模型</string>
     <string name="info_use_body">转换 SD1.5 或 SDXL 的 .safetensors 检查点，然后将 Download/npuforge 中的 ZIP 导入 Fancy-Ai 或 Nightmare Mobile。转换可离线完成。</string>
     <string name="stage_vae_download">下载 SDXL VAE…</string>
@@ -81,18 +70,27 @@
     <string name="info_spec_loras">LoRA：请在转换前添加 UNet LoRA；其强度会固化到导出的模型中（文本编码器的 LoRA 权重不会合并）</string>
     <string name="info_help_title">转换失败？</string>
     <string name="info_help_body">在“转换”页点击“保存完整排错日志”。报告问题时，请附上日志、手机型号和检查点名称。</string>
-
     <string name="vae_download_dialog_title">下载 SDXL VAE</string>
     <string name="vae_download_dialog_message">SDXL 需要一次性下载优化版 VAE 组件（约 192 MB）。是否现在下载以便后续离线转换？</string>
     <string name="vae_download_dialog_confirm">下载</string>
     <string name="vae_download_dialog_cancel">稍后</string>
-
     <string name="stage_validate">正在检查检查点组件…</string>
     <string name="stage_clip">正在转换文本编码器…</string>
     <string name="stage_vae_encoder_weights">正在准备图像编码器权重…</string>
     <string name="stage_vae_encoder_compile">正在编译图像编码器…</string>
     <string name="stage_vae_decoder_weights">正在准备图像解码器权重…</string>
     <string name="stage_vae_decoder_compile">正在编译图像解码器…</string>
-
-
+    <string name="tab_utility">实用工具</string>
+    <string name="clear_cache">清除缓存</string>
+    <string name="export_vae">导出 SDXL VAE</string>
+    <string name="import_vae">导入 SDXL VAE</string>
+    <string name="cache_cleared">缓存和临时文件已清除。</string>
+    <string name="vae_exported">已导出 SDXL VAE。</string>
+    <string name="vae_imported">已导入 SDXL VAE。</string>
+    <string name="vae_not_found">未找到 SDXL VAE 文件。请先下载。</string>
+    <string name="import_failed">导入失败。</string>
+    <string name="utility_storage_title">存储管理</string>
+    <string name="utility_storage_desc">通过删除临时转换文件和缓存数据来释放空间。这不会删除您导出的模型。</string>
+    <string name="utility_vae_title">SDXL VAE 组件</string>
+    <string name="utility_vae_desc">导出或导入已下载的 SDXL VAE 文件，以便在其他设备上或重新安装后跳过网络下载步骤。</string>
 </resources>

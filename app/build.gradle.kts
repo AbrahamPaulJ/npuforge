@@ -24,8 +24,8 @@ android {
         // Android 13 is the app's minimum for its Snapdragon 8 Gen 2+ audience.
         minSdk = 33
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
         // Qualcomm's device compiler and HTP runtime are arm64-only.
         //noinspection ChromeOsAbiSupport
         ndk { abiFilters += "arm64-v8a" }
@@ -137,6 +137,7 @@ val compileComponentconv = tasks.register<CompileTplconv>("compileComponentconv"
     })
     outputDirectory.set(layout.buildDirectory.dir("generated/componentconv/jniLibs"))
 }
+
 
 // Owns the allocator DSO preloaded only by the SDXL compiler subprocess.
 abstract class CompileCompilerHeap @Inject constructor(

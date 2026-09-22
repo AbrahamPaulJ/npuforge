@@ -168,8 +168,7 @@ class ConvertService : Service() {
         post(stage, t.take(80))
     }
 
-    private fun downloadSdxlVaeFiles(onProgress: (name: String, detail: String) -> Unit) {
-        val vaeDir = File(filesDir, "vae_sdxl").apply { mkdirs() }
+    private fun downloadSdxlVaeFiles(onProgress: (name: String, detail: String) -> Unit) {        val vaeDir = File(filesDir, "vae_sdxl").apply { mkdirs() }
         for (name in listOf("vae_decoder.bin", "vae_encoder.bin")) {
             val cached = File(vaeDir, name)
             if (!cached.isFile || cached.length() == 0L) {

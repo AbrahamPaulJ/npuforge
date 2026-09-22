@@ -101,6 +101,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.zip.Deflater
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -233,12 +237,18 @@ private fun AppScreen() {
                 onClick = { focus.clearFocus(); tab = 1 },
                 text = { Text(stringResource(R.string.tab_info), fontWeight = if (tab == 1) FontWeight.Bold else FontWeight.Normal) },
             )
+            Tab(
+                selected = tab == 2,
+                onClick = { focus.clearFocus(); tab = 2 },
+                text = { Text(stringResource(R.string.tab_utility), fontWeight = if (tab == 2) FontWeight.Bold else FontWeight.Normal) },
+            )
         }
 
         savedTabs.SaveableStateProvider(tab) {
             when (tab) {
                 0 -> ConvertScreen()
-                else -> InfoScreen()
+                1 -> InfoScreen()
+                else -> UtilityScreen()
             }
         }
     }
@@ -961,4 +971,133 @@ private fun displayName(context: Context, uri: Uri): String {
         if (i >= 0 && c.moveToFirst()) return c.getString(i)
     }
     return uri.lastPathSegment ?: "checkpoint"
+}
+
+@Composable
+fun UtilityScreen() {
+    val context = LocalContext.current
+    val vaeNotFoundStr = stringResource(R.string.vae_not_found)
+    val vaeExportedStr = stringResource(R.string.vae_exported)
+    val importFailedStr = stringResource(R.string.import_failed)
+    val vaeImportedStr = stringResource(R.string.vae_imported)
+    val cacheClearedStr = stringResource(R.string.cache_cleared)
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) {
+            val vaeDir = File(context.filesDir, "vae_sdxl")
+            val encoder = File(vaeDir, "vae_encoder.bin")
+            val decoder = File(vaeDir, "vae_decoder.bin")
+            if (!encoder.exists() || !decoder.exists()) {
+                Toast.makeText(context, vaeNotFoundStr, Toast.LENGTH_SHORT).show()
+                return@rememberLauncherForActivityResult
+            }
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { os ->
+                    ZipOutputStream(os.buffered()).use { zip ->
+                        zip.setLevel(Deflater.NO_COMPRESSION)
+                        zip.putNextEntry(ZipEntry("vae_encoder.bin"))
+                        encoder.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                        
+                        zip.putNextEntry(ZipEntry("vae_decoder.bin"))
+                        decoder.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                }
+                Toast.makeText(context, vaeExportedStr, Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                Toast.makeText(context, importFailedStr, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            try {
+                val vaeDir = File(context.filesDir, "vae_sdxl").apply { mkdirs() }
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    ZipInputStream(input.buffered()).use { zip ->
+                        var entry = zip.nextEntry
+                        while (entry != null) {
+                            if (entry.name == "vae_encoder.bin" || entry.name == "vae_decoder.bin") {
+                                val out = File(vaeDir, entry.name)
+                                out.outputStream().use { zip.copyTo(it) }
+                            }
+                            entry = zip.nextEntry
+                        }
+                    }
+                }
+                Toast.makeText(context, vaeImportedStr, Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                Toast.makeText(context, importFailedStr, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(32.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                stringResource(R.string.utility_storage_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                stringResource(R.string.utility_storage_desc),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            OutlinedButton(
+                onClick = {
+                    context.cacheDir.deleteRecursively()
+                    context.codeCacheDir.deleteRecursively()
+                    File(context.noBackupFilesDir, "conversion-work").deleteRecursively()
+                    Toast.makeText(context, cacheClearedStr, Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text(stringResource(R.string.clear_cache))
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                stringResource(R.string.utility_vae_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                stringResource(R.string.utility_vae_desc),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = {
+                        exportLauncher.launch("vae_sdxl.zip")
+                    }
+                ) {
+                    Text(stringResource(R.string.export_vae))
+                }
+                FilledTonalButton(
+                    onClick = {
+                        importLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed"))
+                    }
+                ) {
+                    Text(stringResource(R.string.import_vae))
+                }
+            }
+        }
+    }
 }

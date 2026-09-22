@@ -301,8 +301,7 @@ object Converter {
     }
 
     /** Reconstructs the model family's text encoder(s) with row-sized weight buffers. */
-    suspend fun stageClip(
-        context: Context,
+    suspend fun stageClip(        context: Context,
         ckpt: File,
         work: File,
         output: File,
