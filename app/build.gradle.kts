@@ -64,6 +64,10 @@ android {
 
     packaging {
         jniLibs {
+            // Exclude libraries for devices older than Snapdragon 8 Gen 2 (which uses V73)
+            excludes += "**/libQnnHtpV68*.so"
+            excludes += "**/libQnnHtpV69*.so"
+
             // ⚠ The whole design depends on this. Android blocks executing a
             // file from the writable app data dir; nativeLibraryDir is the one
             // allowed location, and useLegacyPackaging=true is what makes the
