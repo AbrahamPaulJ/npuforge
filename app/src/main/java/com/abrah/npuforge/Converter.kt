@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
@@ -249,8 +250,14 @@ object Converter {
         val outDir = File(work, "out").apply { mkdirs() }
 
         // ⚠ absolute on-device path, see the class comment
-        val cfg = File(tpl, "htp_config.json")
-        report.record("QNN graph configuration: ${cfg.readText()}")
+        val socName = when (Build.SOC_MODEL) {
+            "SM8750" -> "8elite"
+            "SM8850" -> "8gen5"
+            else -> Build.SOC_MODEL.lowercase()
+        }
+        val socConfig = File(tpl, "htp_config_$socName.json")
+        val cfg = if (socConfig.isFile) socConfig else File(tpl, "htp_config.json")
+        report.record("QNN graph configuration (${cfg.name}): ${cfg.readText()}")
         val backend = File(work, "htp_backend.json")
         backend.writeText(
             """{"backend_extensions":{"shared_library_path":""" +

@@ -10,6 +10,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.LocaleList
 import android.os.PowerManager
@@ -146,8 +147,6 @@ private fun AppScreen() {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val savedTabs = rememberSaveableStateHolder()
     val focus = LocalFocusManager.current
-    val context = LocalContext.current
-    var showLanguageMenu by remember { mutableStateOf(false) }
 
     BackHandler(enabled = tab != 0) { tab = 0 }
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -162,60 +161,13 @@ private fun AppScreen() {
                     Spacer(Modifier.width(8.dp))
                     SuggestionChip(
                         onClick = {},
-                        label = { Text("NPU", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) },
+                        label = { Text("NPU: ${Build.SOC_MODEL}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) },
                         colors = SuggestionChipDefaults.suggestionChipColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             labelColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         ),
                         border = null,
                     )
-                }
-            },
-            actions = {
-                Box {
-                    OutlinedButton(
-                        onClick = { showLanguageMenu = true },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.padding(end = 8.dp),
-                    ) {
-                        Text(
-                            stringResource(R.string.language),
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showLanguageMenu,
-                        onDismissRequest = { showLanguageMenu = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.language_system)) },
-                            onClick = {
-                                showLanguageMenu = false
-                                setAppLocale(context, null)
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.language_en)) },
-                            onClick = {
-                                showLanguageMenu = false
-                                setAppLocale(context, "en")
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.language_ru)) },
-                            onClick = {
-                                showLanguageMenu = false
-                                setAppLocale(context, "ru")
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.language_zh)) },
-                            onClick = {
-                                showLanguageMenu = false
-                                setAppLocale(context, "zh-CN")
-                            },
-                        )
-                    }
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -976,6 +928,7 @@ private fun displayName(context: Context, uri: Uri): String {
 @Composable
 fun UtilityScreen() {
     val context = LocalContext.current
+    var showLanguageMenu by remember { mutableStateOf(false) }
     val vaeNotFoundStr = stringResource(R.string.vae_not_found)
     val vaeExportedStr = stringResource(R.string.vae_exported)
     val importFailedStr = stringResource(R.string.import_failed)
@@ -1041,6 +994,61 @@ fun UtilityScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(32.dp),
     ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                stringResource(R.string.language),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                "Change the application language",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Box {
+                OutlinedButton(
+                    onClick = { showLanguageMenu = true },
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(stringResource(R.string.language))
+                }
+                DropdownMenu(
+                    expanded = showLanguageMenu,
+                    onDismissRequest = { showLanguageMenu = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.language_system)) },
+                        onClick = {
+                            showLanguageMenu = false
+                            setAppLocale(context, null)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.language_en)) },
+                        onClick = {
+                            showLanguageMenu = false
+                            setAppLocale(context, "en")
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.language_ru)) },
+                        onClick = {
+                            showLanguageMenu = false
+                            setAppLocale(context, "ru")
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.language_zh)) },
+                        onClick = {
+                            showLanguageMenu = false
+                            setAppLocale(context, "zh-CN")
+                        },
+                    )
+                }
+            }
+        }
+
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 stringResource(R.string.utility_storage_title),
