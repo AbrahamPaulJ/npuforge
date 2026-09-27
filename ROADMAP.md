@@ -114,7 +114,12 @@ Plan, cheapest evidence first:
    consuming apps need no change. Host authoring with calibration, compared
    with the float VAE. Needed in either case.
 3. If step 1 shows the requirement: a QAIRT 2.28 context generator and model
-   libraries for chips without fp16, selected per SoC.
+   libraries for chips without fp16, selected per SoC. Not 2.28 for all of
+   SD1.5: compilation runs on the phone and the HTP backend loads the device's
+   arch libraries, and 2.28 predates v81 (8 Elite Gen 5), so newer phones
+   would lose SD1.5. 2.28 also measured ~12% slower. It does not remove the
+   need for step 2: fp16 VAE arithmetic fails on these chips under any
+   compiler.
 
 Obtaining the 2.28 SDK and reaching an SM8735 tester are prerequisites; no
 SM8735 is available in-house.
