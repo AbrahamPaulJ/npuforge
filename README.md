@@ -1,6 +1,6 @@
 # npuforge
 
-**Convert SD1.5 and SDXL checkpoints into Qualcomm QNN models entirely on an Android phone.**
+**Convert SD1.5 and SDXL checkpoints, including SD1.5 inpainting models, into Qualcomm QNN models entirely on an Android phone.**
 
 [![Host regression tests](https://github.com/AbrahamPaulJ/npuforge/actions/workflows/host-tests.yml/badge.svg?branch=main)](https://github.com/AbrahamPaulJ/npuforge/actions/workflows/host-tests.yml)
 
@@ -17,10 +17,12 @@ related projects on 16 September 2026 found host-side conversion and mobile
 inference workflows, but no equivalent in-app SDXL conversion path.
 [Related work and scope of this claim](docs/RELATED-WORK.md).
 
-Once the APK and checkpoint are on the phone, conversion runs offline. The app
-uses bundled graph templates and tokenizer data; new conversions do not download
-CLIP or VAE weights. Template preparation and building the APK are developer tasks
-performed separately on a workstation.
+Once the APK and checkpoint are on the phone, SD1.5 conversion runs offline. The
+app uses bundled graph templates and tokenizer data. Two files are downloaded once,
+only when needed: SDXL conversions use precompiled SDXL VAE contexts (~192 MB), and
+turning a plain SD1.5 checkpoint into an inpainting model uses the SD1.5 inpainting
+difference (1.7 GB). Both can also be imported from a file. Template preparation and
+building the APK are developer tasks performed separately on a workstation.
 
 ## What it enables
 
@@ -32,6 +34,19 @@ performed separately on a workstation.
   independent strength for each adapter.
 - **On-phone QNN compilation:** run the ARM64 QAIRT context generator inside the
   Android app, with storage-backed allocation for large SDXL compilation jobs.
+- **SD1.5 inpainting models:** 9-channel inpainting checkpoints (the
+  "-inpainting" releases) are detected and converted automatically. Any plain
+  SD1.5 checkpoint can also be converted *as* an inpainting model: the app adds
+  the official SD1.5 inpainting difference to it on the phone.
+- **Clip skip 1 or 2:** choose how SD1.5 text encoders are built. 2 is the
+  default and matches earlier exports; 1 uses the full text encoder.
+- **Low-RAM phones:** below 10 GB of RAM, the SD1.5 compile keeps its working
+  memory in a temporary file instead of RAM, so Android is far less likely to
+  stop the conversion. It takes about twice as long.
+- **Downloads that survive bad connections:** downloads resume where they
+  stopped and fall back between Hugging Face and the hf-mirror.com mirror. The
+  Utility tab's *Download source* picks which to try first; phones set to
+  China's timezone start with the mirror.
 - **Inspectable implementation:** Kotlin/Jetpack Compose app, native C/C++
   converters, Python reference tools, and host regression tests.
 
@@ -42,8 +57,10 @@ Output models work only with:
 - [Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai)
 - [Nightmare Mobile](https://github.com/AbrahamPaulJ/nightmare-mobile)
 
-Import the exported ZIP through either app's custom-model workflow. Device and
-QNN runtime compatibility still apply.
+Import the exported ZIP through either app's custom-model workflow. SD1.5
+exports, including inpainting models, need Nightmare Mobile **1.6.033 or later**.
+Inpainting in Fancy-Ai is untested. Device and QNN runtime compatibility still
+apply.
 
 ## How it works
 
@@ -81,6 +98,8 @@ compatibility and quality must be established for each model family.
 | **Pony restored by checkpoint-owned CLIPs** | Reported successful render after replacing only the text-encoder components                                    |
 | **Illustrious full-component conversion**   | Successful reported output from `waiIllustriousSDXL_v170`; 1024 × 1024, 30 steps, CFG 7                        |
 | **LoRA conversion fixes confirmed**         | Latest test APK reported working after DMD2 mapping, compiler allocation and workspace fixes                   |
+| **SD1.5 inpainting on the phone**           | DreamShaper 8 inpainting, DreamShaper 8 base and CuteYukiMix converted in the app and inpainted in Nightmare Mobile; phone and PC builds render byte-identical images |
+| **Low-RAM compile**                         | Compiler RAM 2.89 GB → 0.03 GB on Galaxy S25 Ultra with an identical output; not yet run on an 8 GB phone     |
 
 These are individual measurements and tester reports. The 117 s and 437 s
 figures are historical baselines, **not timings for today's full-component
@@ -89,20 +108,23 @@ pipeline**. [Results, methodology and remaining measurements](docs/RESULTS.md).
 ## Use the app
 
 1. Install an APK built with the required runtime and generated assets.
-2. Select a complete SD1.5 or SDXL `.safetensors` checkpoint.
-3. Optionally add UNet LoRAs and set their strengths.
-4. Start conversion and import `Download/npuforge/<name>.zip` into **Fancy-Ai**
+2. Select a complete SD1.5 or SDXL `.safetensors` checkpoint, through the system
+   picker or a file manager such as MiXplorer.
+3. For SD1.5, choose *Text-to-image* or *Inpainting* and a clip skip.
+4. Optionally add UNet LoRAs and set their strengths.
+5. Start conversion and import `Download/npuforge/<name>.zip` into **Fancy-Ai**
    or **Nightmare Mobile**.
 
-The current app targets Android 13+ on ARM64 Snapdragon devices. The Galaxy S25
-Ultra with 12 GB RAM is the main demonstrated device. Available memory, storage,
+The current app targets Android 13+ on ARM64 Snapdragon devices: Snapdragon 8
+Gen 2 or newer for SD1.5, 8 Gen 3 or newer for SDXL. 8 Gen 1 and older are not
+supported. The Galaxy S25 Ultra with 12 GB RAM is the main demonstrated device. Available memory, storage,
 firmware and compiler behavior matter; installed RAM alone does not establish
 compatibility. Export **Save full troubleshooting log** when reporting a failure.
 
 ## Build and test
 
-The supported Android build host is **Linux x86-64**, with JDK 21, Android SDK 37
-and NDK 29.0.14206865. A working APK also needs externally supplied QAIRT runtime
+The Android build runs on **Linux x86-64** or Windows, with JDK 21, Android SDK
+37 and NDK 30.0.16248370. A working APK also needs externally supplied QAIRT runtime
 files and generated graph assets. Those are not all present in a fresh clone.
 
 ```sh
@@ -125,16 +147,18 @@ See [build instructions](docs/BUILD.md), [test coverage](docs/TESTING.md), and
 
 ## Current scope
 
-- SD1.5 at 512 × 512 and SDXL at 1024 × 1024; complete LDM-layout F16/F32/BF16
-  checkpoints, including mixed weight dtypes. BF16 input is expanded to FP32;
+- SD1.5 at 512 × 512 (text-to-image and 9-channel inpainting) and SDXL at
+  1024 × 1024; complete LDM-layout F16/F32/BF16 checkpoints, including mixed
+  weight dtypes. BF16 input is expanded to FP32;
   compiled graph precision is unchanged.
 - Supported UNet LoRA layers include attention, ResNets and sampler convolutions.
   Unmatched tensors produce a warning; matched layers still merge. Text-encoder
   LoRAs and complete DoRA/LyCORIS semantics are not supported.
 - Checkpoint-owned components address weight mismatches. They cannot guarantee
   that the fixed activation calibration suits every fine-tune.
-- Full-component SD1.5 rendering, image-to-image and a broader device matrix
-  still need documented evaluation.
+- SDXL inpainting models and other resolutions need new templates; see the
+  [roadmap](ROADMAP.md). SDXL image-to-image and a broader device matrix still
+  need documented evaluation.
 
 [Complete compatibility notes](docs/LIMITS.md) · [Roadmap](ROADMAP.md)
 
@@ -156,6 +180,19 @@ The checked-in template artifacts have separate non-commercial provenance.
 Qualcomm SDK files, generated model libraries and checkpoints are not covered by
 the source license and are not distributed here. See [NOTICE](NOTICE) for the
 artifact boundaries and outstanding distribution questions.
+
+### Credits
+
+- **SD1.5 inpainting difference** (downloaded on demand): computed from RunwayML's
+  `sd-v1-5-inpainting` and `v1-5-pruned-emaonly`, CreativeML OpenRAIL-M.
+- **SD1.5 inpainting template**: calibrated on Lykon's DreamShaper 8 Inpainting
+  (CreativeML OpenRAIL-M), exported with Local Dream's modified diffusers UNet
+  (xororz, CC BY-NC 4.0).
+- **SDXL VAE contexts** (downloaded on demand): precompiled and hosted by Mr.J in
+  [`Mr-J-369/Fancy-AI`](https://huggingface.co/Mr-J-369/Fancy-AI); see that
+  repository for terms.
+- **hf-mirror.com**: an independent Hugging Face mirror, used as a download source.
+- **Qualcomm QAIRT** runtime and compiler; **MNN** (Alibaba, Apache-2.0) text-encoder format.
 
 An independent project by **Abraham Paul Jaison**. Qualcomm, Snapdragon and other
 product names identify the technologies used; no affiliation or endorsement is

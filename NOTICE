@@ -12,6 +12,9 @@ Artifact boundaries
 |---|---|---|
 | Original app, native converters and Python tools | Included | MIT; see LICENSE |
 | template/recipe.bin and template/tpl_trim.pack | Included separately from MIT source | Non-commercial provenance; see section 2 and template/README.md |
+| SD1.5 inpaint template (template_inpaint/) | Only sources.txt and htp_config.json tracked; built into the APK | Same non-commercial provenance as section 2; see docs/SD15-INPAINT.md |
+| SD1.5 inpainting difference | Downloaded on demand; not in the repository | CreativeML OpenRAIL-M; see section 5 |
+| SDXL VAE contexts | Downloaded on demand from Mr-J-369/Fancy-AI | That repository's terms; see section 5 |
 | Qualcomm QAIRT/QNN runtime and compiler files | Excluded | Supplied under Qualcomm's applicable SDK terms |
 | Generated libqnn_model.so libraries and component assets | Excluded | Generated locally; not relicensed by this repository |
 | User checkpoints and LoRAs | Excluded | Respective model/adapter licenses |
@@ -65,7 +68,9 @@ upstream terms.
 ---------------------------------------------
 
 Users supply checkpoints and LoRAs under their respective licenses. New SD1.5
-and SDXL conversions use the selected checkpoint's own CLIP and VAE weights.
+conversions use the selected checkpoint's own CLIP and VAE weights; SDXL
+conversions use its own CLIP weights and the downloaded SDXL VAE contexts
+(section 5).
 The standard tokenizer is bundled in locally prepared assets.
 
 The legacy backup workflow can download shared-component archives from xororz's
@@ -84,3 +89,23 @@ Project attribution
 Independent project by Abraham Paul Jaison. Qualcomm, Snapdragon, Stable
 Diffusion and other product names identify the technologies used. No affiliation,
 certification or endorsement is implied.
+
+5. Files the app downloads
+--------------------------
+
+Both are fetched once, only when a conversion needs them, from huggingface.co
+or the independent mirror hf-mirror.com, and can instead be imported from a file.
+
+- SD1.5 inpainting difference (AbrahamPJ/npuforge-sd15-inpaint-diff,
+  sd15inp_diff_f16.safetensors, SHA-256 checked): the per-tensor UNet
+  difference sd-v1-5-inpainting minus v1-5-pruned-emaonly, both released by
+  RunwayML under the CreativeML OpenRAIL-M license, whose use restrictions
+  carry over to models made with it.
+- SDXL VAE contexts (Mr-J-369/Fancy-AI, vae_encoder.bin and vae_decoder.bin):
+  precompiled QNN contexts published by the Fancy-Ai maintainer. Their terms are
+  that repository's; this project does not relicense them. The historical shared
+  SDXL VAE was derived from madebyollin/sdxl-vae-fp16-fix.
+
+The SD1.5 inpaint template was calibrated on Lykon's DreamShaper 8 Inpainting
+(CreativeML OpenRAIL-M) and exported through the same Local Dream path as the
+section 2 template, so it carries the same non-commercial provenance.
