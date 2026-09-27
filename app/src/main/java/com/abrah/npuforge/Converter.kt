@@ -1,6 +1,7 @@
 package com.abrah.npuforge
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
@@ -191,6 +192,7 @@ object Converter {
         report: ConversionReport,
         loras: List<Pair<File, Float>> = emptyList(),
         templateDirectory: String = model.templateDirectory,
+        extraArgs: List<String> = emptyList(),
         onLine: (String) -> Unit = {},
     ): File {
         val tpl = File(work, "template").apply { mkdirs() }
@@ -212,11 +214,32 @@ object Converter {
                 File(tpl, "tpl_trim.pack").absolutePath,
                 ckpt.absolutePath,
                 pack.absolutePath,
-            ) + loraArgs,
+            ) + loraArgs + extraArgs,
             emptyMap(), work, report, onLine,
         )
         if (!pack.isFile || pack.length() == 0L) throw Failure("tplconv produced no pack")
         return pack
+    }
+
+    /**
+     * Phones below this much RAM compile the SD1.5 UNet with the storage-backed
+     * allocator that SDXL always uses.
+     *
+     * ⚠ An 8 GB SM8450 (7.5 GB reported) had the whole app killed at the UNet
+     * compile's ~4.3 GB anonymous peak with 0.6 GB left; a run that happened to
+     * survive the same peak had 0.66 GB left (September 2026 reports). On the
+     * S25 Ultra the allocator took the compiler's anonymous peak from 2.89 GB to
+     * 0.03 GB, cost 70 s -> 157 s and ~4.6 GB of temporary storage, and the
+     * context binary matched a normal compile except for the 2 bytes that differ
+     * between any two normal compiles. The VAE compiles are small and stay on
+     * the normal allocator.
+     */
+    private const val LOW_RAM_BYTES = 10L * 1024 * 1024 * 1024
+
+    fun isLowRam(context: Context): Boolean {
+        val memory = ActivityManager.MemoryInfo()
+        context.getSystemService(ActivityManager::class.java).getMemoryInfo(memory)
+        return memory.totalMem < LOW_RAM_BYTES
     }
 
     /** Stage 2: weight pack -> context binary. */
@@ -276,7 +299,7 @@ object Converter {
                 "--log_level", "info",
             ),
             buildMap {
-                if (model == CheckpointInfo.Model.SDXL) {
+                if (model == CheckpointInfo.Model.SDXL || (component == "unet" && isLowRam(context))) {
                     put("LD_PRELOAD", File(libs, "libcompiler_heap.so").absolutePath)
                     put("QNN_COMPILER_HEAP_DIR", work.absolutePath)
                 }
@@ -308,17 +331,20 @@ object Converter {
     }
 
     /** Reconstructs the model family's text encoder(s) with row-sized weight buffers. */
-    suspend fun stageClip(        context: Context,
+    suspend fun stageClip(
+        context: Context,
         ckpt: File,
         work: File,
         output: File,
         model: CheckpointInfo.Model,
         report: ConversionReport,
+        clipDirectory: String = model.componentDirectory,
         onLine: (String) -> Unit,
     ) {
         val assets = File(work, "clip").apply { mkdirs() }
         output.mkdirs()
-        context.assets.open("${model.componentDirectory}/clip_recipe.bin").use { input ->
+        report.record("CLIP recipe: $clipDirectory/clip_recipe.bin")
+        context.assets.open("$clipDirectory/clip_recipe.bin").use { input ->
             File(assets, "clip_recipe.bin").outputStream().use { input.copyTo(it) }
         }
         run(
@@ -379,12 +405,18 @@ object Converter {
                     // context binaries -- deflate saves almost nothing and would
                     // add a minute of CPU to a 1.27 GB archive on a phone.
                     zip.setLevel(Deflater.NO_COMPRESSION)
-                    if (model == CheckpointInfo.Model.SDXL) {
-                        for ((entryName, text) in mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")) {
-                            zip.putNextEntry(ZipEntry(entryName))
-                            zip.write(text.toByteArray(Charsets.UTF_8))
-                            zip.closeEntry()
-                        }
+                    // Family markers read by the importing app. `INPAINT` is not an
+                    // upstream Local Dream name: it tells Nightmare Mobile to launch
+                    // the 9-channel inpaint pipeline for this SD1.5 folder.
+                    val markers = when (model) {
+                        CheckpointInfo.Model.SDXL -> mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")
+                        CheckpointInfo.Model.SD15_INPAINT -> mapOf("INPAINT" to "")
+                        CheckpointInfo.Model.SD15 -> emptyMap()
+                    }
+                    for ((entryName, text) in markers) {
+                        zip.putNextEntry(ZipEntry(entryName))
+                        zip.write(text.toByteArray(Charsets.UTF_8))
+                        zip.closeEntry()
                     }
                     for ((src, entryName) in files) {
                         onFile(entryName)
@@ -399,6 +431,11 @@ object Converter {
                             }
                         }
                         zip.closeEntry()
+                        // The zip now holds it; dropping the source keeps peak storage
+                        // near one copy of the model instead of two. A failure after
+                        // this point loses the conversion, which the work-directory
+                        // cleanup would have discarded anyway.
+                        src.delete()
                     }
                 }
             } ?: throw Failure("could not open $name.zip for writing")

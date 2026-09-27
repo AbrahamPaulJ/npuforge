@@ -51,6 +51,22 @@ implement that format.
 
 BF16 support is deferred. F16/F32 remain the supported input dtypes.
 
+### 5. Finish SD1.5 inpainting
+
+The 9-channel template is built and phone-verified
+([SD15-INPAINT.md](docs/SD15-INPAINT.md)). Remaining, in order:
+
+1. Done with a debug test APK (`1.0.1-inpaint-test1`); a signed release still
+   needs the collaborator's release key.
+2. Done in Nightmare Mobile 1.6.033 (`INPAINT` marker, float32 SD1.5 VAE).
+   Check whether Fancy-Ai can run a 9-channel UNet and a float32 SD1.5 VAE.
+3. Add-difference for 4-channel checkpoints: done in the test APK with the
+   official difference hosted on Hugging Face. A compressed (int8/low-rank)
+   difference would cut the 1.7 GB download and needs its own measurement.
+4. LoRA on `conv_in` for inpaint checkpoints: apply the 4-channel delta to
+   channels 0–3 instead of rejecting it, with a parity test.
+5. Score a removal/erase fixture and a non-photoreal checkpoint.
+
 ## Research proposals
 
 ### Checkpoint calibration coverage

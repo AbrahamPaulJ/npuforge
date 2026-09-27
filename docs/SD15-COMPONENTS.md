@@ -77,7 +77,8 @@ ranges fit every anime model. The earlier MistoonAnime checkpoint contained
 non-finite VAE values and separately failed the UNet comparisons; it should now
 report the invalid VAE instead of silently substituting another decoder.
 
-Text-encoder LoRA weights are still not merged. Baked clip-skip 2 is preserved;
-there is no new clip-skip selector. VAEs requiring full float32 arithmetic are
+Text-encoder LoRA weights are still not merged. Clip skip is baked into the
+exported `clip_v2.mnn`; the app offers 1 or 2 (default 2, the earlier contract;
+[CLIP-COMPONENTS.md](CLIP-COMPONENTS.md) §SD1.5). VAEs requiring full float32 arithmetic are
 not supported by these HTP templates. End-to-end phone conversion and rendering
 with the expanded SD1.5 pipeline remain unverified.

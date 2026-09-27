@@ -93,4 +93,25 @@
     <string name="utility_storage_desc">通过删除临时转换文件和缓存数据来释放空间。这不会删除您导出的模型。</string>
     <string name="utility_vae_title">SDXL VAE 组件</string>
     <string name="utility_vae_desc">导出或导入已下载的 SDXL VAE 文件，以便在其他设备上或重新安装后跳过网络下载步骤。</string>
+    <string name="info_spec_sd15_inpaint">SD1.5 局部重绘：自动识别 9 通道局部重绘模型（“-inpainting”版本），并导出局部重绘模型</string>
+    <string name="mode_label">转换为</string>
+    <string name="mode_txt2img">文生图</string>
+    <string name="mode_inpaint">局部重绘</string>
+    <string name="mode_inpaint_note_ready">将 SD1.5 局部重绘差分加到此模型上，导出 9 通道局部重绘模型。</string>
+    <string name="mode_inpaint_note_download">将 SD1.5 局部重绘差分加到此模型上，导出 9 通道局部重绘模型。需要一次性下载 1.7 GB。</string>
+    <string name="inpaint_diff_dialog_title">下载局部重绘差分</string>
+    <string name="inpaint_diff_dialog_message">制作局部重绘模型需要一次性下载 SD1.5 局部重绘差分（1.7 GB，CreativeML OpenRAIL-M 许可）。下载后会保留供以后转换使用，中断后可继续下载，并会自动尝试 hf-mirror.com 镜像。建议使用 Wi-Fi。
+
+如果下载总是中断，请用浏览器从 hf-mirror.com/AbrahamPJ/npuforge-sd15-inpaint-diff 下载 sd15inp_diff_f16.safetensors，然后点击“使用已下载的文件”。</string>
+    <string name="inpaint_diff_dialog_confirm">下载并转换</string>
+    <string name="inpaint_diff_dialog_import">使用已下载的文件</string>
+    <string name="stage_inpaint_diff_download">正在下载局部重绘差分…</string>
+    <string name="stage_inpaint_diff_import">正在导入局部重绘差分…</string>
+    <string name="inpaint_note">局部重绘模型：将导出 9 通道局部重绘模型。请在支持 SD1.5 局部重绘的应用中使用；不能用于普通文生图。</string>
+    <string name="clip_skip_label">Clip skip</string>
+    <string name="clip_skip_note">该设置会固化到导出的模型中。二次元模型通常用 2，与以往 npuforge 导出一致；1 使用完整文本编码器，即 SD1.5 原始训练方式。</string>
+    <string name="download_source_title">下载源</string>
+    <string name="download_source_note">SDXL VAE 和局部重绘差分的下载地址。如果 Hugging Face 在你所在的地区很慢或无法访问，请选择 hf-mirror.com。下载失败时也会自动尝试另一个下载源。</string>
+    <string name="source_huggingface">Hugging Face</string>
+    <string name="source_mirror">hf-mirror.com（国内镜像）</string>
 </resources>

@@ -24,8 +24,8 @@ android {
         // Android 13 is the app's minimum for its Snapdragon 8 Gen 2+ audience.
         minSdk = 33
         targetSdk = 37
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
         // Qualcomm's device compiler and HTP runtime are arm64-only.
         //noinspection ChromeOsAbiSupport
         ndk { abiFilters += "arm64-v8a" }
@@ -43,7 +43,7 @@ android {
 
     buildTypes {
         debug {
-            versionNameSuffix = "-bf16-vae-test5"
+            versionNameSuffix = "-inpaint-test2"
             // Unminified: this is a tool for one person so far, and a readable
             // stack trace is worth more than the megabytes. Revisit if it ships.
             isMinifyEnabled = false
@@ -53,6 +53,16 @@ android {
                 signingConfig = signingConfigs.getByName("npuforgeRelease")
             }
             isMinifyEnabled = false
+        }
+        // A shareable test build: the release variant (no debug-only probe,
+        // backend or exported service), signed with the local debug key, under
+        // its own application id so it installs beside the signed release.
+        create("preview") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            matchingFallbacks += "release"
         }
     }
 
@@ -118,6 +128,16 @@ abstract class CompileTplconv @Inject constructor(
 }
 
 val converterNdk = androidComponents.sdkComponents.ndkDirectory
+// The NDK's per-API clang wrappers live under a host-specific prebuilt dir, and
+// on Windows they are .cmd scripts. Linux resolves exactly as before.
+val osName = System.getProperty("os.name").lowercase()
+val ndkHost = when {
+    osName.startsWith("windows") -> "windows-x86_64"
+    osName.startsWith("mac") -> "darwin-x86_64"
+    else -> "linux-x86_64"
+}
+val ndkWrapperSuffix = if (osName.startsWith("windows")) ".cmd" else ""
+fun ndkClang(wrapper: String) = "toolchains/llvm/prebuilt/$ndkHost/bin/$wrapper$ndkWrapperSuffix"
 val compileTplconv = tasks.register<CompileTplconv>("compileTplconv") {
     group = "build"
     description = "Build the on-device checkpoint weight converter."
@@ -125,7 +145,7 @@ val compileTplconv = tasks.register<CompileTplconv>("compileTplconv") {
     executableName.set("libtplconv.so")
     ndkRevision.set(converterNdk.map { it.file("source.properties") })
     compiler.set(converterNdk.map {
-        it.file("toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang++")
+        it.file(ndkClang("aarch64-linux-android31-clang++"))
     })
     outputDirectory.set(layout.buildDirectory.dir("generated/tplconv/jniLibs"))
 }
@@ -137,7 +157,7 @@ val compileComponentconv = tasks.register<CompileTplconv>("compileComponentconv"
     executableName.set("libcomponentconv.so")
     ndkRevision.set(converterNdk.map { it.file("source.properties") })
     compiler.set(converterNdk.map {
-        it.file("toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang++")
+        it.file(ndkClang("aarch64-linux-android31-clang++"))
     })
     outputDirectory.set(layout.buildDirectory.dir("generated/componentconv/jniLibs"))
 }
@@ -168,7 +188,10 @@ abstract class CompileCompilerHeap @Inject constructor(
         }
         process.exec {
             commandLine(
-                "${compiler.get().asFile.absolutePath}++",
+                // clang -> clang++, keeping a Windows wrapper's .cmd extension last.
+                compiler.get().asFile.absolutePath.let { c ->
+                    if (c.endsWith(".cmd")) c.removeSuffix(".cmd") + "++.cmd" else "$c++"
+                },
                 "-O2", "-std=c++17", "-fPIC", "-shared", "-fno-builtin", "-Wall", "-Wextra",
                 "-static-libstdc++", "-Wl,--exclude-libs,ALL",
                 "-Wl,-z,max-page-size=16384", "-Wl,-z,common-page-size=16384",
@@ -187,7 +210,7 @@ val compileCompilerHeap = tasks.register<CompileCompilerHeap>("compileCompilerHe
     symbols.set(rootProject.layout.projectDirectory.file("native/compiler_heap.map"))
     ndkRevision.set(converterNdk.map { it.file("source.properties") })
     compiler.set(converterNdk.map {
-        it.file("toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang")
+        it.file(ndkClang("aarch64-linux-android33-clang"))
     })
     outputDirectory.set(layout.buildDirectory.dir("generated/compilerHeap/jniLibs"))
 }

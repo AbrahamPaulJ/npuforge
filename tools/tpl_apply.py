@@ -5,6 +5,7 @@
         Adds what the phone needs and cannot derive: per-bias input-activation scale
         and weight partner. Template constants stay as template bytes.
     tpl_apply.py apply <recipe.json> <template.pack> <checkpoint.safetensors> <out.pack>
+        [--inpaint-diff <diff.safetensors>]: add-difference inpainting first
     tpl_apply.py compare <a.pack> <b.pack>
 
 Quantization rules, each verified against the converter's output (tpl_rules.py/diag):
@@ -101,11 +102,36 @@ def src_of(sd, e):
     return np.ascontiguousarray(np.transpose(v, e["perm"]))
 
 
-def apply(recipe, template_pack, ckpt, out):
+def add_inpaint_diff(sd, diff_path):
+    """inpaint = zero_pad_input_channels(custom) + diff, in float32.
+
+    conv_in is 4 input channels wide in a plain checkpoint and 9 in the diff,
+    whose channels 4..8 are the inpainting model's own; the custom side is
+    zero-padded there. Mirrors tplconv --inpaint-diff (docs/SD15-INPAINT.md).
+    """
+    with safe_open(diff_path, framework="np") as diff:
+        for key in list(sd):
+            if key not in diff.keys():
+                raise SystemExit(f"inpaint diff lacks '{key}'")
+            d = diff.get_tensor(key).astype(np.float32)
+            v = sd[key].astype(np.float32)
+            if v.shape != d.shape:
+                assert v.ndim == 4 and v.shape[0] == d.shape[0] and v.shape[2:] == d.shape[2:]                     and d.shape[1] > v.shape[1], (key, v.shape, d.shape)
+                wide = np.zeros(d.shape, np.float32)
+                wide[:, :v.shape[1]] = v
+                v = wide
+            sd[key] = v + d
+
+
+def apply(recipe, template_pack, ckpt, out, *options):
     R = json.loads(Path(recipe).read_text())
     tpl = {n: (p, b) for n, p, b in read_pack(template_pack)}
     with safe_open(ckpt, framework="np") as source:
         sd = {key: source.get_tensor(key) for key in {e["source"] for e in R["entries"] if e.get("source")}}
+    if options:
+        if len(options) != 2 or options[0] != "--inpaint-diff":
+            raise SystemExit("usage: apply <recipe> <template.pack> <ckpt> <out> [--inpaint-diff <diff>]")
+        add_inpaint_diff(sd, options[1])
     wscale = {}          # weight binvar -> new per-channel scales (float32)
     entries = []
     order = sorted(R["entries"], key=lambda e: e["rule"] in ("i32_axis_bias", "i32_axis_zero"))

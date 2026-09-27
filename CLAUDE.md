@@ -13,6 +13,8 @@ aid; measured results and limitations belong in the topic documents below.
 | [docs/SDXL.md](docs/SDXL.md) | SDXL runtime contract, compiler configuration and phone measurements |
 | [docs/SDXL-COMPONENTS.md](docs/SDXL-COMPONENTS.md) | Checkpoint-owned SDXL CLIP/VAE conversion and precision limits |
 | [docs/SD15-COMPONENTS.md](docs/SD15-COMPONENTS.md) | SD1.5 CLIP, clip-skip 2 and 512px VAE components |
+| [docs/SD15-INPAINT.md](docs/SD15-INPAINT.md) | 9-channel inpaint template, add-difference measurement, phone renders |
+| [docs/SDXL-INPAINT-TEMPLATE.md](docs/SDXL-INPAINT-TEMPLATE.md) | Runbook for an SDXL 9-channel inpaint template (Linux host) |
 | [docs/SDXL-INVESTIGATION.md](docs/SDXL-INVESTIGATION.md) | Compiler allocation, workspace, LoRA and conditioning findings |
 | [docs/PIPELINE.md](docs/PIPELINE.md) | Template derivation, tensor mapping and quantization measurements |
 | [docs/ANDROID.md](docs/ANDROID.md) | Android packaging, native library and DSP loading requirements |
@@ -28,10 +30,19 @@ aid; measured results and limitations belong in the topic documents below.
 - Compare a recipe-derived pack against the corresponding reference pack.
   A context-binary checksum or a successful compile is not an image-quality
   measurement.
-- The app uses checkpoint-owned CLIP and both VAE components for both model
-  families. Shared-component archives are legacy backup/restore inputs only.
+- The app uses checkpoint-owned CLIP for both families and checkpoint-owned
+  VAE for SD1.5; SDXL downloads Mr.J's precompiled VAE contexts
+  ([docs/LIMITS.md](docs/LIMITS.md) §Downloads).
+- Share test builds as `assemblePreview`, never the debug APK: debug carries
+  Local Dream's CC BY-NC backend and the DSP probe. SD1.5 exports need
+  Nightmare Mobile 1.6.033 or later (float32 VAE; see docs/SD15-INPAINT.md).
+- Signed releases: the keystore is in `.secrets/npuforge-keystore/` beside the
+  repository (alias `npuforge-release`, SHA-256 `90:1E:78:F6:…:6A:C2:6B`,
+  matching the published APKs). Set `NPUFORGE_SIGNING_PROPERTIES` to the
+  absolute path of its `signing.properties`; a relative path resolves from
+  `app/`. Never copy key material or passwords into the repository.
 - Extra unmatched LoRA tensors warn and leave the recognized UNet layers
-  usable. Text-encoder LoRA and BF16 remain unsupported; BF16 is deferred.
+  usable. Text-encoder LoRA remains unsupported; BF16 is read as FP32.
 - SDK libraries, generated templates/models and checkpoints stay excluded
   from source control. A fresh clone needs externally supplied artifacts for
   a working APK; see [docs/BUILD.md](docs/BUILD.md) and [NOTICE](NOTICE).

@@ -99,4 +99,25 @@
     <string name="utility_storage_desc">Освободите место, удалив временные файлы конвертации и кэшированные данные. Экспортированные модели не будут удалены.</string>
     <string name="utility_vae_title">Компоненты SDXL VAE</string>
     <string name="utility_vae_desc">Экспортируйте или импортируйте скачанные файлы SDXL VAE, чтобы избежать повторной загрузки через сеть на других устройствах или после переустановки.</string>
+    <string name="info_spec_sd15_inpaint">SD1.5 inpainting: 9-канальные inpainting-модели (релизы «-inpainting») определяются автоматически и экспортируются как inpainting-модель</string>
+    <string name="mode_label">Конвертировать как</string>
+    <string name="mode_txt2img">Текст в изображение</string>
+    <string name="mode_inpaint">Inpainting</string>
+    <string name="mode_inpaint_note_ready">Добавляет к этой модели разницу SD1.5 inpainting и экспортирует 9-канальную inpainting-модель.</string>
+    <string name="mode_inpaint_note_download">Добавляет к этой модели разницу SD1.5 inpainting и экспортирует 9-канальную inpainting-модель. Нужна однократная загрузка 1,7 ГБ.</string>
+    <string name="inpaint_diff_dialog_title">Загрузка разницы inpainting</string>
+    <string name="inpaint_diff_dialog_message">Для inpainting-модели нужна однократная загрузка разницы SD1.5 inpainting (1,7 ГБ, CreativeML OpenRAIL-M). Файл сохраняется для следующих конвертаций, а прерванная загрузка продолжается. По возможности используйте Wi-Fi.
+
+Если загрузка постоянно обрывается, скачайте sd15inp_diff_f16.safetensors с huggingface.co/AbrahamPJ/npuforge-sd15-inpaint-diff в браузере и нажмите «Использовать скачанный файл».</string>
+    <string name="inpaint_diff_dialog_confirm">Скачать и конвертировать</string>
+    <string name="inpaint_diff_dialog_import">Использовать скачанный файл</string>
+    <string name="stage_inpaint_diff_download">Загрузка разницы inpainting…</string>
+    <string name="stage_inpaint_diff_import">Импорт разницы inpainting…</string>
+    <string name="inpaint_note">Inpainting-модель: экспортируется 9-канальная inpainting-модель. Используйте её в приложении с поддержкой SD1.5 inpainting; для обычной генерации по тексту она не подходит.</string>
+    <string name="clip_skip_label">Clip skip</string>
+    <string name="clip_skip_note">Встраивается в экспортированную модель. 2 обычно выбирают для аниме-моделей, так же экспортировал npuforge раньше; 1 использует весь текстовый энкодер, как при обучении базовой SD1.5.</string>
+    <string name="download_source_title">Источник загрузки</string>
+    <string name="download_source_note">Откуда загружаются SDXL VAE и разница inpainting. Выберите hf-mirror.com, если Hugging Face у вас медленный или заблокирован. При сбое загрузки также пробуется другой источник.</string>
+    <string name="source_huggingface">Hugging Face</string>
+    <string name="source_mirror">hf-mirror.com (зеркало для Китая)</string>
 </resources>

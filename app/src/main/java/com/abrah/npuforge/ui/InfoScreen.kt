@@ -86,6 +86,7 @@ fun InfoScreen() {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 InfoSpecItem(stringResource(R.string.info_spec_sd15))
                 InfoSpecItem(stringResource(R.string.info_spec_sdxl))
+                InfoSpecItem(stringResource(R.string.info_spec_sd15_inpaint))
                 InfoSpecItem(stringResource(R.string.info_spec_weights))
                 InfoSpecItem(stringResource(R.string.info_spec_loras))
             }

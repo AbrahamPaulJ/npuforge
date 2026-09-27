@@ -315,7 +315,8 @@ A template is one fixed graph: **one per (architecture, resolution)**, possibly
 per style. The machinery — patcher, pack, recipe tool, phone compile — is
 generic.
 
-- **SD1.5 inpaint** — cheap; test 1 already proved borrowing on this graph.
+- **SD1.5 inpaint** — built 2026-09-25 on QAIRT 2.50 with the same mapping
+  counts (1358/1025/0) and phone-verified; see [SD15-INPAINT.md](SD15-INPAINT.md).
 - **Anime SD1.5** — the known gap. `LIMITS.md`.
 - **SDXL** — gated on phone RAM: its UNet is ~3× SD1.5's and SD1.5's compile
   already peaked at ~4.8 GB. Measure an SDXL compile on the phone before planning

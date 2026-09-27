@@ -17,7 +17,7 @@ The Android native build tasks currently target **Linux x86_64**.
 | Gradle daemon | JetBrains JDK 21; application bytecode targets Java 17 |
 | Kotlin Compose plugin | 2.4.20 |
 | Android SDK | Platform 37, Build Tools 37.0.0 |
-| Android NDK | 29.0.14206865 |
+| Android NDK | 30.0.16248370 |
 | Qualcomm AI Runtime | QAIRT 2.50.0.260828 |
 
 Install Android command-line tools and put `sdkmanager` on `PATH`, then install
@@ -27,7 +27,7 @@ the SDK packages:
 export ANDROID_HOME="$HOME/Android/Sdk"
 sdkmanager --sdk_root="$ANDROID_HOME" \
   'platform-tools' 'platforms;android-37' 'build-tools;37.0.0' \
-  'ndk;29.0.14206865'
+  'ndk;30.0.16248370'
 sdkmanager --sdk_root="$ANDROID_HOME" --licenses
 ```
 
@@ -62,8 +62,11 @@ templates. See [device/runtime packaging](ANDROID.md) and [limits](LIMITS.md).
 | --- | --- |
 | `app/src/main/assets/template/` | SD1.5 `libqnn_model.so`; copy `recipe.bin` and `tpl_trim.pack` from the repository's `template/` directory |
 | `app/src/main/assets/template_sdxl/` | Matching SDXL `libqnn_model.so`, `recipe.bin`, `tpl_trim.pack` |
+| `app/src/main/assets/template_inpaint/` | SD1.5 9-channel inpaint `libqnn_model.so`, `recipe.bin`, `tpl_trim.pack` ([SD15-INPAINT.md](SD15-INPAINT.md)) |
 
-Both asset directories already track `sources.txt` and `htp_config.json`.
+The asset directories track `sources.txt` and `htp_config.json`. Without
+`template_inpaint/`, a 9-channel checkpoint is reported as unsupported by this
+build; 4-channel conversion is unaffected.
 The SD1.5 recipe and trimmed pack have separate provenance restrictions
 documented in [template/README.md](../template/README.md).
 
@@ -75,6 +78,9 @@ Supply this tree under **each** of `app/src/main/assets/components_sd15/` and
 ```text
 clip_recipe.bin
 clip_requirements.json
+clip_skip1/                 (components_sd15 only: the clip-skip-1 recipe)
+  clip_recipe.bin
+  clip_requirements.json
 tokenizer.json
 vae_encoder/
   libqnn_model.so
@@ -109,6 +115,15 @@ From the repository root:
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
 - Lint report: `app/build/reports/lint-results-debug.html`
 - Release build: `./gradlew :app:assembleRelease`
+- Shareable test build: `./gradlew :app:assemblePreview` →
+  `app/build/outputs/apk/preview/app-preview.apk`. It is the release variant
+  signed with the local debug key, installed as `com.abrah.npuforge.preview`
+  ("npuforge preview") beside the signed app, with its own data. ⚠ Share this,
+  not the debug APK: the debug build carries the debug-only DSP probe, its canary
+  contexts and `app/src/debug/jniLibs` (Local Dream's CC BY-NC backend).
+
+The Gradle tasks that compile `tplconv`, `componentconv` and `libcompiler_heap`
+use the NDK's clang wrappers for the host OS, so the build also runs on Windows.
 
 Release signing reads `Keys/signing.properties` in the project root, or the file
 named by `NPUFORGE_SIGNING_PROPERTIES`. The `Keys/` directory is excluded from
@@ -158,7 +173,7 @@ To author a pack-loading model library, patch the QAIRT-generated C++ using
 `tools/tpl_patch.py`, then run the SDK model library generator:
 
 ```sh
-export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/29.0.14206865"
+export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/30.0.16248370"
 python "$QNN_SDK_ROOT/bin/x86_64-linux-clang/qnn-model-lib-generator" \
   -c model_tpl.cpp -t aarch64-android -o lib_arm
 ```
@@ -168,5 +183,6 @@ Omit `-b`: the generated `libqnn_model.so` reads the external weight pack throug
 [template authoring](TEMPLATE-AUTHORING.md) for the complete workflow.
 
 Once a complete APK is installed and the checkpoint/adapters are local,
-conversion does not download CLIP or VAE weights. Network access during setup
-and authoring is separate from offline conversion on the phone.
+SD1.5 text-to-image conversion needs no network. SDXL downloads its VAE
+contexts once and plain-SD1.5 → inpainting downloads the inpainting difference
+once; both have an offline import ([LIMITS.md](LIMITS.md) §Downloads).

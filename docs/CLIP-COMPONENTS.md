@@ -87,8 +87,24 @@ The app ships skip 2. Set `SD15_CHECKPOINT` to an actual SD1.5 checkpoint and
 The native CLI is unchanged; pass `components_sd15` as its first argument.
 This recipe has 180 required tensors/rules, 66 convolutions, 23 layer norms and
 181,462 bytes. An independent check confirms final layer norm is replaced from
-the checkpoint. The host tools also accept skip 1 for a separate 12-layer graph;
-the shipped recipe and validation here cover skip 2.
+the checkpoint.
+
+**Clip skip 1** (added 27 September 2026) is a separate 12-layer recipe in
+`components_sd15/clip_skip1/` (196,610 bytes, 43,310-byte requirements), authored
+with the same commands and `--clip-skip 1`. The app's *Clip skip* choice selects
+it; the default stays 2. Authoring environment: PyTorch 2.5.1, transformers
+4.46.1, diffusers 0.31.0 and the MNN 3.6.1 converter (pip `MNN==3.6.1`), with
+DreamShaper 8 as the authoring checkpoint and the standard SD1.5
+`text_encoder/config.json`.
+
+| Check | Skip 1 | Skip 2 (rebuilt as a control) |
+|---|---|---|
+| Recipe vs shipped | new | identical except MNN's random 36-byte model UUID |
+| MNN vs PyTorch, prompt / empty | rel. RMSE 0.215% / 0.222%, cosine 0.999998 | 0.210% / 0.222% |
+| Native `componentconv` vs export | all three files byte-identical | all three byte-identical |
+| Phone | DreamShaper 8 converted with skip 1, imported into Nightmare Mobile, "decent" image (user, 27 September) | earlier releases |
+
+Only one skip-1 image has been judged, by eye.
 
 SD1.5 validation used only the CLIP and VAE tensors range-fetched from
 [the pinned original FP16 SD1.5 checkpoint](https://huggingface.co/Comfy-Org/stable-diffusion-v1-5-archive/blob/9cfd069101959ca3828bf9c04a4419870832b74f/v1-5-pruned-emaonly-fp16.safetensors).

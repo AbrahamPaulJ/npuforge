@@ -27,6 +27,11 @@ import java.io.InputStream
  *     diffusers-layout files, which otherwise look plausible right up until they
  *     do not.
  */
+private val SD15_COMPONENTS = setOf(
+    "clip_v2.mnn", "pos_emb.bin", "token_emb.bin", "tokenizer.json",
+    "vae_encoder.bin", "vae_decoder.bin",
+)
+
 object CheckpointInfo {
 
     enum class Model(
@@ -34,10 +39,13 @@ object CheckpointInfo {
         val componentDirectory: String,
         val components: Set<String>,
     ) {
-        SD15("template", "components_sd15", setOf(
-            "clip_v2.mnn", "pos_emb.bin", "token_emb.bin", "tokenizer.json",
-            "vae_encoder.bin", "vae_decoder.bin",
-        )),
+        SD15("template", "components_sd15", SD15_COMPONENTS),
+        /**
+         * A 9-channel SD1.5 inpainting UNet (`conv_in` takes latent, mask and
+         * masked-image latent). Only the UNet graph differs; CLIP and both VAE
+         * components are the SD1.5 ones.
+         */
+        SD15_INPAINT("template_inpaint", "components_sd15", SD15_COMPONENTS),
         SDXL("template_sdxl", "components_sdxl", setOf(
             "clip.mnn", "clip_2.mnn", "clip_2.mnn.weight", "tokenizer.json",
             "pos_emb.bin", "token_emb.bin", "pos_emb_2.bin", "token_emb_2.bin",
@@ -82,6 +90,16 @@ object CheckpointInfo {
         return JSONObject(String(json, Charsets.UTF_8))
     }
 
+    /**
+     * Where the SD1.5 text-encoder recipe comes from. Clip skip 2 (11 layers,
+     * then the final LayerNorm) is the long-standing default; clip skip 1 is a
+     * separate 12-layer recipe in `clip_skip1/` (docs/CLIP-COMPONENTS.md).
+     * SDXL has no choice.
+     */
+    fun clipDirectory(model: Model, clipSkip: Int): String =
+        if (model != Model.SDXL && clipSkip == 1) "${model.componentDirectory}/clip_skip1"
+        else model.componentDirectory
+
     fun inspect(context: Context, uri: Uri): Report {
         val header = context.contentResolver.openInputStream(uri)?.use { readHeader(it) }
             ?: throw Converter.Failure("cannot open the selected file")
@@ -89,8 +107,10 @@ object CheckpointInfo {
     }
 
     /** Rechecks the imported file, including conversions started outside the UI. */
-    fun validate(context: Context, file: File, expectedModel: Model): Report {
-        val report = file.inputStream().use { inspectHeader(context, readHeader(it)) }
+    fun validate(context: Context, file: File, expectedModel: Model, clipSkip: Int = 2): Report {
+        val report = file.inputStream().use {
+            inspectHeader(context, readHeader(it), clipDirectory(expectedModel, clipSkip))
+        }
         if (report.model != expectedModel) {
             throw Converter.Failure("The checkpoint is ${report.model.name}, not ${expectedModel.name}.")
         }
@@ -103,7 +123,7 @@ object CheckpointInfo {
         return report
     }
 
-    private fun inspectHeader(context: Context, header: JSONObject): Report {
+    private fun inspectHeader(context: Context, header: JSONObject, clipDirectory: String? = null): Report {
         var unetN = 0; var unetB = 0L
         var vaeN = 0; var vaeB = 0L
         var clipN = 0; var clipB = 0L
@@ -131,9 +151,24 @@ object CheckpointInfo {
             }
         }
 
-        val model = if (sdxlClip || "${UNET}label_emb.0.0.weight" in names) Model.SDXL else Model.SD15
-        val unetRequired = context.assets.open("${model.templateDirectory}/sources.txt").use {
-            it.bufferedReader().readLines().filter(String::isNotBlank)
+        // An inpainting UNet widens conv_in from 4 to 9 input channels
+        // (latent | mask | masked-image latent); nothing else in the key set moves.
+        val convInChannels = header.optJSONObject("${UNET}input_blocks.0.0.weight")
+            ?.optJSONArray("shape")?.optLong(1, -1) ?: -1L
+        val model = when {
+            sdxlClip || "${UNET}label_emb.0.0.weight" in names -> Model.SDXL
+            convInChannels == 9L -> Model.SD15_INPAINT
+            else -> Model.SD15
+        }
+        val unetRequired = try {
+            context.assets.open("${model.templateDirectory}/sources.txt").use {
+                it.bufferedReader().readLines().filter(String::isNotBlank)
+            }
+        } catch (e: java.io.IOException) {
+            throw Converter.Failure(
+                "This app build has no ${model.name} UNet template (${model.templateDirectory}/). " +
+                    "Rebuild with the template assets described in docs/BUILD.md.",
+            )
         }
         val required = unetRequired.toMutableSet()
         var invalid: String? = null
@@ -143,11 +178,12 @@ object CheckpointInfo {
                 invalid = "$name has unsupported dtype ${tensor.optString("dtype")}; expected F16, F32 or BF16."
             }
         }
+        val clipManifest = "${clipDirectory ?: model.componentDirectory}/clip_requirements.json"
         val manifests = if (model == Model.SDXL) {
-            listOf("${model.componentDirectory}/clip_requirements.json")
+            listOf(clipManifest)
         } else {
             listOf(
-                "${model.componentDirectory}/clip_requirements.json",
+                clipManifest,
                 "${model.componentDirectory}/vae_encoder/requirements.json",
                 "${model.componentDirectory}/vae_decoder/requirements.json",
             )
@@ -200,6 +236,7 @@ object CheckpointInfo {
         val arch = when {
             model == Model.SDXL -> "SDXL"
             fatal != null -> "unrecognised"
+            model == Model.SD15_INPAINT -> if (missing.isEmpty()) "SD 1.5 inpainting" else "SD 1.5 inpainting variant"
             missing.isEmpty() -> "SD 1.5"
             else -> "SD 1.5 variant"
         }

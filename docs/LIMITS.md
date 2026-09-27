@@ -26,9 +26,26 @@ QNN context contract. Device/runtime requirements apply in both apps.
 | Full-component phone evidence | New component path still needs a specific phone result | Reported successful Illustrious conversion and generation   |
 
 The graph templates and tokenizer are shared; component weights come from the
-selected checkpoint. New conversions do not download donor CLIP/VAE weights.
+selected checkpoint, with one exception: SDXL conversions download Mr.J's
+precompiled SDXL VAE contexts (`Mr-J-369/Fancy-AI`, ~192 MB, once) instead of
+compiling the checkpoint's VAE; the Utility tab exports and imports them.
 Both VAE graphs are included, even for a text-to-image workload that uses only
-the decoder. Legacy component backup/restore is separate from conversion.
+the decoder.
+
+### Downloads
+
+| File | When | Source |
+|---|---|---|
+| SDXL VAE contexts, ~192 MB | First SDXL conversion (the app also offers it at launch) | `huggingface.co/Mr-J-369/Fancy-AI`, or a VAE zip imported in the Utility tab |
+| SD1.5 inpainting difference, 1.72 GB | First plain-SD1.5 → inpainting conversion | `huggingface.co/AbrahamPJ/npuforge-sd15-inpaint-diff`, or a copy chosen with *Use downloaded file* |
+
+Both downloads resume a partial file and alternate between huggingface.co and
+`hf-mirror.com`, starting from the source chosen in the Utility tab (*Download
+source*); until one is chosen, a mainland-China timezone starts with the mirror. The mirror was added for a field report from China
+(27 September 2026: "downloads a little, then stops, dozens of times"); the
+previous VAE download had no timeout, retry or resume. The mirror path is
+checked from outside China only (it redirects to huggingface.co there); an
+in-China result is still needed.
 
 SD2, diffusers-layout checkpoints and arbitrary architectures are
 unsupported. Required component names, shapes and dtypes must match the bundled
@@ -41,6 +58,22 @@ weight conversion; this does not enable BF16 graph execution.
 
 See [SD1.5 components](SD15-COMPONENTS.md),
 [SDXL components](SDXL-COMPONENTS.md) and [SDXL.md](SDXL.md) for contracts.
+
+### SD1.5 inpainting checkpoints
+
+A checkpoint whose `conv_in` takes 9 channels selects the separate inpaint
+template (`template_inpaint/`) and exports an `INPAINT` marker file. Host and
+phone measurements are in [SD15-INPAINT.md](SD15-INPAINT.md): weight packs
+match byte-for-byte, and phone renders of two inpaint checkpoints score
+29.9–32.3 dB inside the mask against their own-calibrated builds. A test APK
+converted DreamShaper 8 inpainting in-app and the export inpainted correctly in
+Nightmare Mobile 1.6.033, the first version that reads the `INPAINT` marker and
+runs npuforge's float32 SD1.5 VAE (earlier versions fail every npuforge SD1.5
+export at `vae_encode`). Fancy-Ai inpaint support is unknown.
+
+Converting an ordinary 4-channel checkpoint into an inpainting model
+(add-difference) was measured but is not implemented. LoRA modules on
+`conv_in` do not fit the 9-channel weight and stop the conversion.
 
 ## LoRA behavior
 
@@ -86,6 +119,21 @@ of adapter effect and broader adapter coverage remain outstanding.
 - SDXL compilation uses storage-backed allocations, including small-object
   pooling. Available storage and I/O performance matter alongside physical RAM.
   Backing allocation totals are not resident-memory measurements.
+- **Low-RAM mode:** phones reporting under 10 GiB compile the SD1.5 UNet with the
+  same allocator. Two reports from one 8 GB SM8450 (7.5 GB reported) showed the
+  plain and inpaint UNet compiles with the same anonymous-memory profile, both
+  peaking near 4.3 GB; the inpaint run was killed at 0.60 GB available, the plain
+  run survived the same peak at 0.66 GB. On the S25 Ultra (shell, same app
+  binaries, DreamShaper 8 pack) the allocator took the compiler's anonymous peak
+  from 2.89 GB to 0.03 GB and lowest `MemAvailable` from 1.28 to 5.81 GB, cost
+  70 s → 157 s and ~4.6 GB of temporary storage, and produced a context binary
+  identical to a normal compile apart from the 2 bytes that differ between any
+  two normal compiles. **Not yet run inside the app on an 8 GB phone.**
+- The checkpoint and LoRA copies are deleted after the weight stage, before the
+  compile, and each output is deleted once it is in the export ZIP. Measured
+  peak-storage figures above predate both changes.
+- **Snapdragon 8 Gen 1 and older are unsupported**, for converting and running:
+  graphs target v73/v75, and v1.0.3 removed the V68/V69 HTP libraries.
 - Active conversion inputs, backing files and outputs live under the app's
   `noBackupFilesDir/conversion-work`, outside Android's reclaimable cache.
   The service removes them explicitly after conversion.

@@ -68,6 +68,19 @@
     <string name="info_formats_title">Models and LoRAs</string>
     <string name="info_spec_sd15">SD1.5: 512 × 512 — Snapdragon 8 Gen 2 and above</string>
     <string name="info_spec_sdxl">SDXL: 1024 × 1024 — Snapdragon 8 Gen 3 and above</string>
+    <string name="info_spec_sd15_inpaint">SD1.5 inpainting: 9-channel inpainting checkpoints (\"-inpainting\" releases) are detected automatically and export an inpainting model</string>
+    <string name="mode_label">Convert as</string>
+    <string name="mode_txt2img">Text-to-image</string>
+    <string name="mode_inpaint">Inpainting</string>
+    <string name="mode_inpaint_note_ready">Adds the SD1.5 inpainting difference to this checkpoint and exports a 9-channel inpainting model.</string>
+    <string name="mode_inpaint_note_download">Adds the SD1.5 inpainting difference to this checkpoint and exports a 9-channel inpainting model. Needs a one-time 1.7 GB download.</string>
+    <string name="inpaint_diff_dialog_title">Download inpainting difference</string>
+    <string name="inpaint_diff_dialog_message">Making an inpainting model needs a one-time download of the SD1.5 inpainting difference (1.7 GB, CreativeML OpenRAIL-M). It is kept for later conversions and resumes if interrupted. Use Wi-Fi if you can.
+
+If the download keeps stopping, download sd15inp_diff_f16.safetensors from huggingface.co/AbrahamPJ/npuforge-sd15-inpaint-diff (or hf-mirror.com/AbrahamPJ/npuforge-sd15-inpaint-diff) in a browser, then tap Use downloaded file.</string>
+    <string name="inpaint_diff_dialog_confirm">Download and convert</string>
+    <string name="stage_inpaint_diff_download">Downloading inpainting difference…</string>
+    <string name="inpaint_note">Inpainting checkpoint: exports a 9-channel inpainting model. Use it in an app with SD1.5 inpaint support; it cannot be used for plain text-to-image.</string>
     <string name="info_spec_weights">Checkpoints: Supports F16, F32, and BF16 weights</string>
     <string name="info_spec_loras">LoRA: Add UNet LoRAs before converting; strengths are baked into the exported model (text-encoder LoRAs are not merged)</string>
     <string name="info_help_title">Conversion failed?</string>
@@ -95,4 +108,12 @@
     <string name="utility_storage_desc">Free up space by removing temporary conversion files and cached data. This will not delete your exported models.</string>
     <string name="utility_vae_title">SDXL VAE components</string>
     <string name="utility_vae_desc">Export or import downloaded SDXL VAE files to bypass the network download step on other devices or after a reinstall.</string>
+    <string name="inpaint_diff_dialog_import">Use downloaded file</string>
+    <string name="stage_inpaint_diff_import">Importing inpainting difference…</string>
+    <string name="clip_skip_label">Clip skip</string>
+    <string name="clip_skip_note">Baked into the exported model. 2 is the usual choice for anime models and matches earlier npuforge exports; 1 uses the full text encoder, as base SD1.5 was trained.</string>
+    <string name="download_source_title">Download source</string>
+    <string name="download_source_note">Where the SDXL VAE and the inpainting difference are downloaded from. Choose hf-mirror.com if Hugging Face is slow or blocked where you are. If a download fails, the other source is tried too.</string>
+    <string name="source_huggingface">Hugging Face</string>
+    <string name="source_mirror">hf-mirror.com (mirror for China)</string>
 </resources>

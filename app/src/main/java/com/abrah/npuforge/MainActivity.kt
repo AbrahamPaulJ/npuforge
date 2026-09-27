@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,10 +52,12 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Slider
@@ -83,6 +86,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -261,6 +265,10 @@ private fun ConvertScreen() {
     var pickedName by rememberSaveable { mutableStateOf("") }
     var editedName by rememberSaveable { mutableStateOf<String?>(null) }
     var report by remember { mutableStateOf<CheckpointInfo.Report?>(null) }
+    // Plain SD1.5 only: convert into an inpainting model by add-difference.
+    var asInpaint by rememberSaveable { mutableStateOf(false) }
+    // SD1.5 only; kept across checkpoints. 2 is the long-standing default.
+    var clipSkip by rememberSaveable { mutableStateOf(2) }
     val loras = rememberSaveable(
         saver = listSaver<SnapshotStateList<Triple<Uri, String, Float>>, Any>(
             save = { items -> items.flatMap { listOf(it.first.toString(), it.second, it.third) } },
@@ -275,7 +283,12 @@ private fun ConvertScreen() {
     }
     val modelName = editedName ?: (names.first() + loras.mapIndexed { i, lora ->
         "+${names[i + 1]}@${lora.third}"
-    }.joinToString("")).take(60)
+    }.joinToString("")).take(60).let { base ->
+        // Clip skip 1 and inpainting exports of one checkpoint can then sit side by side.
+        val suffix = (if (clipSkip == 1 && report?.model != CheckpointInfo.Model.SDXL) "_cs1" else "") +
+            (if (asInpaint) "_inpaint" else "")
+        if (suffix.isEmpty()) base else base.take(60 - suffix.length) + suffix
+    }
 
     val nameError: Int? = when {
         modelName.isBlank() -> R.string.name_blank
@@ -287,15 +300,15 @@ private fun ConvertScreen() {
     }
 
     var inspectError by remember { mutableStateOf<String?>(null) }
-    val isVaeMissing = remember {
-        val vaeDir = File(context.filesDir, "vae_sdxl")
-        !File(vaeDir, "vae_decoder.bin").isFile || !File(vaeDir, "vae_encoder.bin").isFile
-    }
-    var showVaeDownloadDialog by rememberSaveable { mutableStateOf(isVaeMissing) }
+    // Asked only when an SDXL conversion starts without the VAE; SD1.5 users never see it.
+    var showVaeDownloadDialog by rememberSaveable { mutableStateOf(false) }
     var pendingConversionModel by remember { mutableStateOf<CheckpointInfo.Model?>(null) }
+
+    var showInpaintDiffDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(picked) {
         report = null
+        asInpaint = false
         inspectError = null
         val uri = picked ?: return@LaunchedEffect
         try {
@@ -308,10 +321,10 @@ private fun ConvertScreen() {
     }
 
     val picker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
+        ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            context.keepReadAccess(uri)
             picked = uri
             pickedName = displayName(context, uri)
             editedName = null
@@ -320,14 +333,29 @@ private fun ConvertScreen() {
     }
 
     val loraPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
+        ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            context.keepReadAccess(uri)
             loras.add(Triple(uri, displayName(context, uri), 0.8f))
         }
     }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    // A copy of the inpainting difference downloaded outside the app, for when
+    // huggingface.co and its mirror are both unreachable from the phone.
+    val inpaintDiffPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        val checkpoint = picked
+        if (uri != null && checkpoint != null) {
+            notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            ConvertService.start(
+                context, checkpoint, modelName, loras.map { it.first to it.third },
+                model = CheckpointInfo.Model.SD15_INPAINT, inpaintDiff = true, inpaintDiffUri = uri,
+                clipSkip = clipSkip,
+            )
+        }
+    }
 
     Column(
         Modifier
@@ -559,7 +587,7 @@ private fun ConvertScreen() {
                 }
 
                 Button(
-                    onClick = { picker.launch(arrayOf("*/*")) },
+                    onClick = { picker.launch("*/*") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
                 ) {
@@ -584,6 +612,49 @@ private fun ConvertScreen() {
                         )
                     }
                     report?.let { CheckpointCard(it) }
+                    if (report?.model == CheckpointInfo.Model.SD15 && report?.convertible == true) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(R.string.mode_label), style = MaterialTheme.typography.labelMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(
+                                    selected = !asInpaint, onClick = { asInpaint = false },
+                                    label = { Text(stringResource(R.string.mode_txt2img)) },
+                                )
+                                FilterChip(
+                                    selected = asInpaint, onClick = { asInpaint = true },
+                                    label = { Text(stringResource(R.string.mode_inpaint)) },
+                                )
+                            }
+                            if (asInpaint) {
+                                Text(
+                                    stringResource(
+                                        if (InpaintDiff.isReady(context)) R.string.mode_inpaint_note_ready
+                                        else R.string.mode_inpaint_note_download,
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    if (report?.model != CheckpointInfo.Model.SDXL && report?.convertible == true) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(R.string.clip_skip_label), style = MaterialTheme.typography.labelMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                for (skip in listOf(1, 2)) {
+                                    FilterChip(
+                                        selected = clipSkip == skip, onClick = { clipSkip = skip },
+                                        label = { Text(skip.toString()) },
+                                    )
+                                }
+                            }
+                            Text(
+                                stringResource(R.string.clip_skip_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
 
                     OutlinedTextField(
                         value = modelName,
@@ -596,14 +667,15 @@ private fun ConvertScreen() {
                         modifier = Modifier.fillMaxWidth(),
                     )
 
-                    LoraList(loras) { loraPicker.launch(arrayOf("*/*")) }
+                    LoraList(loras) { loraPicker.launch("*/*") }
 
+                    val inpaintByDiff = asInpaint && report?.model == CheckpointInfo.Model.SD15
                     val startConversion = {
-                        val model = report!!.model
+                        val model = if (inpaintByDiff) CheckpointInfo.Model.SD15_INPAINT else report!!.model
                         notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                         ConvertService.start(
                             context, picked!!, modelName, loras.map { it.first to it.third },
-                            model = model,
+                            model = model, inpaintDiff = inpaintByDiff, clipSkip = clipSkip,
                         )
                     }
 
@@ -614,6 +686,8 @@ private fun ConvertScreen() {
                             if (report?.model == CheckpointInfo.Model.SDXL && missing) {
                                 pendingConversionModel = CheckpointInfo.Model.SDXL
                                 showVaeDownloadDialog = true
+                            } else if (inpaintByDiff && !InpaintDiff.isReady(context)) {
+                                showInpaintDiffDialog = true
                             } else {
                                 startConversion()
                             }
@@ -629,6 +703,36 @@ private fun ConvertScreen() {
                             modifier = Modifier.padding(vertical = 4.dp),
                         )
                     }
+                }
+
+                if (showInpaintDiffDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showInpaintDiffDialog = false },
+                        title = { Text(stringResource(R.string.inpaint_diff_dialog_title)) },
+                        text = { Text(stringResource(R.string.inpaint_diff_dialog_message)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showInpaintDiffDialog = false
+                                notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                ConvertService.start(
+                                    context, picked!!, modelName, loras.map { it.first to it.third },
+                                    model = CheckpointInfo.Model.SD15_INPAINT, inpaintDiff = true,
+                                    clipSkip = clipSkip,
+                                )
+                            }) { Text(stringResource(R.string.inpaint_diff_dialog_confirm)) }
+                        },
+                        dismissButton = {
+                            Row {
+                                TextButton(onClick = {
+                                    showInpaintDiffDialog = false
+                                    inpaintDiffPicker.launch("*/*")
+                                }) { Text(stringResource(R.string.inpaint_diff_dialog_import)) }
+                                TextButton(onClick = { showInpaintDiffDialog = false }) {
+                                    Text(stringResource(R.string.vae_download_dialog_cancel))
+                                }
+                            }
+                        },
+                    )
                 }
 
                 if (showVaeDownloadDialog) {
@@ -778,6 +882,13 @@ private fun CheckpointCard(r: CheckpointInfo.Report) {
                 )
             }
 
+            if (r.model == CheckpointInfo.Model.SD15_INPAINT && r.fatal == null) {
+                Text(
+                    stringResource(R.string.inpaint_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             PartRow(stringResource(R.string.part_unet), r.unet)
             PartRow(stringResource(R.string.part_vae), r.vae)
             PartRow(stringResource(R.string.part_clip), r.clip)
@@ -964,10 +1075,11 @@ fun UtilityScreen() {
         }
     }
 
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             try {
                 val vaeDir = File(context.filesDir, "vae_sdxl").apply { mkdirs() }
+                val imported = mutableSetOf<String>()
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     ZipInputStream(input.buffered()).use { zip ->
                         var entry = zip.nextEntry
@@ -975,12 +1087,16 @@ fun UtilityScreen() {
                             if (entry.name == "vae_encoder.bin" || entry.name == "vae_decoder.bin") {
                                 val out = File(vaeDir, entry.name)
                                 out.outputStream().use { zip.copyTo(it) }
+                                imported += entry.name
                             }
                             entry = zip.nextEntry
                         }
                     }
                 }
-                Toast.makeText(context, vaeImportedStr, Toast.LENGTH_SHORT).show()
+                // The picker accepts any file type, so a zip without the VAE is not a success.
+                Toast.makeText(
+                    context, if (imported.size == 2) vaeImportedStr else importFailedStr, Toast.LENGTH_SHORT,
+                ).show()
             } catch (_: Exception) {
                 Toast.makeText(context, importFailedStr, Toast.LENGTH_SHORT).show()
             }
@@ -1050,6 +1166,41 @@ fun UtilityScreen() {
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            var source by remember { mutableStateOf(HfDownload.source(context)) }
+            Text(
+                stringResource(R.string.download_source_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                stringResource(R.string.download_source_note),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            for ((option, label) in listOf(
+                HfDownload.Source.HUGGING_FACE to R.string.source_huggingface,
+                HfDownload.Source.MIRROR to R.string.source_mirror,
+            )) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = source == option,
+                            role = Role.RadioButton,
+                            onClick = {
+                                source = option
+                                HfDownload.setSource(context, option)
+                            },
+                        ),
+                ) {
+                    RadioButton(selected = source == option, onClick = null)
+                    Text(stringResource(label), modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 stringResource(R.string.utility_storage_title),
                 style = MaterialTheme.typography.titleLarge,
@@ -1100,12 +1251,25 @@ fun UtilityScreen() {
                 }
                 FilledTonalButton(
                     onClick = {
-                        importLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed"))
+                        importLauncher.launch("*/*")
                     }
                 ) {
                     Text(stringResource(R.string.import_vae))
                 }
             }
         }
+    }
+}
+
+/**
+ * Pickers use GET_CONTENT rather than OPEN_DOCUMENT so the system picker also
+ * lists file-manager apps (MiXplorer, Material Files, My Files). Their URIs are
+ * usually not persistable, which is fine: a conversion copies its inputs as it
+ * starts. A persistable grant is still taken when the provider offers one.
+ */
+private fun Context.keepReadAccess(uri: Uri) {
+    try {
+        contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    } catch (_: SecurityException) {
     }
 }

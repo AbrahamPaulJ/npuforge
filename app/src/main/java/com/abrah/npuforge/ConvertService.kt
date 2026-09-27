@@ -32,8 +32,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -67,6 +65,12 @@ class ConvertService : Service() {
         const val EXTRA_NAME = "name"
         const val EXTRA_LORAS = "loras"
         const val EXTRA_MODEL = "model"
+        /** Plain 4-channel SD1.5 checkpoint -> inpainting model by add-difference ([InpaintDiff]). */
+        const val EXTRA_INPAINT_DIFF = "inpaint_diff"
+        /** A user-downloaded copy of the inpainting difference, imported instead of downloading. */
+        const val EXTRA_INPAINT_DIFF_URI = "inpaint_diff_uri"
+        /** SD1.5 text-encoder clip skip, 1 or 2 ([CheckpointInfo.clipDirectory]). */
+        const val EXTRA_CLIP_SKIP = "clip_skip"
 
         private val _state = MutableStateFlow<State>(State.Idle)
         val state: StateFlow<State> = _state.asStateFlow()
@@ -82,11 +86,17 @@ class ConvertService : Service() {
             name: String,
             loras: List<Pair<Uri, Float>> = emptyList(),
             model: CheckpointInfo.Model = CheckpointInfo.Model.SD15,
+            inpaintDiff: Boolean = false,
+            inpaintDiffUri: Uri? = null,
+            clipSkip: Int = 2,
         ) {
             val i = Intent(context, ConvertService::class.java)
                 .putExtra(EXTRA_URI, uri)
                 .putExtra(EXTRA_NAME, name)
                 .putExtra(EXTRA_MODEL, model.name)
+                .putExtra(EXTRA_INPAINT_DIFF, inpaintDiff)
+                .putExtra(EXTRA_INPAINT_DIFF_URI, inpaintDiffUri)
+                .putExtra(EXTRA_CLIP_SKIP, clipSkip)
                 // "uri|strength" strings rather than a Uri ArrayList: the same
                 // path is then drivable from `adb shell am --esa`, so the
                 // end-to-end LoRA flow can be tested without tapping through
@@ -168,43 +178,38 @@ class ConvertService : Service() {
         post(stage, t.take(80))
     }
 
-    private fun downloadSdxlVaeFiles(onProgress: (name: String, detail: String) -> Unit) {        val vaeDir = File(filesDir, "vae_sdxl").apply { mkdirs() }
+    /**
+     * Mr.J's SDXL VAE contexts from the Fancy-AI Hugging Face repository.
+     * Resumable and mirrored through [HfDownload]; the Utility tab's VAE import
+     * is the offline route.
+     */
+    private suspend fun downloadSdxlVaeFiles(onProgress: (name: String, detail: String) -> Unit) {
+        val vaeDir = File(filesDir, "vae_sdxl").apply { mkdirs() }
         for (name in listOf("vae_decoder.bin", "vae_encoder.bin")) {
             val cached = File(vaeDir, name)
-            if (!cached.isFile || cached.length() == 0L) {
-                onProgress(name, "")
-                var u = "https://huggingface.co/Mr-J-369/Fancy-AI/resolve/main/$name"
-                var conn: HttpURLConnection
-                while (true) {
-                    conn = URL(u).openConnection() as HttpURLConnection
-                    conn.instanceFollowRedirects = true
-                    if (conn.responseCode in 301..308) {
-                        u = conn.getHeaderField("Location") ?: break
-                        conn.disconnect()
-                    } else break
-                }
-                val total = conn.contentLengthLong
-                val tmp = File(vaeDir, "$name.tmp")
-                var downloaded = 0L
-                conn.inputStream.use { input ->
-                    tmp.outputStream().use { out ->
-                        val buffer = ByteArray(65536)
-                        var read: Int
-                        while (input.read(buffer).also { read = it } >= 0) {
-                            out.write(buffer, 0, read)
-                            downloaded += read
-                            if (total > 0) {
-                                val pct = (downloaded * 100 / total).toInt()
-                                onProgress(name, "$pct%")
-                            } else {
-                                onProgress(name, "${downloaded / 1_000_000} MB")
-                            }
+            if (cached.isFile && cached.length() > 0L) continue
+            onProgress(name, "")
+            val part = File(vaeDir, "$name.part")
+            var lastPct = -1
+            try {
+                HfDownload.fetch(
+                    this, "Mr-J-369/Fancy-AI/resolve/main/$name", part,
+                    onProgress = { done, total ->
+                        val pct = (done * 100 / total).toInt()
+                        if (pct != lastPct) {
+                            lastPct = pct
+                            onProgress(name, "$pct%")
                         }
-                    }
-                }
-                conn.disconnect()
-                tmp.renameTo(cached)
+                    },
+                    onRetry = { onProgress(name, "retrying ($it)") },
+                )
+            } catch (e: java.io.IOException) {
+                throw Converter.Failure(
+                    "SDXL VAE download failed: ${e.message}. Progress is kept; retry, or import " +
+                        "a VAE zip from the Utility tab.",
+                )
             }
+            if (!part.renameTo(cached)) throw Converter.Failure("could not store $name")
         }
     }
 
@@ -267,6 +272,16 @@ class ConvertService : Service() {
         val model = CheckpointInfo.Model.valueOf(
             intent?.getStringExtra(EXTRA_MODEL) ?: CheckpointInfo.Model.SD15.name
         )
+        // Add-difference makes an SD15_INPAINT export from a plain SD15 checkpoint:
+        // the checkpoint validates as SD15, everything downstream is SD15_INPAINT.
+        val inpaintDiff = intent?.getBooleanExtra(EXTRA_INPAINT_DIFF, false) == true &&
+            model == CheckpointInfo.Model.SD15_INPAINT
+        val inpaintDiffUri = intent?.let {
+            IntentCompat.getParcelableExtra(it, EXTRA_INPAINT_DIFF_URI, Uri::class.java)
+        }
+        val clipSkip = if (model == CheckpointInfo.Model.SDXL) 2
+            else intent?.getIntExtra(EXTRA_CLIP_SKIP, 2)?.takeIf { it == 1 } ?: 2
+        val clipDirectory = CheckpointInfo.clipDirectory(model, clipSkip)
         val templateDir = model.templateDirectory
         val loraSpecs: List<Pair<Uri, Float>> =
             (intent?.getStringArrayExtra(EXTRA_LORAS) ?: emptyArray()).mapNotNull { spec ->
@@ -316,10 +331,13 @@ class ConvertService : Service() {
                     val diagnostic = ConversionReport(this@ConvertService, "$name (${model.name})")
                     report = diagnostic
                     diagnostic.record("LoRA strengths=${loraSpecs.map { it.second }}")
+                    diagnostic.record("Inpaint add-difference=$inpaintDiff")
+                    diagnostic.record("Clip skip=$clipSkip")
                     work.deleteRecursively()
                     work.mkdirs()
                     diagnostic.record("Conversion workspace: ${work.absolutePath}")
-                    steps = (if (model == CheckpointInfo.Model.SDXL) 6 else 10) + loraSpecs.size
+                    steps = (if (model == CheckpointInfo.Model.SDXL) 6 else 10) + loraSpecs.size +
+                        (if (inpaintDiff) 1 else 0)
                     step = 0
 
                     step++
@@ -330,7 +348,11 @@ class ConvertService : Service() {
 
                     step++
                     post(getString(R.string.stage_validate))
-                    CheckpointInfo.validate(this@ConvertService, ckpt, model)
+                    CheckpointInfo.validate(
+                        this@ConvertService, ckpt,
+                        if (inpaintDiff) CheckpointInfo.Model.SD15 else model,
+                        clipSkip,
+                    )
 
                     val loraFiles = loraSpecs.mapIndexed { idx, (u, strength) ->
                         step++
@@ -344,7 +366,9 @@ class ConvertService : Service() {
 
                     step++
                     post(getString(R.string.stage_clip))
-                    Converter.stageClip(this@ConvertService, ckpt, work, componentFiles, model, diagnostic) {
+                    Converter.stageClip(
+                        this@ConvertService, ckpt, work, componentFiles, model, diagnostic, clipDirectory,
+                    ) {
                         logLine(getString(R.string.stage_clip), it)
                     }
                     if (model == CheckpointInfo.Model.SDXL) {
@@ -381,14 +405,38 @@ class ConvertService : Service() {
                         }
                     }
 
+                    val unetArgs = if (inpaintDiff) {
+                        step++
+                        val diff = if (inpaintDiffUri != null && !InpaintDiff.isReady(this@ConvertService)) {
+                            post(getString(R.string.stage_inpaint_diff_import))
+                            InpaintDiff.import(this@ConvertService, inpaintDiffUri) {
+                                post(getString(R.string.stage_inpaint_diff_import), it)
+                            }
+                        } else {
+                            post(getString(R.string.stage_inpaint_diff_download))
+                            InpaintDiff.ensure(this@ConvertService) {
+                                post(getString(R.string.stage_inpaint_diff_download), it)
+                            }
+                        }
+                        diagnostic.record("Inpaint difference: ${diff.name} ${diff.length()} bytes")
+                        listOf("--inpaint-diff", diff.absolutePath)
+                    } else emptyList()
+
                     step++
                     post(getString(R.string.stage_weights))
                     val pack = Converter.stageWeights(
                         this@ConvertService, ckpt, work, model, diagnostic, loraFiles,
                         templateDirectory = templateDir,
+                        extraArgs = unetArgs,
                     ) {
                         logLine(getString(R.string.stage_weights), it)
                     }
+                    // Nothing reads the checkpoint or adapters after the weight pack. Free
+                    // them before the compile, whose storage-backed allocator (SDXL, and
+                    // SD1.5 on low-RAM phones) needs several GB of temporary files.
+                    ckpt.delete()
+                    loraFiles.forEach { (file, _) -> file.delete() }
+                    diagnostic.snapshot()
 
                     step++
                     post(getString(R.string.stage_compile))
@@ -396,8 +444,6 @@ class ConvertService : Service() {
                         logLine(getString(R.string.stage_compile), it)
                     }
                     pack.delete()
-                    ckpt.delete()
-                    loraFiles.forEach { (file, _) -> file.delete() }
 
                     step++
                     post(getString(R.string.stage_assemble))
