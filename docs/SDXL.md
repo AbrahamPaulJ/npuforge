@@ -42,8 +42,9 @@ peak-RAM measurement was captured for either successful run.
 - Batch one; four-channel 128 × 128 latents for 1024 × 1024 images.
 - Masked 231-token conditioning, identified by `qnn_context.txt` containing
   `231_masked_v1`; output also carries the `SDXL` marker.
-- QAIRT 2.50.0.260828, v75 / soc_model 57, 8 MB VTCM, burst profile.
-  The target is fixed; it is not selected automatically from the phone's chip.
+- QAIRT 2.50.0.260828, 8 MB VTCM, burst profile; the config names v75 /
+  soc_model 57, but an on-phone compile builds for the phone's own arch
+  ([LIMITS.md](LIMITS.md), checked 28 September 2026).
 - New conversions write checkpoint-owned MNN CLIP-L/CLIP-G and embeddings,
   and compile checkpoint-owned QNN VAE encoder/decoder graphs. Only the standard
   tokenizer is shared. No SDXL donor download is used.

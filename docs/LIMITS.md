@@ -114,8 +114,8 @@ of adapter effect and broader adapter coverage remain outstanding.
 ## Device and resource limits
 
 - Android 13+ (`minSdk 33`) and ARM64 are required.
-- Compiler targets are fixed. A phone's brand, advertised RAM or newer chip
-  number does not establish DSP/context compatibility.
+- A phone's brand, advertised RAM or newer chip number does not establish
+  DSP/context compatibility; see the chip-specific entries below.
 - SDXL compilation uses storage-backed allocations, including small-object
   pooling. Available storage and I/O performance matter alongside physical RAM.
   Backing allocation totals are not resident-memory measurements.
@@ -132,8 +132,25 @@ of adapter effect and broader adapter coverage remain outstanding.
 - The checkpoint and LoRA copies are deleted after the weight stage, before the
   compile, and each output is deleted once it is in the export ZIP. Measured
   peak-storage figures above predate both changes.
-- **Snapdragon 8 Gen 1 and older are unsupported**, for converting and running:
-  graphs target v73/v75, and v1.0.3 removed the V68/V69 HTP libraries.
+- **Converted models are specific to the phone's chip.** On the phone, the
+  compiler builds each context for the device's own HTP arch, not the
+  `dsp_arch` in `htp_config.json`: contexts compiled on the S25 Ultra report
+  dspArch 79 / socModel 69 whether the config said v73 or v69 (checked with
+  `qnn-context-binary-utility`, 28 September 2026). A context runs only on its
+  arch or newer, so convert on the phone that will generate; an export made on
+  an 8 Elite will not load on an 8 Gen 2. The configs' graph options (VTCM, O,
+  finalize settings) do apply.
+- **Snapdragon 8 Gen 1 / 8+ Gen 1 (SM8450/SM8475, v69): SD1.5 supported from
+  1.0.5.** The compiler needs the device's HTP libraries; v1.0.3 removed V69,
+  and the compiler then exited at once (field report, 27 September). 1.0.5
+  restores them. Field result, 28 September: an 8 GB SM8450 converted SD1.5
+  models and inpainted in Nightmare Mobile with the test build. SDXL is refused
+  on these chips. Snapdragon 888 (v68) stays unsupported.
+- **SM8735 (8s Gen 4) cannot convert SD1.5:** it is v73 without fp16 execution
+  (measured in Local Dream diagnostics, August 2026), and the SD1.5 VAE graphs
+  compute in fp16. The compiler rejects their float32→float16 conversion node
+  (`MODEL_GRAPH_OP_VALIDATION_ERROR`, three reports on 27 September); the app
+  now says so instead of the raw compiler error.
 - Active conversion inputs, backing files and outputs live under the app's
   `noBackupFilesDir/conversion-work`, outside Android's reclaimable cache.
   The service removes them explicitly after conversion.

@@ -242,6 +242,23 @@ object Converter {
         return memory.totalMem < LOW_RAM_BYTES
     }
 
+    /**
+     * Which per-chip `htp_config_<tier>.json` a template may carry.
+     *
+     * ⚠ On the phone the context is built for the DEVICE's own arch: contexts
+     * compiled on an SM8750 report dspArch 79 / socModel 69 whether the config
+     * said v73 or v69 (September 2026). The config's graph options (VTCM, O,
+     * finalize settings) still apply. What 8 Gen 1 needed was the V69 HTP
+     * libraries; its `htp_config_8gen1.json` (v69, soc 36) is the tested
+     * configuration and matches the device anyway.
+     */
+    fun socTier(): String = when (Build.SOC_MODEL) {
+        "SM8750" -> "8elite"
+        "SM8850" -> "8gen5"
+        "SM8450", "SM8475" -> "8gen1"
+        else -> Build.SOC_MODEL.lowercase()
+    }
+
     /** Stage 2: weight pack -> context binary. */
     suspend fun stageCompile(
         context: Context,
@@ -273,12 +290,7 @@ object Converter {
         val outDir = File(work, "out").apply { mkdirs() }
 
         // ⚠ absolute on-device path, see the class comment
-        val socName = when (Build.SOC_MODEL) {
-            "SM8750" -> "8elite"
-            "SM8850" -> "8gen5"
-            else -> Build.SOC_MODEL.lowercase()
-        }
-        val socConfig = File(tpl, "htp_config_$socName.json")
+        val socConfig = File(tpl, "htp_config_${socTier()}.json")
         val cfg = if (socConfig.isFile) socConfig else File(tpl, "htp_config.json")
         report.record("QNN graph configuration (${cfg.name}): ${cfg.readText()}")
         val backend = File(work, "htp_backend.json")
@@ -288,43 +300,57 @@ object Converter {
                 """"config_file_path":"${cfg.absolutePath}"}}"""
         )
 
-        run(
-            listOf(
-                exe.absolutePath,
-                "--model", File(tpl, "libqnn_model.so").absolutePath,
-                "--backend", File(libs, "libQnnHtp.so").absolutePath,
-                "--output_dir", outDir.absolutePath,
-                "--binary_file", component,
-                "--config_file", backend.absolutePath,
-                "--log_level", "info",
-            ),
-            buildMap {
-                if (model == CheckpointInfo.Model.SDXL || (component == "unet" && isLowRam(context))) {
-                    put("LD_PRELOAD", File(libs, "libcompiler_heap.so").absolutePath)
-                    put("QNN_COMPILER_HEAP_DIR", work.absolutePath)
-                }
-                // ⚠⚠ /vendor/lib64 is NOT optional. libQnnHtpV<arch>Stub.so links
-                // against the vendor FastRPC client libcdsprpc.so, which is not
-                // in an app's default linker namespace -- dlopen fails, the
-                // transport never comes up, and QNN reports the useless
-                // "Device Creation failure". As shell it resolves, which is why
-                // every /data/local/tmp run worked. The project's own
-                // run_base.sh has had these paths all along.
-                put("LD_LIBRARY_PATH", "${libs.absolutePath}:/system/lib64:/vendor/lib64:/vendor/lib64/egl")
-                // ⚠ The app's own directory is deliberately NOT here. The DSP
-                // reads this path from its own side and cannot open app-private
-                // storage, so naming it produced "Device Creation failure" --
-                // the /data/local/tmp runs worked only because that directory is
-                // world-readable. The shipping inference server sets this
-                // variable not at all; the vendor paths are what the DSP needs.
-                // The DSP reads this path itself, so it names filesDir -- NOT
-                // nativeLibraryDir, which it cannot open.
-                put("ADSP_LIBRARY_PATH",
-                    "${dspLibs.absolutePath};/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp")
-                put("QNN_TPL_PACK", pack.absolutePath)
-            },
-            work, report, onLine,
-        )
+        try {
+            run(
+                listOf(
+                    exe.absolutePath,
+                    "--model", File(tpl, "libqnn_model.so").absolutePath,
+                    "--backend", File(libs, "libQnnHtp.so").absolutePath,
+                    "--output_dir", outDir.absolutePath,
+                    "--binary_file", component,
+                    "--config_file", backend.absolutePath,
+                    "--log_level", "info",
+                ),
+                buildMap {
+                    if (model == CheckpointInfo.Model.SDXL || (component == "unet" && isLowRam(context))) {
+                        put("LD_PRELOAD", File(libs, "libcompiler_heap.so").absolutePath)
+                        put("QNN_COMPILER_HEAP_DIR", work.absolutePath)
+                    }
+                    // ⚠⚠ /vendor/lib64 is NOT optional. libQnnHtpV<arch>Stub.so links
+                    // against the vendor FastRPC client libcdsprpc.so, which is not
+                    // in an app's default linker namespace -- dlopen fails, the
+                    // transport never comes up, and QNN reports the useless
+                    // "Device Creation failure". As shell it resolves, which is why
+                    // every /data/local/tmp run worked. The project's own
+                    // run_base.sh has had these paths all along.
+                    put("LD_LIBRARY_PATH", "${libs.absolutePath}:/system/lib64:/vendor/lib64:/vendor/lib64/egl")
+                    // ⚠ The app's own directory is deliberately NOT here. The DSP
+                    // reads this path from its own side and cannot open app-private
+                    // storage, so naming it produced "Device Creation failure" --
+                    // the /data/local/tmp runs worked only because that directory is
+                    // world-readable. The shipping inference server sets this
+                    // variable not at all; the vendor paths are what the DSP needs.
+                    // The DSP reads this path itself, so it names filesDir -- NOT
+                    // nativeLibraryDir, which it cannot open.
+                    put("ADSP_LIBRARY_PATH",
+                        "${dspLibs.absolutePath};/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp")
+                    put("QNN_TPL_PACK", pack.absolutePath)
+                },
+                work, report, onLine,
+            )
+        } catch (e: Failure) {
+            // ⚠ SM8735 (8s Gen 4) is v73 without fp16 execution, and the SD1.5 VAE graphs
+            // compute in fp16: the device rejects their float32 -> float16 conversion
+            // node while composing the graph (September 2026 reports).
+            if ("FLOAT_16" in e.log && "VALIDATION_ERROR" in e.log) {
+                throw Failure(
+                    "This phone's NPU (${Build.SOC_MODEL}) cannot run fp16 operations, which the " +
+                        "SD1.5 $component graph needs. SD1.5 conversion is not supported on this chip yet.",
+                    e.log,
+                )
+            }
+            throw e
+        }
         val output = File(outDir, "$component.bin")
         if (!output.isFile || output.length() == 0L) throw Failure("the generator produced no $component.bin")
         return output

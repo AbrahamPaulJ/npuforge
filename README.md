@@ -116,8 +116,10 @@ pipeline**. [Results, methodology and remaining measurements](docs/RESULTS.md).
    or **Nightmare Mobile**.
 
 The current app targets Android 13+ on ARM64 Snapdragon devices: Snapdragon 8
-Gen 2 or newer for SD1.5, 8 Gen 3 or newer for SDXL. 8 Gen 1 and older are not
-supported. The Galaxy S25 Ultra with 12 GB RAM is the main demonstrated device. Available memory, storage,
+Gen 1 or newer for SD1.5, 8 Gen 3 or newer for SDXL. Snapdragon 888 and older are
+not supported. **Convert on the phone you will generate on:** the compiler builds
+for the chip it runs on, so an export from a newer chip will not load on an older
+one. The Galaxy S25 Ultra with 12 GB RAM is the main demonstrated device. Available memory, storage,
 firmware and compiler behavior matter; installed RAM alone does not establish
 compatibility. Export **Save full troubleshooting log** when reporting a failure.
 
@@ -169,9 +171,6 @@ See [build instructions](docs/BUILD.md), [test coverage](docs/TESTING.md), and
   rejected on this chip, while QAIRT 2.28 builds run. A fix needs integer
   (quantized) VAE graphs and a QAIRT 2.28 compile path; it is planned, not
   scheduled ([roadmap](ROADMAP.md)).
-- **Snapdragon 8 Gen 1** support for SD1.5 is being tested. Models converted
-  on 8 Gen 1 before this target the 8 Gen 2 NPU and are not expected to run on
-  the 8 Gen 1 itself.
 
 [Complete compatibility notes](docs/LIMITS.md) · [Roadmap](ROADMAP.md)
 

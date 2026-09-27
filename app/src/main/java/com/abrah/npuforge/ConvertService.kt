@@ -348,6 +348,12 @@ class ConvertService : Service() {
 
                     step++
                     post(getString(R.string.stage_validate))
+                    if (model == CheckpointInfo.Model.SDXL && Converter.socTier() == "8gen1") {
+                        // The SDXL graphs and VAE contexts target v75; 8 Gen 1 is v69.
+                        throw Converter.Failure(
+                            "SDXL needs Snapdragon 8 Gen 3 or newer. This phone (8 Gen 1) can convert SD1.5 models.",
+                        )
+                    }
                     CheckpointInfo.validate(
                         this@ConvertService, ckpt,
                         if (inpaintDiff) CheckpointInfo.Model.SD15 else model,

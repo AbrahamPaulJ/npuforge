@@ -66,7 +66,7 @@
     <string name="info_use_body">Convert an SD1.5 or SDXL .safetensors checkpoint, then import the ZIP from Download/npuforge into Fancy-Ai or Nightmare Mobile. Conversion works offline.</string>
     <string name="stage_vae_download">Downloading SDXL VAE…</string>
     <string name="info_formats_title">Models and LoRAs</string>
-    <string name="info_spec_sd15">SD1.5: 512 × 512 — Snapdragon 8 Gen 2 and above</string>
+    <string name="info_spec_sd15">SD1.5: 512 × 512 — Snapdragon 8 Gen 1 and above</string>
     <string name="info_spec_sdxl">SDXL: 1024 × 1024 — Snapdragon 8 Gen 3 and above</string>
     <string name="info_spec_sd15_inpaint">SD1.5 inpainting: 9-channel inpainting checkpoints (\"-inpainting\" releases) are detected automatically and export an inpainting model</string>
     <string name="mode_label">Convert as</string>

@@ -64,7 +64,7 @@
     <string name="info_use_body">转换 SD1.5 或 SDXL 的 .safetensors 检查点，然后将 Download/npuforge 中的 ZIP 导入 Fancy-Ai 或 Nightmare Mobile。转换可离线完成。</string>
     <string name="stage_vae_download">下载 SDXL VAE…</string>
     <string name="info_formats_title">模型与 LoRA</string>
-    <string name="info_spec_sd15">SD1.5：512 × 512 — 骁龙 8 Gen 2 及更高版本</string>
+    <string name="info_spec_sd15">SD1.5：512 × 512 — 骁龙 8 Gen 1 及更高版本</string>
     <string name="info_spec_sdxl">SDXL：1024 × 1024 — 骁龙 8 Gen 3 及更高版本</string>
     <string name="info_spec_weights">检查点：支持 F16、F32 和 BF16 权重</string>
     <string name="info_spec_loras">LoRA：请在转换前添加 UNet LoRA；其强度会固化到导出的模型中（文本编码器的 LoRA 权重不会合并）</string>

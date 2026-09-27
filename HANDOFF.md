@@ -20,8 +20,10 @@ and [docs/BUILD.md](docs/BUILD.md) for dependencies and build instructions.
 - The app writes MNN text encoders and compiles QNN UNet/VAE contexts. Graph
   templates and tokenizer assets are prepared separately and bundled with the
   app; conversion does not recalibrate the UNet for each checkpoint.
-- QAIRT 2.50.0.260828 targets are fixed: SD1.5 v73 and SDXL v75/soc57,
-  both with 8 MB VTCM. SDXL retains O=3 with source-destructive reuse disabled.
+- QAIRT 2.50.0.260828. On the phone every context is compiled for the
+  device's own HTP arch; the configs' `dsp_arch` (SD1.5 v73, SDXL v75) is not
+  applied, their graph options are (8 MB VTCM; SDXL O=3 with
+  source-destructive reuse disabled). Exports are therefore chip-specific.
 - The SDXL compiler subprocess uses storage-backed allocation, including
   compact small-object slabs; so does the SD1.5 UNet compile on phones under
   10 GiB (`Converter.isLowRam`). Active conversion files live under
@@ -41,10 +43,10 @@ and [docs/BUILD.md](docs/BUILD.md) for dependencies and build instructions.
   imports a user-supplied copy, and runs `tplconv --inpaint-diff`.
   [docs/SD15-INPAINT.md](docs/SD15-INPAINT.md).
 
-## State and next steps — 27 September 2026
+## State and next steps — 28 September 2026
 
-**Last release: v1.0.4** (27 September 2026, tag at `61f9927`, asset
-`npuforge-1.0.4.apk`, signed). Nightmare Mobile 1.6.033 is out, so SD1.5 exports
+v1.0.4 (27 September) added inpainting, clip skip and resilient downloads; v1.0.5
+is below. Nightmare Mobile 1.6.033 is out, so SD1.5 exports
 work there. The signed release is installed on the test phone; the old debug
 build (same application id, debug key) had to be uninstalled first.
 
@@ -72,23 +74,22 @@ killer at the same UNet-compile peak a plain conversion survived. That phone is
 8 Gen 1, which stays unsupported (decision, 27 September): the V68/V69
 libraries Mr.J removed in v1.0.3 stay out.
 
-**In progress (28 September): 8 Gen 1 support for SD1.5, uncommitted in the
-working tree.** V69 libraries restored (V68 stays out), `htp_config_8gen1.json`
-(v69, soc 36) beside the four SD1.5 templates, `Converter.socTier()` maps
-SM8450/SM8475 to it, SDXL is refused there, and the raw SM8735 fp16 compiler
-error becomes a readable message. The four SD1.5 graphs compile for v69 on the
-S25 with the app's binaries; `docs/LIMITS.md` has the numbers (also
-uncommitted). Test APK: `npuforge-1.0.4-preview-8gen1.apk`, sent to the 8 GB
-SM8450 reporter. **Ship it as 1.0.5 only after a converted model generates in
-Nightmare on that phone**; then update README's chip line and Known issues, and
-tell Mr.J (it reverses his v1.0.3 V69 removal).
+**Last release: v1.0.5 (28 September 2026): 8 Gen 1 support for SD1.5.** V69
+libraries restored (V68 stays out), `htp_config_8gen1.json` beside the four
+SD1.5 templates, SDXL refused on SM8450/SM8475, readable SM8735 fp16 error.
+Field result: the 8 GB SM8450 reporter converted SD1.5 and inpainted in
+Nightmare. ⚠ Found while checking it: **on-device compiles target the device's
+own arch** and ignore the config's `dsp_arch` (docs/LIMITS.md), so exports are
+chip-specific, and 8 Gen 1 exports from 1.0.1/1.0.2 were v69 all along. Mr.J
+should hear both (it also reverses his V69 removal, and his per-SoC SDXL configs
+select graph options, not the arch).
 
-**Known issue, for the next release notes: SM8735 (8s Gen 4) cannot convert
+**Known issue (in README and the 1.0.5 notes): SM8735 (8s Gen 4) cannot convert
 SD1.5**: no fp16 on its NPU; see README §Known issues and ROADMAP §Older QAIRT
 compatibility variant for the plan (user decision: note it, do not build yet).
 
-**Next:** (1) the 8 Gen 1 test above; its reporter is also the first in-app
-low-RAM test; (2) send 1.0.4 to the China reporter; (3) Mr.J: SDXL inpaint
+**Next:** (1) the 8 Gen 1 reporter's logs are the first in-app low-RAM
+test, so read them if they send them; (2) send 1.0.5 to the China reporter; (3) Mr.J: SDXL inpaint
 template, [docs/SDXL-INPAINT-TEMPLATE.md](docs/SDXL-INPAINT-TEMPLATE.md); other
 SD1.5 resolutions remain his too (below).
 

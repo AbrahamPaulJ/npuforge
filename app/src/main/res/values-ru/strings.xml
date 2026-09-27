@@ -70,7 +70,7 @@
     <string name="info_use_body">Сконвертируйте чекпоинт SD1.5 или SDXL в формате .safetensors, затем импортируйте ZIP из Download/npuforge в Fancy-Ai или Nightmare Mobile. Конвертация работает без интернета.</string>
     <string name="stage_vae_download">Загрузка VAE для SDXL…</string>
     <string name="info_formats_title">Модели и LoRA</string>
-    <string name="info_spec_sd15">SD1.5: 512 × 512 — Snapdragon 8 Gen 2 и новее</string>
+    <string name="info_spec_sd15">SD1.5: 512 × 512 — Snapdragon 8 Gen 1 и новее</string>
     <string name="info_spec_sdxl">SDXL: 1024 × 1024 — Snapdragon 8 Gen 3 и новее</string>
     <string name="info_spec_weights">Чекпоинты: Поддерживаются веса F16, F32 и BF16</string>
     <string name="info_spec_loras">LoRA: Добавьте LoRA для UNet перед конвертацией; сила фиксируется в модели (LoRA для текстовых энкодеров не объединяются)</string>

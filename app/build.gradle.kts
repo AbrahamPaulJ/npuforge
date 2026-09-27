@@ -24,8 +24,8 @@ android {
         // Android 13 is the app's minimum for its Snapdragon 8 Gen 2+ audience.
         minSdk = 33
         targetSdk = 37
-        versionCode = 5
-        versionName = "1.0.4"
+        versionCode = 6
+        versionName = "1.0.5"
         // Qualcomm's device compiler and HTP runtime are arm64-only.
         //noinspection ChromeOsAbiSupport
         ndk { abiFilters += "arm64-v8a" }
@@ -74,9 +74,10 @@ android {
 
     packaging {
         jniLibs {
-            // Exclude libraries for devices older than Snapdragon 8 Gen 2 (which uses V73)
+            // Snapdragon 888 (V68) is not supported. V69 stays: the HTP backend
+            // loads the DEVICE's arch libraries and compiles for that arch, so
+            // without them 8 Gen 1 cannot convert at all (v1.0.3-1.0.4).
             excludes += "**/libQnnHtpV68*.so"
-            excludes += "**/libQnnHtpV69*.so"
 
             // ⚠ The whole design depends on this. Android blocks executing a
             // file from the writable app data dir; nativeLibraryDir is the one
