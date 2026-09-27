@@ -98,9 +98,26 @@ Historical QAIRT 2.49 SD1.5 experiments found a context FP16 requirement that
 was absent in a 2.28 build. The five-prompt comparison recorded mean
 `extreme_frac` 0.0197 for 2.28 versus 0.0193 for 2.49, with approximately 12%
 more latency. These measurements do not establish the behavior of the current
-2.50 runtime. An older-SDK variant is deferred until a current compatibility
-failure identifies a need; obtaining the SDK and testing the affected hardware
-are prerequisites.
+2.50 runtime.
+
+**A current failure now needs it: SM8735 (8s Gen 4).** Three conversions on
+27 September failed at the SD1.5 VAE encoder compile: the chip is v73 without
+fp16 execution, and the float16 VAE graph's float32→float16 conversion node
+fails validation. Local Dream's August measurements on the same chip showed
+QAIRT 2.49 UNet contexts rejected for fp16 at load and 2.28 contexts running.
+Plan, cheapest evidence first:
+
+1. A diagnostic build that skips the VAE failure and compiles only the UNet on
+   an SM8735, then a load test in Nightmare Mobile. It shows whether the 2.50
+   UNet also carries the fp16 requirement.
+2. Integer (w8a16) SD1.5 VAE encoder/decoder templates with float32 I/O, so the
+   consuming apps need no change. Host authoring with calibration, compared
+   with the float VAE. Needed in either case.
+3. If step 1 shows the requirement: a QAIRT 2.28 context generator and model
+   libraries for chips without fp16, selected per SoC.
+
+Obtaining the 2.28 SDK and reaching an SM8735 tester are prerequisites; no
+SM8735 is available in-house.
 
 ### Workflow improvements
 

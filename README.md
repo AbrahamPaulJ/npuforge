@@ -160,6 +160,19 @@ See [build instructions](docs/BUILD.md), [test coverage](docs/TESTING.md), and
   [roadmap](ROADMAP.md). SDXL image-to-image and a broader device matrix still
   need documented evaluation.
 
+### Known issues
+
+- **Snapdragon 8s Gen 4 (SM8735) cannot convert SD1.5.** Its NPU has no fp16
+  support. The SD1.5 VAE graphs compute in fp16, so conversion stops at the VAE
+  encoder; the app reports this instead of a raw compiler error. The UNet is
+  likely affected too: models compiled with QAIRT 2.49 and newer have been
+  rejected on this chip, while QAIRT 2.28 builds run. A fix needs integer
+  (quantized) VAE graphs and a QAIRT 2.28 compile path; it is planned, not
+  scheduled ([roadmap](ROADMAP.md)).
+- **Snapdragon 8 Gen 1** support for SD1.5 is being tested. Models converted
+  on 8 Gen 1 before this target the 8 Gen 2 NPU and are not expected to run on
+  the 8 Gen 1 itself.
+
 [Complete compatibility notes](docs/LIMITS.md) · [Roadmap](ROADMAP.md)
 
 ## Repository guide
