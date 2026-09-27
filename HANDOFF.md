@@ -43,10 +43,10 @@ and [docs/BUILD.md](docs/BUILD.md) for dependencies and build instructions.
 
 ## State and next steps — 27 September 2026
 
-**Release 1.0.4 is prepared, not published.** Committed and pushed to `main`;
-the signed APK is built locally (see below). The user runs `/release` (README,
-tag, notes) when ready. Nightmare Mobile 1.6.033 is out, so SD1.5 exports work
-there.
+**Last release: v1.0.4** (27 September 2026, tag at `61f9927`, asset
+`npuforge-1.0.4.apk`, signed). Nightmare Mobile 1.6.033 is out, so SD1.5 exports
+work there. The signed release is installed on the test phone; the old debug
+build (same application id, debug key) had to be uninstalled first.
 
 | | |
 |---|---|
@@ -72,8 +72,8 @@ killer at the same UNet-compile peak a plain conversion survived. That phone is
 8 Gen 1, which stays unsupported (decision, 27 September): the V68/V69
 libraries Mr.J removed in v1.0.3 stay out.
 
-**Next:** (1) the user publishes with `/release`; (2) send 1.0.4 to the China and
-8 GB reporters; low-RAM mode needs an 8 GB phone on 8 Gen 2+; (3) Mr.J: SDXL
+**Next:** (1) send 1.0.4 to the China and
+8 GB reporters; low-RAM mode needs an 8 GB phone on 8 Gen 2+; (2) Mr.J: SDXL
 inpaint template, [docs/SDXL-INPAINT-TEMPLATE.md](docs/SDXL-INPAINT-TEMPLATE.md);
 other SD1.5 resolutions remain his too (below).
 
