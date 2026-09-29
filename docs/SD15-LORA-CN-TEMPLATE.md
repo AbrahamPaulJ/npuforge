@@ -15,6 +15,7 @@ the scripts are in `notes/2026-09-29-input-lora-cn-probe.md`.
 5. Traps
 6. Runtime (Nightmare Mobile), 6b. In the app: "SD1.5 Swap"
 7. Open work
+8. Swap v2: IP-Adapter inputs
 
 ## 1. Graph contract
 
@@ -148,3 +149,56 @@ style survives, the LoRA and canny apply and stack.
 - ControlNet contexts per type (only Qualcomm AI Hub's canny is on hand) and a
   ControlNet template, so a CivitAI ControlNet converts the same way.
 - Production calibration (more rows); the authoring scripts into `tools/`.
+
+## 8. Swap v2: IP-Adapter inputs
+
+Built and measured 2026-09-30 (S25 Ultra, QAIRT 2.50). npuforge 1.0.7's `template_swap/` is this
+template; a v1 export keeps working in Nightmare Mobile, without a reference picture.
+
+**Contract.** The v1 inputs unchanged and in the same order (`targets.json` is byte-for-byte the
+v1 file), plus 32 inputs on the 16 cross-attention (attn2) layers:
+
+| input | shape | encoding (u16) | meaning |
+|---|---|---|---|
+| `ipk_i` | [1, inner, 16] | ± 1.25 × the largest K seen | image-prompt K for layer i, channel-first (sliced per head in-graph) |
+| `ipv_i` | [1, 16, inner] | ± 1.65 × the largest V seen | image-prompt V, **the IP scale already folded in** |
+
+attn2's output is `concat_h(softmax(q·k_text)·v_text) + concat_h(softmax(q·k_ip)·v_ip)` before
+`to_out` — IP-Adapter's decoupled cross-attention; `q` carries the LoRA q delta for both. Layer
+order = `ip_targets.json` (down_blocks, up_blocks, mid_block). Zero K/V is the identity. The
+template is **adapter-agnostic**: the adapter's resampler and `to_k_ip`/`to_v_ip` weights stay
+outside the graph, so any SD1.5 IP-Adapter with ≤ 16 tokens runs (Plus, Plus-Face); a 4-token
+adapter fits by repeating each token 4× (softmax over duplicates is exact, 1.7e-6). The scale
+lives in V because `softmax(qk)·(sV) = s·softmax(qk)·V` — no ×S op in the graph (on LoRA that
+multiply was 72% of the branch's first cost).
+
+**Authoring** (the v1 recipe, §2, with):
+- export verified against diffusers' `load_ip_adapter` on one UNet pass, fp32: max |d| 3.6e-6;
+- 4 calibration rows from real DDIM trajectories of DreamShaper 8 **with IP-Adapter active**
+  (t 999 / 19 / 839 uncond-side / 719 face), rank-64 LoRA and mixed ControlNet residuals;
+- 1,263 overrides in ONE quantize: branch ranges are measured with ORT fp32 on the calibration
+  rows (x·A, ·S, ·B and the IP scores / outputs / concat at 4×, the 16 merge Adds at 2×) instead
+  of reading them back from a first calibrated build;
+- ⚠ **`sample` overridden to ±8.** Four rows set the latent window to ±4.5 (v1 has exactly this);
+  a mid-t latent under CFG reached 7.74 and the held-out base fell to 28.8 dB (34.3 dB with ±8).
+
+**Gates** (all passed): encodings (time_proj reaches 999, 0 dead, 1,247 / 1,263 overrides — the
+16 misses are the renamed attn1 k-branch tensors of v1, every IP input landed); identity pack vs
+stock byte-identical (885,645,608 B); discover 1,358 matched / 0 ambiguous (unmatched 1,153 = v1's
+1,025 + the 128 per-head IP scale constants); round trip 0 scale mismatches, 240 bias-only; a
+second checkpoint (AbsoluteReality) changes the stock 1,358 sites.
+
+**Phone.** tplconv 23–147 s (147 s reading the checkpoint through `/sdcard`), compile 110–492 s,
+886,886,680 B. Accelerator time, v1 vs v2 AbsoluteReality, interleaved: **338 vs 348 ms (+3%)**
+with the IP inputs unused. Held-out row (t 499, Plus @0.7 on a reference not used in
+calibration), NPU vs ORT fp32: base 34.3 dB; LoRA gain 1.026 / cosine 0.984; canny 1.018 / 0.996;
+**IP 1.010 / 0.972**; all three 1.015 / 0.996. (IP's effect is 8% of the output, like LoRA's
+8.3% — both cosines sit at the base's noise floor.) Rendered through Nightmare Mobile: the
+reference's scene, palette and faces carry into the picture, and IP stacks with LoRA and canny.
+
+**The CPU half** (Nightmare Mobile, `AbrahamPJ/nightmare-ip-adapter`): CLIP ViT-H/14 truncated to
+its penultimate layer, and one small head per adapter (resampler + the 16 K/V projections), as
+ONNX. ⚠ int8 fails Plus: worst K/V cosine 0.838 dynamic, 0.991 weight-only, 0.9925 per-64-block
+— ViT-H's activation outliers, amplified by the Plus resampler. int16 weights behind
+`DequantizeLinear` give 0.99999995 at 1.17 GB and ~1.4 GB peak RSS; fp16 weights behind `Cast`
+are as exact but ONNX Runtime expands every one at load (3.3 GB). ~6 s per picture on the S25.

@@ -1,0 +1,101 @@
+{
+"tokens": 16,
+"layers": [
+{
+"name": "down_blocks.0.attentions.0.transformer_blocks.0.attn2",
+"idx": 0,
+"inner": 320,
+"heads": 8
+},
+{
+"name": "down_blocks.0.attentions.1.transformer_blocks.0.attn2",
+"idx": 1,
+"inner": 320,
+"heads": 8
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.attn2",
+"idx": 2,
+"inner": 640,
+"heads": 8
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.attn2",
+"idx": 3,
+"inner": 640,
+"heads": 8
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.attn2",
+"idx": 4,
+"inner": 1280,
+"heads": 8
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.attn2",
+"idx": 5,
+"inner": 1280,
+"heads": 8
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.attn2",
+"idx": 6,
+"inner": 1280,
+"heads": 8
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.attn2",
+"idx": 7,
+"inner": 1280,
+"heads": 8
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.attn2",
+"idx": 8,
+"inner": 1280,
+"heads": 8
+},
+{
+"name": "up_blocks.2.attentions.0.transformer_blocks.0.attn2",
+"idx": 9,
+"inner": 640,
+"heads": 8
+},
+{
+"name": "up_blocks.2.attentions.1.transformer_blocks.0.attn2",
+"idx": 10,
+"inner": 640,
+"heads": 8
+},
+{
+"name": "up_blocks.2.attentions.2.transformer_blocks.0.attn2",
+"idx": 11,
+"inner": 640,
+"heads": 8
+},
+{
+"name": "up_blocks.3.attentions.0.transformer_blocks.0.attn2",
+"idx": 12,
+"inner": 320,
+"heads": 8
+},
+{
+"name": "up_blocks.3.attentions.1.transformer_blocks.0.attn2",
+"idx": 13,
+"inner": 320,
+"heads": 8
+},
+{
+"name": "up_blocks.3.attentions.2.transformer_blocks.0.attn2",
+"idx": 14,
+"inner": 320,
+"heads": 8
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.attn2",
+"idx": 15,
+"inner": 1280,
+"heads": 8
+}
+]
+}

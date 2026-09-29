@@ -60,6 +60,8 @@ object Converter {
     const val OUTPUT_SUBDIR = "npuforge"
     /** In `template_swap/` and in every SD1.5 Swap export ([CheckpointInfo.Model.SD15_SWAP]). */
     const val SWAP_MARKER = "lora_targets.json"
+    /** Swap v2: the IP-Adapter layers, in the UNet's `ipk_i` / `ipv_i` input order. */
+    const val IP_MARKER = "ip_targets.json"
 
     /** Copies checkpoint or LoRA data into this conversion's work directory. */
     suspend fun importFile(context: Context, uri: Uri, dst: File, onBytes: (Long) -> Unit): File {
@@ -441,10 +443,14 @@ object Converter {
                     val markers = when (model) {
                         CheckpointInfo.Model.SDXL -> mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")
                         CheckpointInfo.Model.SD15_INPAINT -> mapOf("INPAINT" to "")
-                        CheckpointInfo.Model.SD15_SWAP -> mapOf(
-                            SWAP_MARKER to context.assets.open("${model.templateDirectory}/$SWAP_MARKER")
-                                .use { it.readBytes().toString(Charsets.UTF_8) },
-                        )
+                        // `ip_targets.json` (Swap v2): the template takes IP-Adapter K/V
+                        // inputs; Nightmare offers a reference picture only when it is here.
+                        CheckpointInfo.Model.SD15_SWAP -> listOf(SWAP_MARKER, IP_MARKER).mapNotNull { m ->
+                            runCatching {
+                                context.assets.open("${model.templateDirectory}/$m")
+                                    .use { it.readBytes().toString(Charsets.UTF_8) }
+                            }.getOrNull()?.let { m to it }
+                        }.toMap().also { require(SWAP_MARKER in it) { "template_swap has no $SWAP_MARKER" } }
                         CheckpointInfo.Model.SD15 -> emptyMap()
                     }
                     for ((entryName, text) in markers) {
