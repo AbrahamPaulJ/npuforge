@@ -95,6 +95,8 @@ hand (`tplconv` + on-phone compile of SD1.5 base: bit-identical to the PC build,
 rendered in Nightmare (backend patch 015). **Not in the app yet.** Scripts and log:
 [notes/2026-09-29-input-lora-cn-probe.md](notes/2026-09-29-input-lora-cn-probe.md).
 
+**Released 2026-09-30: `v1.0.6` — EXPERIMENTAL PRE-RELEASE** (SD1.5 Swap; `npuforge-1.0.6.apk`, 128,551,074 B, release-signed, `main` = `39252ba`, one commit since 1.0.5; "Latest" stays v1.0.5; the preview APK is superseded). Promote after reports with `gh release edit v1.0.6 --prerelease=false --latest`.
+
 **✅ SD1.5 Swap in the app (2026-09-29)**: branch `sd15-swap` `8de0913` (local, not pushed) — the
 third *Convert as* chip ([docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md) §6b); a
 cuteyukimix conversion renders in Nightmare with LoRA + canny + openpose per render. The preview
