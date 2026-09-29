@@ -46,6 +46,13 @@ object CheckpointInfo {
          * components are the SD1.5 ones.
          */
         SD15_INPAINT("template_inpaint", "components_sd15", SD15_COMPONENTS),
+        /**
+         * "SD1.5 Swap": a plain SD1.5 checkpoint converted into the template whose
+         * LoRA (rank <= 64) and ControlNet residuals are graph INPUTS, so the
+         * importing app swaps them per render (docs/SD15-LORA-CN-TEMPLATE.md).
+         * Never detected from a header: the checkpoint validates as [SD15].
+         */
+        SD15_SWAP("template_swap", "components_sd15", SD15_COMPONENTS),
         SDXL("template_sdxl", "components_sdxl", setOf(
             "clip.mnn", "clip_2.mnn", "clip_2.mnn.weight", "tokenizer.json",
             "pos_emb.bin", "token_emb.bin", "pos_emb_2.bin", "token_emb_2.bin",

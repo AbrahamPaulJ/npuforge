@@ -103,6 +103,8 @@
     <string name="mode_label">Конвертировать как</string>
     <string name="mode_txt2img">Текст в изображение</string>
     <string name="mode_inpaint">Inpainting</string>
+    <string name="mode_swap">SD1.5 Swap</string>
+    <string name="mode_swap_note">LoRA и ControlNet выбираются при каждой генерации в Nightmare Mobile, без повторной конвертации. Генерация примерно на 15% медленнее; компиляция примерно вдвое дольше.</string>
     <string name="mode_inpaint_note_ready">Добавляет к этой модели разницу SD1.5 inpainting и экспортирует 9-канальную inpainting-модель.</string>
     <string name="mode_inpaint_note_download">Добавляет к этой модели разницу SD1.5 inpainting и экспортирует 9-канальную inpainting-модель. Нужна однократная загрузка 1,7 ГБ.</string>
     <string name="inpaint_diff_dialog_title">Загрузка разницы inpainting</string>

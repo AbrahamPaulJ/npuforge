@@ -63,6 +63,7 @@ templates. See [device/runtime packaging](ANDROID.md) and [limits](LIMITS.md).
 | `app/src/main/assets/template/` | SD1.5 `libqnn_model.so`; copy `recipe.bin` and `tpl_trim.pack` from the repository's `template/` directory |
 | `app/src/main/assets/template_sdxl/` | Matching SDXL `libqnn_model.so`, `recipe.bin`, `tpl_trim.pack` |
 | `app/src/main/assets/template_inpaint/` | SD1.5 9-channel inpaint `libqnn_model.so`, `recipe.bin`, `tpl_trim.pack` ([SD15-INPAINT.md](SD15-INPAINT.md)) |
+| `app/src/main/assets/template_swap/` | SD1.5 Swap `libqnn_model.so`, `recipe.bin`, `tpl_trim.pack` ([SD15-LORA-CN-TEMPLATE.md](SD15-LORA-CN-TEMPLATE.md)); tracks `lora_targets.json` too |
 
 The asset directories track `sources.txt` and `htp_config.json`. Without
 `template_inpaint/`, a 9-channel checkpoint is reported as unsupported by this

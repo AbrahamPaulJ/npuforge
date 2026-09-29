@@ -88,10 +88,23 @@ select graph options, not the arch).
 SD1.5**: no fp16 on its NPU; see README §Known issues and ROADMAP §Older QAIRT
 compatibility variant for the plan (user decision: note it, do not build yet).
 
-**Next:** (1) the 8 Gen 1 reporter's logs are the first in-app low-RAM
-test, so read them if they send them; (2) send 1.0.5 to the China reporter; (3) Mr.J: SDXL inpaint
-template, [docs/SDXL-INPAINT-TEMPLATE.md](docs/SDXL-INPAINT-TEMPLATE.md); other
-SD1.5 resolutions remain his too (below).
+**✅ 2026-09-29: an SD1.5 template with LoRA and ControlNet as graph INPUTS**
+([docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md)) — the user's goal: a checkpoint
+converts on the phone and LoRA + ControlNet swap per render. Proven with the phone tools by
+hand (`tplconv` + on-phone compile of SD1.5 base: bit-identical to the PC build, 38 dB) and
+rendered in Nightmare (backend patch 015). **Not in the app yet.** Scripts and log:
+[notes/2026-09-29-input-lora-cn-probe.md](notes/2026-09-29-input-lora-cn-probe.md).
+
+**✅ SD1.5 Swap in the app (2026-09-29)**: branch `sd15-swap` `8de0913` (local, not pushed) — the
+third *Convert as* chip ([docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md) §6b); a
+cuteyukimix conversion renders in Nightmare with LoRA + canny + openpose per render. The preview
+build **`npuforge-1.0.5-preview-swap.apk`** is in the phone's Downloads for the user to share with
+users; the release goes out with Nightmare's (Nightmare branch `sd15-swap`, 1.6.060). Next here:
+merge + release with Nightmare; the template-design questions (one template with features
+omitted at conversion; inpaint-as-txt2img) are in nightmare-mobile `docs/ROADMAP.md` §2j.
+(2) then Nightmare's side (app wiring and UI; the backend is done); (3) the 8 Gen 1 reporter's
+logs if they send them; send 1.0.5 to the China reporter; Mr.J: SDXL inpaint template,
+[docs/SDXL-INPAINT-TEMPLATE.md](docs/SDXL-INPAINT-TEMPLATE.md), and other SD1.5 resolutions.
 
 **Other resolutions** are new templates, not app changes: each (architecture,
 resolution) needs its own ONNX export, calibration at that resolution, quantize,
@@ -108,9 +121,21 @@ only timesteps 77–913 (recalibrate); the QAIRT SDK downloads with plain `curl`
 WSL `~/npuconvert/.venv` plus pip `MNN==3.6.1` (`~/clipskip/`), which reproduces
 the shipped skip-2 recipe except MNN's random model UUID.
 
-Left behind: WSL `inp9/` (~25 GB inpaint authoring workspace), `~/clipskip/`
-(CLIP authoring), `~/ramtest/`; on the test phone `/data/local/tmp/ramtest`
-(~2.6 GB, safe to delete) and `DreamShaper_8_pruned.safetensors` in Download.
+Left behind for the LoRA/ControlNet template: WSL `~/cap/` (~3.5 GB: `keep/` converter
+output, `identity.pack`, `lib_tpl/`, `bundle/`, `out_ds/` DreamShaper context, `run_cap.sh`),
+`~/probe/` (export and probe scripts in `scripts/`, the combined ONNX in `combo/`, and
+`session0929/` = everything else the note calls "the session scratchpad": `cap/` pipeline and
+phone scripts, `b1/windows.json` + residual raws, `loras/` packed LoRAs, `cguard.ps1`); phone
+`/data/local/tmp/probe/` (~10 GB of probe contexts; `capph.bin` = the phone-built template,
+`cap/` = the bundle and `tplconv_arm`) and `/data/local/tmp/nmtest/` (Nightmare test rig).
+Left behind: WSL `inp9/` (~25 GB inpaint authoring workspace, includes the
+official difference in `inp9/off/`), `~/clipskip/` (CLIP authoring),
+`~/ramtest/` (DreamShaper 8 and inpaint packs), `~/ctxinfo/` (~1 GB of pulled
+contexts; `ctxinfo.sh` reads their metadata with `qnn-context-binary-utility`).
+On the test phone: `/data/local/tmp/ramtest` (~5 GB: packs, app binaries,
+v69 and low-RAM test contexts; safe to delete), and in Download
+`DreamShaper_8_pruned.safetensors`, `npuforge-1.0.4-preview-8gen1.apk`,
+`npuforge-1.0.5.apk`. Installed: release 1.0.5 and `npuforge preview`.
 
 ## Evidence and remaining scope
 

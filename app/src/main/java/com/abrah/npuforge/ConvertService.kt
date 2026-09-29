@@ -274,6 +274,7 @@ class ConvertService : Service() {
         )
         // Add-difference makes an SD15_INPAINT export from a plain SD15 checkpoint:
         // the checkpoint validates as SD15, everything downstream is SD15_INPAINT.
+        // SD15_SWAP is the same shape without the difference.
         val inpaintDiff = intent?.getBooleanExtra(EXTRA_INPAINT_DIFF, false) == true &&
             model == CheckpointInfo.Model.SD15_INPAINT
         val inpaintDiffUri = intent?.let {
@@ -354,9 +355,15 @@ class ConvertService : Service() {
                             "SDXL needs Snapdragon 8 Gen 3 or newer. This phone (8 Gen 1) can convert SD1.5 models.",
                         )
                     }
+                    if (model == CheckpointInfo.Model.SD15_SWAP && loraSpecs.isNotEmpty()) {
+                        // Baking is the v1 route; Swap takes its LoRAs per render.
+                        throw Converter.Failure(
+                            "SD1.5 Swap does not bake LoRAs in; choose them per render in the generating app.",
+                        )
+                    }
                     CheckpointInfo.validate(
                         this@ConvertService, ckpt,
-                        if (inpaintDiff) CheckpointInfo.Model.SD15 else model,
+                        if (inpaintDiff || model == CheckpointInfo.Model.SD15_SWAP) CheckpointInfo.Model.SD15 else model,
                         clipSkip,
                     )
 

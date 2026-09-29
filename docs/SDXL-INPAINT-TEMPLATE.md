@@ -22,7 +22,7 @@ An SDXL UNet template whose `conv_in` takes **9 channels**:
 |---|---|
 | Weights / activations | W8A16, per-channel, 32-bit bias, no INT4 overrides |
 | Conditioning | masked 231-token `231_masked_v1` interface, text_embeds / time_ids as today |
-| QNN target | QAIRT **2.50.0.260828**, v75 / soc_model 57, 8 MB VTCM, O=3, source-destructive reuse disabled |
+| QNN target | QAIRT **2.50.0.260828**, 8 MB VTCM, O=3, source-destructive reuse disabled. The config names v75 / soc_model 57; host compiles honour it, on-phone compiles build for the phone's own arch (LIMITS.md) |
 | Per-SoC configs | `htp_config_8elite.json` / `htp_config_8gen5.json` beside `htp_config.json`, as in `template_sdxl/` |
 | Phone compile | storage-backed allocator (`libcompiler_heap.so`), as every SDXL compile |
 

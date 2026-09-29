@@ -21,7 +21,7 @@ QNN context contract. Device/runtime requirements apply in both apps.
 | Input weight dtypes           | F16/F32/BF16                                           | F16/F32/BF16                                                |
 | Image size                    | 512 × 512                                              | 1024 × 1024                                                 |
 | Checkpoint-owned components   | UNet, CLIP and embeddings, VAE encoder and decoder     | UNet, CLIP-L/CLIP-G and embeddings, VAE encoder and decoder |
-| Fixed compiler target         | v73, 8 MB VTCM                                         | v75 / soc57, 8 MB VTCM                                      |
+| Compiler target               | Phone's own arch; config v73 / soc43, 8 MB VTCM         | Phone's own arch; config v75 / soc57, 8 MB VTCM             |
 | Runtime                       | QAIRT 2.50.0.260828                                    | QAIRT 2.50.0.260828                                         |
 | Full-component phone evidence | New component path still needs a specific phone result | Reported successful Illustrious conversion and generation   |
 

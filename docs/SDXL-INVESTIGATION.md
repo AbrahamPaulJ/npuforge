@@ -96,7 +96,8 @@ reader cannot recover an already missing trace.
 
 The latest test build was reported working after the workspace and LoRA fixes.
 No accompanying post-fix Vivo/Nubia logs identify the successful device matrix.
-Target compatibility also remains separate: SDXL uses fixed v75/soc57 settings.
+Target compatibility also remains separate: on-phone compiles build for the phone's own HTP arch ([LIMITS.md](LIMITS.md));
+the config's v75/soc57 applies to host compiles.
 
 ## 2. LoRA memory use and compatibility
 

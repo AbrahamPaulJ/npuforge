@@ -58,6 +58,8 @@ object Converter {
      * person can actually find them.
      */
     const val OUTPUT_SUBDIR = "npuforge"
+    /** In `template_swap/` and in every SD1.5 Swap export ([CheckpointInfo.Model.SD15_SWAP]). */
+    const val SWAP_MARKER = "lora_targets.json"
 
     /** Copies checkpoint or LoRA data into this conversion's work directory. */
     suspend fun importFile(context: Context, uri: Uri, dst: File, onBytes: (Long) -> Unit): File {
@@ -434,9 +436,15 @@ object Converter {
                     // Family markers read by the importing app. `INPAINT` is not an
                     // upstream Local Dream name: it tells Nightmare Mobile to launch
                     // the 9-channel inpaint pipeline for this SD1.5 folder.
+                    // `lora_targets.json` is both the Swap marker and the data a
+                    // LoRA packer needs: the order of the UNet's 160 LoRA inputs.
                     val markers = when (model) {
                         CheckpointInfo.Model.SDXL -> mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")
                         CheckpointInfo.Model.SD15_INPAINT -> mapOf("INPAINT" to "")
+                        CheckpointInfo.Model.SD15_SWAP -> mapOf(
+                            SWAP_MARKER to context.assets.open("${model.templateDirectory}/$SWAP_MARKER")
+                                .use { it.readBytes().toString(Charsets.UTF_8) },
+                        )
                         CheckpointInfo.Model.SD15 -> emptyMap()
                     }
                     for ((entryName, text) in markers) {

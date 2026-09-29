@@ -52,3 +52,33 @@ Measurements live in `docs/LIMITS.md`, `docs/SD15-INPAINT.md` and
   out to a bare `python3` (docs/TESTING.md says so).
 - NDK 30 was not installed and there were no SDK command-line tools; the NDK was
   fetched from Google's repository index (SHA-1 checked) and unpacked by hand.
+
+## 28 September: 1.0.5, 8 Gen 1 and SM8735
+
+Released v1.0.4 (27 September) and v1.0.5 (28 September).
+
+- **"Inpaint still failing" was not inpaint.** Four new reports all died at the
+  first NPU compile, the SD1.5 VAE encoder. Three were an SM8735, whose v73 NPU
+  has no fp16, rejecting the fp16 VAE's float32→float16 node. One was the 8 GB
+  SM8450, where the compiler exited at once because v1.0.3 had removed the V69
+  libraries. Every release since 1.0.0 compiled with QAIRT 2.50 and shipped the
+  fp16 VAE, so SM8735 never worked for SD1.5. It only looked inpaint-only in the
+  Local Dream days because xororz's non-inpaint models were 2.28 builds.
+- **Reversal: on the phone, the compiler builds for the device's own arch.**
+  Contexts compiled on the S25 report dspArch 79 / socModel 69 whether the
+  config said v73 or v69 (`qnn-context-binary-utility`). Before this I had told
+  the user that 8 Gen 1 exports from 1.0.1/1.0.2 were v73 and could not run on
+  the 8 Gen 1 itself. That was wrong: they were v69. Checking the context
+  metadata first would have caught it. Every doc that called the target fixed
+  was corrected; exports are chip-specific.
+- **8 Gen 1 needed only the V69 libraries.** The added `htp_config_8gen1.json`
+  is the tested configuration but does not select the arch. Field result: the
+  8 GB SM8450 converted SD1.5 and inpainted in Nightmare.
+- **Decisions (user):** support 8 Gen 1 (reverses Mr.J's 1.0.3 exclusion; tell
+  him). SM8735 is noted as a known issue, not built. For the future,
+  QAIRT 2.28 goes only to chips without fp16, not all of SD1.5: 2.28 predates
+  v81 and cannot help an fp16 VAE. The user proposed an fp32 VAE plus removing
+  the UNet's fp16 tag. HTP has no fp32 arithmetic, so an fp32 VAE means a CPU
+  (MNN) VAE, which is viable. Context metadata lists only I/O tensor types, so
+  whether the 2.50 UNet computes in fp16 internally is still unknown.
+- **"Send me the APK" means the phone's Download folder**, not the PC's.

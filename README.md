@@ -38,6 +38,12 @@ building the APK are developer tasks performed separately on a workstation.
   "-inpainting" releases) are detected and converted automatically. Any plain
   SD1.5 checkpoint can also be converted *as* an inpainting model: the app adds
   the official SD1.5 inpainting difference to it on the phone.
+- **SD1.5 Swap (experimental):** *Convert as → SD1.5 Swap* builds the UNet with
+  LoRA (rank 64, 160 layers) and ControlNet residuals as graph **inputs**, so
+  [Nightmare Mobile](https://github.com/AbrahamPaulJ/nightmare-mobile) picks LoRAs
+  and canny / depth / openpose ControlNets per render, with no reconversion.
+  About 15% slower per image than a plain conversion; the compile takes about
+  twice as long. 512×512. Details: [docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md).
 - **Clip skip 1 or 2:** choose how SD1.5 text encoders are built. 2 is the
   default and matches earlier exports; 1 uses the full text encoder.
 - **Low-RAM phones:** below 10 GB of RAM, the SD1.5 compile keeps its working
@@ -83,7 +89,8 @@ checkpoints to be converted without repeating workstation export and calibration
 
 The current UNet templates use INT8 weights and 16-bit activations (W8A16).
 CLIP graphs use MNN; the UNet and both VAE graphs use QNN. VAE arithmetic on HTP
-is FP16. Graph shapes, activation ranges and target configurations remain fixed;
+is FP16. Graph shapes and activation ranges remain fixed, and each phone compiles
+for its own chip;
 compatibility and quality must be established for each model family.
 
 [Architecture and engineering details](docs/TECHNICAL-OVERVIEW.md)

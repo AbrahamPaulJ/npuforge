@@ -14,6 +14,7 @@ aid; measured results and limitations belong in the topic documents below.
 | [docs/SDXL-COMPONENTS.md](docs/SDXL-COMPONENTS.md) | Checkpoint-owned SDXL CLIP/VAE conversion and precision limits |
 | [docs/SD15-COMPONENTS.md](docs/SD15-COMPONENTS.md) | SD1.5 CLIP, clip-skip 2 and 512px VAE components |
 | [docs/SD15-INPAINT.md](docs/SD15-INPAINT.md) | 9-channel inpaint template, add-difference measurement, phone renders |
+| [docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md) | SD1.5 template with LoRA and ControlNet as graph inputs: contract, gates, accuracy, traps |
 | [docs/SDXL-INPAINT-TEMPLATE.md](docs/SDXL-INPAINT-TEMPLATE.md) | Runbook for an SDXL 9-channel inpaint template (Linux host) |
 | [docs/SDXL-INVESTIGATION.md](docs/SDXL-INVESTIGATION.md) | Compiler allocation, workspace, LoRA and conditioning findings |
 | [docs/PIPELINE.md](docs/PIPELINE.md) | Template derivation, tensor mapping and quantization measurements |

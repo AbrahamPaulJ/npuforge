@@ -267,6 +267,8 @@ private fun ConvertScreen() {
     var report by remember { mutableStateOf<CheckpointInfo.Report?>(null) }
     // Plain SD1.5 only: convert into an inpainting model by add-difference.
     var asInpaint by rememberSaveable { mutableStateOf(false) }
+    // Plain SD1.5 only: "SD1.5 Swap", LoRA + ControlNet chosen per render (never with asInpaint).
+    var asSwap by rememberSaveable { mutableStateOf(false) }
     // SD1.5 only; kept across checkpoints. 2 is the long-standing default.
     var clipSkip by rememberSaveable { mutableStateOf(2) }
     val loras = rememberSaveable(
@@ -281,12 +283,15 @@ private fun ConvertScreen() {
     val names = (listOf(pickedName) + loras.map { it.second }).map {
         it.substringBeforeLast(".").take(28).replace(Regex("[^A-Za-z0-9_.-]"), "_").trim('_')
     }
-    val modelName = editedName ?: (names.first() + loras.mapIndexed { i, lora ->
+    // Swap bakes no LoRAs (they are chosen per render), so none go in its name.
+    val bakedLoras = if (asSwap) emptyList() else loras
+    val modelName = editedName ?: (names.first() + bakedLoras.mapIndexed { i, lora ->
         "+${names[i + 1]}@${lora.third}"
     }.joinToString("")).take(60).let { base ->
         // Clip skip 1 and inpainting exports of one checkpoint can then sit side by side.
         val suffix = (if (clipSkip == 1 && report?.model != CheckpointInfo.Model.SDXL) "_cs1" else "") +
-            (if (asInpaint) "_inpaint" else "")
+            (if (asInpaint) "_inpaint" else "") +
+            (if (asSwap) "_npuforge_swap" else "")
         if (suffix.isEmpty()) base else base.take(60 - suffix.length) + suffix
     }
 
@@ -309,6 +314,7 @@ private fun ConvertScreen() {
     LaunchedEffect(picked) {
         report = null
         asInpaint = false
+        asSwap = false
         inspectError = null
         val uri = picked ?: return@LaunchedEffect
         try {
@@ -617,12 +623,24 @@ private fun ConvertScreen() {
                             Text(stringResource(R.string.mode_label), style = MaterialTheme.typography.labelMedium)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 FilterChip(
-                                    selected = !asInpaint, onClick = { asInpaint = false },
+                                    selected = !asInpaint && !asSwap,
+                                    onClick = { asInpaint = false; asSwap = false },
                                     label = { Text(stringResource(R.string.mode_txt2img)) },
                                 )
                                 FilterChip(
-                                    selected = asInpaint, onClick = { asInpaint = true },
+                                    selected = asInpaint, onClick = { asInpaint = true; asSwap = false },
                                     label = { Text(stringResource(R.string.mode_inpaint)) },
+                                )
+                                FilterChip(
+                                    selected = asSwap, onClick = { asSwap = true; asInpaint = false },
+                                    label = { Text(stringResource(R.string.mode_swap)) },
+                                )
+                            }
+                            if (asSwap) {
+                                Text(
+                                    stringResource(R.string.mode_swap_note),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                             if (asInpaint) {
@@ -667,14 +685,20 @@ private fun ConvertScreen() {
                         modifier = Modifier.fillMaxWidth(),
                     )
 
-                    LoraList(loras) { loraPicker.launch("*/*") }
+                    // Baking LoRAs in is the v1 route; Swap chooses them per render.
+                    if (!asSwap) LoraList(loras) { loraPicker.launch("*/*") }
 
                     val inpaintByDiff = asInpaint && report?.model == CheckpointInfo.Model.SD15
+                    val swap = asSwap && report?.model == CheckpointInfo.Model.SD15
                     val startConversion = {
-                        val model = if (inpaintByDiff) CheckpointInfo.Model.SD15_INPAINT else report!!.model
+                        val model = when {
+                            inpaintByDiff -> CheckpointInfo.Model.SD15_INPAINT
+                            swap -> CheckpointInfo.Model.SD15_SWAP
+                            else -> report!!.model
+                        }
                         notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                         ConvertService.start(
-                            context, picked!!, modelName, loras.map { it.first to it.third },
+                            context, picked!!, modelName, bakedLoras.map { it.first to it.third },
                             model = model, inpaintDiff = inpaintByDiff, clipSkip = clipSkip,
                         )
                     }

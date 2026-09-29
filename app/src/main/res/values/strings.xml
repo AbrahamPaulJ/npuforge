@@ -72,6 +72,8 @@
     <string name="mode_label">Convert as</string>
     <string name="mode_txt2img">Text-to-image</string>
     <string name="mode_inpaint">Inpainting</string>
+    <string name="mode_swap">SD1.5 Swap</string>
+    <string name="mode_swap_note">LoRAs and ControlNet are chosen per render in Nightmare Mobile, with no reconversion. Renders about 15% slower; the compile takes about twice as long.</string>
     <string name="mode_inpaint_note_ready">Adds the SD1.5 inpainting difference to this checkpoint and exports a 9-channel inpainting model.</string>
     <string name="mode_inpaint_note_download">Adds the SD1.5 inpainting difference to this checkpoint and exports a 9-channel inpainting model. Needs a one-time 1.7 GB download.</string>
     <string name="inpaint_diff_dialog_title">Download inpainting difference</string>

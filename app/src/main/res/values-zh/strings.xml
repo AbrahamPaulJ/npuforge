@@ -97,6 +97,8 @@
     <string name="mode_label">转换为</string>
     <string name="mode_txt2img">文生图</string>
     <string name="mode_inpaint">局部重绘</string>
+    <string name="mode_swap">SD1.5 Swap</string>
+    <string name="mode_swap_note">LoRA 和 ControlNet 在 Nightmare Mobile 中每次生成时选择，无需重新转换。生成约慢 15%；编译时间约为两倍。</string>
     <string name="mode_inpaint_note_ready">将 SD1.5 局部重绘差分加到此模型上，导出 9 通道局部重绘模型。</string>
     <string name="mode_inpaint_note_download">将 SD1.5 局部重绘差分加到此模型上，导出 9 通道局部重绘模型。需要一次性下载 1.7 GB。</string>
     <string name="inpaint_diff_dialog_title">下载局部重绘差分</string>

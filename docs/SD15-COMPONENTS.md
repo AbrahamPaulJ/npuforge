@@ -20,7 +20,8 @@ fallback. Native writers reject non-finite component weights and FP16 overflow.
   outputs `[1,4,64,64]`.
 - VAE decoder: float32 planar `[1,4,64,64]` input to `[1,3,512,512]` output.
   The generator continues to apply latent scaling `0.18215` outside the graphs.
-- QNN: QAIRT 2.50, v73/soc43, 8 MB VTCM and the existing SD1.5 compiler settings.
+- QNN: QAIRT 2.50, 8 MB VTCM and the existing SD1.5 compiler settings; the config
+  names v73/soc43, but on-phone compiles build for the phone's own HTP arch ([LIMITS.md](LIMITS.md)).
   VAE internal floating arithmetic is FP16 despite float32 external tensors.
 - ZIP: existing seven flat filenames; no SDXL markers are added to SD1.5 output.
 

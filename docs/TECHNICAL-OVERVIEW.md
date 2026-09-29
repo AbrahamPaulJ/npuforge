@@ -48,9 +48,10 @@ for each checkpoint on the phone.
 
 CLIP-L uses FP16 weights; SDXL CLIP-G uses the established MNN INT8 format.
 CLIP output semantics and the consumer's conditioning layout must agree.
-SDXL exports carry the `231_masked_v1` interface marker. Fixed QNN targets are
-currently v73/soc43 for SD1.5 and v75/soc57 for SDXL; the app does not dynamically
-select a graph target for each device.
+SDXL exports carry the `231_masked_v1` interface marker. The configs name
+v73/soc43 for SD1.5 and v75/soc57 for SDXL, but on-phone compiles build for the
+phone's own HTP arch, so an export only runs on that chip or newer
+([LIMITS.md](LIMITS.md)).
 
 See [SD1.5 components](SD15-COMPONENTS.md), [SDXL components](SDXL-COMPONENTS.md)
 and [SDXL graph contract](SDXL.md).

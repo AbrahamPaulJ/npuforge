@@ -112,7 +112,10 @@ Plan, cheapest evidence first:
    UNet also carries the fp16 requirement.
 2. Integer (w8a16) SD1.5 VAE encoder/decoder templates with float32 I/O, so the
    consuming apps need no change. Host authoring with calibration, compared
-   with the float VAE. Needed in either case.
+   with the float VAE. Needed in either case. Alternative: a float32 VAE on the
+   CPU as MNN (HTP has no fp32 arithmetic), as Fancy-AI already ships
+   `vae_decoder.mnn`; no calibration, but seconds per decode and Nightmare's
+   backend must accept a QNN UNet with an MNN VAE.
 3. If step 1 shows the requirement: a QAIRT 2.28 context generator and model
    libraries for chips without fp16, selected per SoC. Not 2.28 for all of
    SD1.5: compilation runs on the phone and the HTP backend loads the device's
