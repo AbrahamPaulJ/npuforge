@@ -67,7 +67,8 @@ download fails hours later.
 ## 3. Calibration rows
 
 Use the pipeline that produced the current SDXL template (the `231_masked_v1`
-export and row generator), with these changes:
+export and row generator; ⚠ not in this repository, see [SDXL.md](SDXL.md)
+§Template preparation), with these changes:
 
 1. **Timesteps 0–999.** The borrowed SD1.5 inpaint rows covered only 77–913 and
    would have clipped the first and last steps. Use a DPM-Solver-style scheduler
@@ -137,8 +138,26 @@ Unmeasured for SDXL inpaint; plan from these:
 |---|---|---|
 | Calibration capture | 53 min CPU, 400 rows | far more per row: 1024² and ~3× the UNet |
 | Quantize | ~21 s/row, 2 h 30 m for 400 rows | many times that per row; start from the SDXL template's own timing |
-| Host RAM | >11 GB plus swap | at least what the SDXL template build needed; SD1.5 hit a memory cliff above 512×768 |
-| Disk | ~25 GB workspace | fp32 ONNX alone is ~10 GB (2.6 B parameters); budget 150 GB+ |
+| Host RAM | >11 GB plus swap | **≥ 128 GB** (below); the SDXL template build's peak was never recorded |
+| Disk | ~25 GB workspace | fp32 ONNX alone is ~10 GB (2.6 B parameters); budget 150 GB+ (200 GB on a rented host whose disk cannot grow) |
+
+**RAM is the whole cost.** The legacy converter's quantize sets the peak and uses
+about two cores. SD1.5 at 512×768 needed ~32 GB. A 16 GB rented container was
+killed out of memory twice on that step, while a 10 GB host with 48 GB of swap
+finished it. A build that spills into swap slowed 4.6× (768×1024: 287 s/row against
+a 62 s in-RAM projection). SDXL has ~3× the weights and a 4× latent at 1024², and
+a LoRA/ControlNet/IP-input template adds ~1,400 graph inputs. So:
+
+- **Rented containers** (RunPod pods, Vast.ai Docker instances) have no swap. The
+  instance's own RAM allocation must hold the peak, and on a multi-GPU host that is
+  a share of the machine.
+- **A full VM** (Vast.ai "VM" launch mode, or a cloud VM) allows a swapfile as a
+  safety net and runs Tailscale normally, so the host can reach a phone's adb directly.
+- A GPU is optional. The quantize runs on CPU; a 24 GB card only speeds up calibration
+  trajectories and the Phase 3 reference renders.
+- Run an **8-row probe first** and read its peak RSS. Stop before the full build if
+  it passes ~80% of RAM. Projections from in-RAM runs do not survive the first
+  out-of-RAM one.
 
 Record wall time and peak RSS for each step. They are the numbers the next
 template needs.

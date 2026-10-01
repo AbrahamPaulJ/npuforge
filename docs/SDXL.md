@@ -192,6 +192,14 @@ export and 30 rows from three trajectories, covering 77/154/231 active tokens
 and timesteps 0–999. Latents were clipped to [-7.2, 7.2] by that calibration
 pipeline. Coverage across other checkpoint families is not established.
 
+⚠ The UNet ONNX export, the calibration row generator and the authoring
+`plan.json` behind this template are **not in the repository** and never were;
+`tools/` starts after export. A new SDXL template needs them from the original
+authoring host, or a re-export from the input contract (`sample`, `timestamp`
+int32, `encoder_hidden_states` [1,231,2048], `encoder_attention_mask` [1,231],
+`text_embeds` [1,1280], `time_ids` [1,6]). The re-export is correct when recipe
+discovery again matches all 1,680 source tensors with 0 ambiguous.
+
 SDXL attention uses 64-channel heads (ten or twenty per tested layer).
 Native/Python recipe application derives slice width from recipe dimensions
 and source stride; SD1.5 retains its eight-head discovery default. LoRA merges

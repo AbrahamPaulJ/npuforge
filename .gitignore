@@ -60,3 +60,4 @@ build/
 !template/recipe.bin
 out/
 local.properties
+codex-yolo.bat
