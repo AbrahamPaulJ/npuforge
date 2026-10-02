@@ -34,6 +34,28 @@ private val SD15_COMPONENTS = setOf(
 
 object CheckpointInfo {
 
+    /**
+     * How the diffusion UNet output must be interpreted by the runtime.
+     *
+     * This changes scheduler-side math, not QNN graph conversion. ModelSpec 1.0
+     * writes `v` or `epsilon` in `modelspec.prediction_type`; a few exporters
+     * instead copy diffusers' `v_prediction` spelling into the same field.
+     */
+    enum class PredictionType {
+        EPSILON,
+        V_PREDICTION;
+
+        companion object {
+            fun fromMetadata(value: String?): PredictionType? = when (
+                value?.trim()?.lowercase()?.replace('-', '_')
+            ) {
+                "epsilon", "epsilon_prediction" -> EPSILON
+                "v", "v_prediction" -> V_PREDICTION
+                else -> null
+            }
+        }
+    }
+
     enum class Model(
         val templateDirectory: String,
         val componentDirectory: String,
@@ -79,6 +101,8 @@ object CheckpointInfo {
         val missing: List<String>,
         val architecture: String,
         val model: Model,
+        /** Null when the checkpoint has no recognised prediction metadata. */
+        val predictionType: PredictionType?,
         val fatal: String? = null,
     ) {
         val convertible: Boolean get() = fatal == null && missing.isEmpty()
@@ -131,6 +155,9 @@ object CheckpointInfo {
     }
 
     private fun inspectHeader(context: Context, header: JSONObject, clipDirectory: String? = null): Report {
+        val predictionType = PredictionType.fromMetadata(
+            header.optJSONObject("__metadata__")?.optString("modelspec.prediction_type"),
+        )
         var unetN = 0; var unetB = 0L
         var vaeN = 0; var vaeB = 0L
         var clipN = 0; var clipB = 0L
@@ -258,6 +285,7 @@ object CheckpointInfo {
             missing = missing,
             architecture = arch,
             model = model,
+            predictionType = predictionType,
             fatal = fatal,
         )
     }

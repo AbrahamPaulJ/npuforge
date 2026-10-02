@@ -104,7 +104,7 @@
     <string name="mode_txt2img">Текст в изображение</string>
     <string name="mode_inpaint">Inpainting</string>
     <string name="mode_swap">SD1.5 Swap</string>
-    <string name="mode_swap_note">LoRA и ControlNet выбираются при каждой генерации в Nightmare Mobile, без повторной конвертации. Генерация примерно на 15% медленнее; компиляция примерно вдвое дольше.</string>
+    <string name="mode_swap_note" formatted="false">LoRA и ControlNet выбираются при каждой генерации в Nightmare Mobile, без повторной конвертации. Генерация примерно на 15% медленнее; компиляция примерно вдвое дольше.</string>
     <string name="mode_inpaint_note_ready">Добавляет к этой модели разницу SD1.5 inpainting и экспортирует 9-канальную inpainting-модель.</string>
     <string name="mode_inpaint_note_download">Добавляет к этой модели разницу SD1.5 inpainting и экспортирует 9-канальную inpainting-модель. Нужна однократная загрузка 1,7 ГБ.</string>
     <string name="inpaint_diff_dialog_title">Загрузка разницы inpainting</string>
@@ -118,8 +118,21 @@
     <string name="inpaint_note">Inpainting-модель: экспортируется 9-канальная inpainting-модель. Используйте её в приложении с поддержкой SD1.5 inpainting; для обычной генерации по тексту она не подходит.</string>
     <string name="clip_skip_label">Clip skip</string>
     <string name="clip_skip_note">Встраивается в экспортированную модель. 2 обычно выбирают для аниме-моделей, так же экспортировал npuforge раньше; 1 использует весь текстовый энкодер, как при обучении базовой SD1.5.</string>
+    <string name="prediction_type_label">Тип предсказания</string>
+    <string name="prediction_epsilon">Эпсилон</string>
+    <string name="prediction_v">V-предсказание</string>
+    <string name="prediction_detected_note">Определено по метаданным контрольной точки. Изменяйте только при ошибочных метаданных.</string>
+    <string name="prediction_unknown_note">В метаданных контрольной точки тип не указан. Эпсилон сохраняет прежнее поведение; выбирайте V-предсказание только для моделей, которым оно требуется.</string>
     <string name="download_source_title">Источник загрузки</string>
     <string name="download_source_note">Откуда загружаются SDXL VAE и разница inpainting. Выберите hf-mirror.com, если Hugging Face у вас медленный или заблокирован. При сбое загрузки также пробуется другой источник.</string>
     <string name="source_huggingface">Hugging Face</string>
     <string name="source_mirror">hf-mirror.com (зеркало для Китая)</string>
+    <string name="mode_swap_note_v3">LoRA, ControlNet и IP-Adapter выбираются при каждой генерации в Nightmare Mobile, без повторной конвертации. Выберите возможности модели: невыбранные ничего не стоят при генерации.</string>
+    <string name="swap_features_label">Возможности</string>
+    <string name="swap_feature_lora">LoRA</string>
+    <string name="swap_feature_cn">ControlNet</string>
+    <string name="swap_feature_ip">IP-Adapter</string>
+    <string name="swap_feature_inp">Inpaint</string>
+    <string name="swap_inpaint_note_ready">Inpaint делает модель для инпейнтинга (добавляется разница SD1.5 inpainting). Для text-to-image конвертируйте ещё раз без него.</string>
+    <string name="swap_inpaint_note_download">Inpaint делает модель для инпейнтинга (добавляется разница SD1.5 inpainting; однократная загрузка 1,7 ГБ). Для text-to-image конвертируйте ещё раз без него.</string>
 </resources>

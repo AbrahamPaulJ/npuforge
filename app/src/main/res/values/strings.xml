@@ -73,7 +73,7 @@
     <string name="mode_txt2img">Text-to-image</string>
     <string name="mode_inpaint">Inpainting</string>
     <string name="mode_swap">SD1.5 Swap</string>
-    <string name="mode_swap_note">LoRAs and ControlNet are chosen per render in Nightmare Mobile, with no reconversion. Renders about 15% slower; the compile takes about twice as long.</string>
+    <string name="mode_swap_note" formatted="false">LoRAs and ControlNet are chosen per render in Nightmare Mobile, with no reconversion. Renders about 15% slower; the compile takes about twice as long.</string>
     <string name="mode_inpaint_note_ready">Adds the SD1.5 inpainting difference to this checkpoint and exports a 9-channel inpainting model.</string>
     <string name="mode_inpaint_note_download">Adds the SD1.5 inpainting difference to this checkpoint and exports a 9-channel inpainting model. Needs a one-time 1.7 GB download.</string>
     <string name="inpaint_diff_dialog_title">Download inpainting difference</string>
@@ -114,8 +114,21 @@ If the download keeps stopping, download sd15inp_diff_f16.safetensors from huggi
     <string name="stage_inpaint_diff_import">Importing inpainting difference…</string>
     <string name="clip_skip_label">Clip skip</string>
     <string name="clip_skip_note">Baked into the exported model. 2 is the usual choice for anime models and matches earlier npuforge exports; 1 uses the full text encoder, as base SD1.5 was trained.</string>
+    <string name="prediction_type_label">Prediction type</string>
+    <string name="prediction_epsilon">Epsilon</string>
+    <string name="prediction_v">V-prediction</string>
+    <string name="prediction_detected_note">Detected from checkpoint metadata. Override only if the checkpoint’s metadata is wrong.</string>
+    <string name="prediction_unknown_note">Not specified by checkpoint metadata. Epsilon preserves existing behavior; choose V-prediction only when the model requires it.</string>
     <string name="download_source_title">Download source</string>
     <string name="download_source_note">Where the SDXL VAE and the inpainting difference are downloaded from. Choose hf-mirror.com if Hugging Face is slow or blocked where you are. If a download fails, the other source is tried too.</string>
     <string name="source_huggingface">Hugging Face</string>
     <string name="source_mirror">hf-mirror.com (mirror for China)</string>
+    <string name="mode_swap_note_v3">LoRAs, ControlNet and IP-Adapter are chosen per render in Nightmare Mobile, with no reconversion. Pick the features this model carries: one left out costs nothing when rendering.</string>
+    <string name="swap_features_label">Features</string>
+    <string name="swap_feature_lora">LoRA</string>
+    <string name="swap_feature_cn">ControlNet</string>
+    <string name="swap_feature_ip">IP-Adapter</string>
+    <string name="swap_feature_inp">Inpaint</string>
+    <string name="swap_inpaint_note_ready">Inpaint makes this an inpainting model (the SD1.5 inpainting difference is added). For text-to-image, convert again without it.</string>
+    <string name="swap_inpaint_note_download">Inpaint makes this an inpainting model (the SD1.5 inpainting difference is added; a one-time 1.7 GB download). For text-to-image, convert again without it.</string>
 </resources>

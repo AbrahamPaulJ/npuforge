@@ -98,7 +98,7 @@
     <string name="mode_txt2img">文生图</string>
     <string name="mode_inpaint">局部重绘</string>
     <string name="mode_swap">SD1.5 Swap</string>
-    <string name="mode_swap_note">LoRA 和 ControlNet 在 Nightmare Mobile 中每次生成时选择，无需重新转换。生成约慢 15%；编译时间约为两倍。</string>
+    <string name="mode_swap_note" formatted="false">LoRA 和 ControlNet 在 Nightmare Mobile 中每次生成时选择，无需重新转换。生成约慢 15%；编译时间约为两倍。</string>
     <string name="mode_inpaint_note_ready">将 SD1.5 局部重绘差分加到此模型上，导出 9 通道局部重绘模型。</string>
     <string name="mode_inpaint_note_download">将 SD1.5 局部重绘差分加到此模型上，导出 9 通道局部重绘模型。需要一次性下载 1.7 GB。</string>
     <string name="inpaint_diff_dialog_title">下载局部重绘差分</string>
@@ -112,8 +112,21 @@
     <string name="inpaint_note">局部重绘模型：将导出 9 通道局部重绘模型。请在支持 SD1.5 局部重绘的应用中使用；不能用于普通文生图。</string>
     <string name="clip_skip_label">Clip skip</string>
     <string name="clip_skip_note">该设置会固化到导出的模型中。二次元模型通常用 2，与以往 npuforge 导出一致；1 使用完整文本编码器，即 SD1.5 原始训练方式。</string>
+    <string name="prediction_type_label">预测类型</string>
+    <string name="prediction_epsilon">Epsilon</string>
+    <string name="prediction_v">V 预测</string>
+    <string name="prediction_detected_note">已从模型元数据检测。仅当模型元数据有误时才覆盖。</string>
+    <string name="prediction_unknown_note">模型元数据未指定预测类型。Epsilon 会保持现有行为；仅在模型明确需要时选择 V 预测。</string>
     <string name="download_source_title">下载源</string>
     <string name="download_source_note">SDXL VAE 和局部重绘差分的下载地址。如果 Hugging Face 在你所在的地区很慢或无法访问，请选择 hf-mirror.com。下载失败时也会自动尝试另一个下载源。</string>
     <string name="source_huggingface">Hugging Face</string>
     <string name="source_mirror">hf-mirror.com（国内镜像）</string>
+    <string name="mode_swap_note_v3">LoRA、ControlNet 和 IP-Adapter 在 Nightmare Mobile 中每次生成时选择，无需重新转换。选择此模型包含的功能：未选的功能在生成时没有任何开销。</string>
+    <string name="swap_features_label">功能</string>
+    <string name="swap_feature_lora">LoRA</string>
+    <string name="swap_feature_cn">ControlNet</string>
+    <string name="swap_feature_ip">IP-Adapter</string>
+    <string name="swap_feature_inp">局部重绘</string>
+    <string name="swap_inpaint_note_ready">局部重绘会将此模型转为重绘模型（加入 SD1.5 inpainting 差值）。如需文生图，请不选它再转换一次。</string>
+    <string name="swap_inpaint_note_download">局部重绘会将此模型转为重绘模型（加入 SD1.5 inpainting 差值；需一次性下载 1.7 GB）。如需文生图，请不选它再转换一次。</string>
 </resources>

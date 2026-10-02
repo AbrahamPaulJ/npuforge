@@ -62,6 +62,32 @@ object Converter {
     const val SWAP_MARKER = "lora_targets.json"
     /** Swap v2: the IP-Adapter layers, in the UNet's `ipk_i` / `ipv_i` input order. */
     const val IP_MARKER = "ip_targets.json"
+    /**
+     * Swap v3: in `template_swap/`, the features its feature-gated `libqnn_model.so` can leave out
+     * (`{"features":["lora","cn","ip","inp"]}`); in an export, the ones its UNet actually has. A
+     * template without it (Swap v2) builds every feature and ignores `QNN_TPL_DROP`.
+     */
+    const val SWAP_FEATURES_MARKER = "swap_features.json"
+    /** LocalDream/Nightmare marker: launch the backend with `--use_v_pred`. */
+    const val V_PRED_MARKER = "V_PRED"
+
+    internal fun predictionMarkers(type: CheckpointInfo.PredictionType): Map<String, String> =
+        if (type == CheckpointInfo.PredictionType.V_PREDICTION) mapOf(V_PRED_MARKER to "")
+        else emptyMap()
+    /** Every Swap feature name, in `QNN_TPL_DROP` spelling: LoRA, ControlNet, IP-Adapter, inpaint. */
+    val SWAP_FEATURES = listOf("lora", "cn", "ip", "inp")
+
+    /** The features `template_swap/` can drop; empty for a template that cannot (Swap v2). */
+    fun swapFeaturesSupported(context: Context): List<String> = runCatching {
+        val text = context.assets.open("${CheckpointInfo.Model.SD15_SWAP.templateDirectory}/$SWAP_FEATURES_MARKER")
+            .use { it.readBytes().toString(Charsets.UTF_8) }
+        val listed = Regex("\"(\\w+)\"").findAll(text.substringAfter("[")).map { it.groupValues[1] }.toSet()
+        SWAP_FEATURES.filter { it in listed }
+    }.getOrDefault(emptyList())
+
+    fun swapFeaturesJson(kept: Collection<String>): String =
+        "{\"template\":\"swap_v3\",\"features\":[" +
+            SWAP_FEATURES.filter { it in kept }.joinToString(",") { "\"$it\"" } + "]}"
 
     /** Copies checkpoint or LoRA data into this conversion's work directory. */
     suspend fun importFile(context: Context, uri: Uri, dst: File, onBytes: (Long) -> Unit): File {
@@ -271,6 +297,7 @@ object Converter {
         model: CheckpointInfo.Model,
         report: ConversionReport,
         component: String = "unet",
+        tplDrop: String = "",
         onLine: (String) -> Unit = {},
     ): File {
         // ⚠⚠ THE DSP AND THE CPU NEED THE LIBRARIES IN DIFFERENT PLACES.
@@ -339,6 +366,9 @@ object Converter {
                     put("ADSP_LIBRARY_PATH",
                         "${dspLibs.absolutePath};/vendor/dsp/cdsp;/vendor/lib/rfsa/adsp;/system/lib/rfsa/adsp;/dsp")
                     put("QNN_TPL_PACK", pack.absolutePath)
+                    // Swap v3: the features left out of this graph. The feature-gated lib skips
+                    // their ops at compose time, so they cost nothing per render.
+                    if (tplDrop.isNotEmpty()) put("QNN_TPL_DROP", tplDrop)
                 },
                 work, report, onLine,
             )
@@ -397,6 +427,8 @@ object Converter {
         name: String,
         model: CheckpointInfo.Model,
         components: File,
+        swapFeatures: Collection<String>? = null,
+        predictionType: CheckpointInfo.PredictionType = CheckpointInfo.PredictionType.EPSILON,
         onFile: (String) -> Unit,
     ): String {
         // One zip, not seven loose files: it is what a generator's import
@@ -440,19 +472,26 @@ object Converter {
                     // the 9-channel inpaint pipeline for this SD1.5 folder.
                     // `lora_targets.json` is both the Swap marker and the data a
                     // LoRA packer needs: the order of the UNet's 160 LoRA inputs.
-                    val markers = when (model) {
+                    val familyMarkers = when (model) {
                         CheckpointInfo.Model.SDXL -> mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")
                         CheckpointInfo.Model.SD15_INPAINT -> mapOf("INPAINT" to "")
                         // `ip_targets.json` (Swap v2): the template takes IP-Adapter K/V
                         // inputs; Nightmare offers a reference picture only when it is here.
-                        CheckpointInfo.Model.SD15_SWAP -> listOf(SWAP_MARKER, IP_MARKER).mapNotNull { m ->
+                        // Swap v3: `swap_features.json` names what this UNet kept, and a
+                        // dropped IP-Adapter drops its marker too. `lora_targets.json` stays
+                        // either way -- it is what identifies a Swap model.
+                        CheckpointInfo.Model.SD15_SWAP -> (listOf(SWAP_MARKER) +
+                            (if (swapFeatures == null || "ip" in swapFeatures) listOf(IP_MARKER) else emptyList())
+                            ).mapNotNull { m ->
                             runCatching {
                                 context.assets.open("${model.templateDirectory}/$m")
                                     .use { it.readBytes().toString(Charsets.UTF_8) }
                             }.getOrNull()?.let { m to it }
-                        }.toMap().also { require(SWAP_MARKER in it) { "template_swap has no $SWAP_MARKER" } }
+                        }.toMap().also { require(SWAP_MARKER in it) { "template_swap has no $SWAP_MARKER" } } +
+                            (swapFeatures?.let { mapOf(SWAP_FEATURES_MARKER to swapFeaturesJson(it)) } ?: emptyMap())
                         CheckpointInfo.Model.SD15 -> emptyMap()
                     }
+                    val markers = familyMarkers + predictionMarkers(predictionType)
                     for ((entryName, text) in markers) {
                         zip.putNextEntry(ZipEntry(entryName))
                         zip.write(text.toByteArray(Charsets.UTF_8))

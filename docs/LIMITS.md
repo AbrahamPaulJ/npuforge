@@ -32,6 +32,20 @@ compiling the checkpoint's VAE; the Utility tab exports and imports them.
 Both VAE graphs are included, even for a text-to-image workload that uses only
 the decoder.
 
+### Prediction type
+
+Prediction type is a checkpoint/runtime contract, not a QAIRT version or graph
+conversion option. NPuForge reads `modelspec.prediction_type` when it is `v` or
+`epsilon`, and also accepts the common `v_prediction` spelling. The conversion
+screen always exposes an override because this optional metadata is absent or
+wrong in some community checkpoints. Missing or unrecognised metadata defaults
+to epsilon, preserving exports made before 1.0.8.
+
+A v-prediction export contains an empty root entry named `V_PRED`. Compatible
+LocalDream-based runtimes use it to launch with `--use_v_pred`; epsilon exports
+do not contain the marker. This does not alter the QNN graph. See
+[Prediction types](PREDICTION-TYPES.md).
+
 ### Downloads
 
 | File | When | Source |

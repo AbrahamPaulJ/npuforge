@@ -49,6 +49,10 @@ building the APK are developer tasks performed separately on a workstation.
   picture. Details: [docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md).
 - **Clip skip 1 or 2:** choose how SD1.5 text encoders are built. 2 is the
   default and matches earlier exports; 1 uses the full text encoder.
+- **V-prediction compatibility:** the app reads standard
+  `modelspec.prediction_type` checkpoint metadata and lets the user override it.
+  V-prediction exports include the `V_PRED` marker understood by compatible
+  LocalDream-based runtimes, including Nightmare Mobile 1.6.075 and later.
 - **Low-RAM phones:** below 10 GB of RAM, the SD1.5 compile keeps its working
   memory in a temporary file instead of RAM, so Android is far less likely to
   stop the conversion. It takes about twice as long.
@@ -120,9 +124,11 @@ pipeline**. [Results, methodology and remaining measurements](docs/RESULTS.md).
 1. Install an APK built with the required runtime and generated assets.
 2. Select a complete SD1.5 or SDXL `.safetensors` checkpoint, through the system
    picker or a file manager such as MiXplorer.
-3. For SD1.5, choose *Text-to-image* or *Inpainting* and a clip skip.
-4. Optionally add UNet LoRAs and set their strengths.
-5. Start conversion and import `Download/npuforge/<name>.zip` into **Fancy-Ai**
+3. Confirm the prediction type. Checkpoint metadata selects it when available;
+   epsilon remains the fallback for older files.
+4. For SD1.5, choose *Text-to-image* or *Inpainting* and a clip skip.
+5. Optionally add UNet LoRAs and set their strengths.
+6. Start conversion and import `Download/npuforge/<name>.zip` into **Fancy-Ai**
    or **Nightmare Mobile**.
 
 The current app targets Android 13+ on ARM64 Snapdragon devices: Snapdragon 8

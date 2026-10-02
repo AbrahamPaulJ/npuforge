@@ -71,6 +71,14 @@ class ConvertService : Service() {
         const val EXTRA_INPAINT_DIFF_URI = "inpaint_diff_uri"
         /** SD1.5 text-encoder clip skip, 1 or 2 ([CheckpointInfo.clipDirectory]). */
         const val EXTRA_CLIP_SKIP = "clip_skip"
+        /** Explicit UI/automation override; absent means use trusted checkpoint metadata. */
+        const val EXTRA_PREDICTION_TYPE = "prediction_type"
+        /**
+         * SD1.5 Swap v3: the features to KEEP, comma-separated ([Converter.SWAP_FEATURES]);
+         * absent = every feature the template supports. "inp" makes an inpainting model by
+         * add-difference. A plain string so `adb shell am --es` can drive it.
+         */
+        const val EXTRA_SWAP_FEATURES = "swap_features"
 
         private val _state = MutableStateFlow<State>(State.Idle)
         val state: StateFlow<State> = _state.asStateFlow()
@@ -89,6 +97,8 @@ class ConvertService : Service() {
             inpaintDiff: Boolean = false,
             inpaintDiffUri: Uri? = null,
             clipSkip: Int = 2,
+            swapFeatures: Collection<String>? = null,
+            predictionType: CheckpointInfo.PredictionType? = null,
         ) {
             val i = Intent(context, ConvertService::class.java)
                 .putExtra(EXTRA_URI, uri)
@@ -102,6 +112,8 @@ class ConvertService : Service() {
                 // end-to-end LoRA flow can be tested without tapping through
                 // a file picker.
                 .putExtra(EXTRA_LORAS, loras.map { "${it.first}|${it.second}" }.toTypedArray())
+            if (swapFeatures != null) i.putExtra(EXTRA_SWAP_FEATURES, swapFeatures.joinToString(","))
+            if (predictionType != null) i.putExtra(EXTRA_PREDICTION_TYPE, predictionType.name)
             context.startForegroundService(i)
         }
 
@@ -280,8 +292,22 @@ class ConvertService : Service() {
         val inpaintDiffUri = intent?.let {
             IntentCompat.getParcelableExtra(it, EXTRA_INPAINT_DIFF_URI, Uri::class.java)
         }
+        // Swap v3: what this UNet keeps and what its compile leaves out. A template that cannot
+        // drop features (Swap v2) keeps everything it has, and gets no features marker.
+        val swapSupported = if (model == CheckpointInfo.Model.SD15_SWAP) Converter.swapFeaturesSupported(this)
+            else emptyList()
+        val swapKept: List<String>? = if (swapSupported.isEmpty()) null else {
+            val asked = intent?.getStringExtra(EXTRA_SWAP_FEATURES)?.split(',')?.map { it.trim() }?.toSet()
+            swapSupported.filter { asked == null || it in asked }
+        }
+        val swapDrop = swapKept?.let { kept -> swapSupported.filterNot { it in kept }.joinToString(",") }.orEmpty()
+        // A Swap model with the inpaint feature is add-differenced like an SD15_INPAINT export.
+        val swapInpaint = swapKept?.contains("inp") == true
         val clipSkip = if (model == CheckpointInfo.Model.SDXL) 2
             else intent?.getIntExtra(EXTRA_CLIP_SKIP, 2)?.takeIf { it == 1 } ?: 2
+        val requestedPredictionType = intent?.getStringExtra(EXTRA_PREDICTION_TYPE)?.let { value ->
+            runCatching { CheckpointInfo.PredictionType.valueOf(value) }.getOrNull()
+        }
         val clipDirectory = CheckpointInfo.clipDirectory(model, clipSkip)
         val templateDir = model.templateDirectory
         val loraSpecs: List<Pair<Uri, Float>> =
@@ -334,11 +360,14 @@ class ConvertService : Service() {
                     diagnostic.record("LoRA strengths=${loraSpecs.map { it.second }}")
                     diagnostic.record("Inpaint add-difference=$inpaintDiff")
                     diagnostic.record("Clip skip=$clipSkip")
+                    if (model == CheckpointInfo.Model.SD15_SWAP) {
+                        diagnostic.record("Swap features supported=$swapSupported kept=$swapKept drop=[$swapDrop]")
+                    }
                     work.deleteRecursively()
                     work.mkdirs()
                     diagnostic.record("Conversion workspace: ${work.absolutePath}")
                     steps = (if (model == CheckpointInfo.Model.SDXL) 6 else 10) + loraSpecs.size +
-                        (if (inpaintDiff) 1 else 0)
+                        (if (inpaintDiff || swapInpaint) 1 else 0)
                     step = 0
 
                     step++
@@ -361,10 +390,18 @@ class ConvertService : Service() {
                             "SD1.5 Swap does not bake LoRAs in; choose them per render in the generating app.",
                         )
                     }
-                    CheckpointInfo.validate(
+                    val checkpointReport = CheckpointInfo.validate(
                         this@ConvertService, ckpt,
                         if (inpaintDiff || model == CheckpointInfo.Model.SD15_SWAP) CheckpointInfo.Model.SD15 else model,
                         clipSkip,
+                    )
+                    val predictionType = requestedPredictionType ?: checkpointReport.predictionType
+                        ?: CheckpointInfo.PredictionType.EPSILON
+                    diagnostic.record(
+                        "Prediction type=$predictionType " +
+                            if (requestedPredictionType != null) "(explicit)"
+                            else if (checkpointReport.predictionType != null) "(checkpoint metadata)"
+                            else "(default; metadata absent or unrecognised)",
                     )
 
                     val loraFiles = loraSpecs.mapIndexed { idx, (u, strength) ->
@@ -418,7 +455,7 @@ class ConvertService : Service() {
                         }
                     }
 
-                    val unetArgs = if (inpaintDiff) {
+                    val unetArgs = if (inpaintDiff || swapInpaint) {
                         step++
                         val diff = if (inpaintDiffUri != null && !InpaintDiff.isReady(this@ConvertService)) {
                             post(getString(R.string.stage_inpaint_diff_import))
@@ -432,7 +469,10 @@ class ConvertService : Service() {
                             }
                         }
                         diagnostic.record("Inpaint difference: ${diff.name} ${diff.length()} bytes")
-                        listOf("--inpaint-diff", diff.absolutePath)
+                        // Swap v3 splits conv_in: its sample-side conv reads the first 4 of the
+                        // 9 add-differenced input channels; the other 5 are a template constant.
+                        listOf("--inpaint-diff", diff.absolutePath) +
+                            (if (swapInpaint) listOf("--input-channel-prefix") else emptyList())
                     } else emptyList()
 
                     step++
@@ -453,14 +493,19 @@ class ConvertService : Service() {
 
                     step++
                     post(getString(R.string.stage_compile))
-                    val unet = Converter.stageCompile(this@ConvertService, pack, work, model, diagnostic) {
+                    val unet = Converter.stageCompile(
+                        this@ConvertService, pack, work, model, diagnostic, tplDrop = swapDrop,
+                    ) {
                         logLine(getString(R.string.stage_compile), it)
                     }
                     pack.delete()
 
                     step++
                     post(getString(R.string.stage_assemble))
-                    val where = Converter.assemble(this@ConvertService, unet, name, model, componentFiles) { f ->
+                    val where = Converter.assemble(
+                        this@ConvertService, unet, name, model, componentFiles, swapFeatures = swapKept,
+                        predictionType = predictionType,
+                    ) { f ->
                         post(getString(R.string.stage_assemble), f)
                     }
 

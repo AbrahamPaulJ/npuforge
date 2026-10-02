@@ -688,6 +688,13 @@ const LoraSet* g_loras = nullptr;
 // with zeros there. docs/SD15-INPAINT.md.
 const Safetensors* g_inpaint_diff = nullptr;
 
+// --input-channel-prefix: a 4-D conv source wider on axis 1 than its entry maps its LEADING input
+// channels. The Swap v3 template splits conv_in into a sample-side conv (channels 0..3) and an
+// inpaint branch (channels 4..8, a template constant for add-difference conversions), so the
+// 9-wide add-difference conv_in feeds the sample side through this. Off: a mismatch stays fatal.
+// Mirrors tpl_apply.py src_of.
+bool g_in_prefix = false;
+
 void apply_inpaint_diff(const std::string& key, std::vector<float>& v, std::vector<int64_t>& shape) {
     if (g_inpaint_diff->tensors.find(key) == g_inpaint_diff->tensors.end())
         die("inpaint diff lacks '%s'", key.c_str());
@@ -717,6 +724,18 @@ std::vector<float> src_of(const Safetensors& st, const Entry& e) {
     // it splits any base weight.
     if (g_loras) g_loras->apply(e.source, v);
     if (g_inpaint_diff) apply_inpaint_diff(e.source, v, shape);
+    if (g_in_prefix && shape.size() == 4 && e.head < 0) {
+        size_t o = (size_t)shape[0], ci = (size_t)shape[1], k = (size_t)(shape[2] * shape[3]);
+        size_t n = e.count();
+        if (n % (o * k) == 0 && n / (o * k) < ci) {
+            size_t cn = n / (o * k);
+            std::vector<float> cut(o * cn * k);
+            for (size_t a = 0; a < o; a++)
+                memcpy(&cut[(a * cn) * k], &v[(a * ci) * k], cn * k * sizeof(float));
+            v.swap(cut);
+            shape[1] = (int64_t)cn;
+        }
+    }
     if (e.head >= 0) {
         size_t stride = v.size() / (size_t)shape[0];
         size_t d = e.count() / stride;
@@ -771,7 +790,7 @@ int main(int argc, char** argv) {
         fprintf(stderr,
                 "usage: tplconv <recipe.bin> <template.pack> <checkpoint.safetensors> <out.pack>\n"
                 "                [--lora <file.safetensors>[:<strength>]] ...\n"
-                "                [--inpaint-diff <diff.safetensors>]\n");
+                "                [--inpaint-diff <diff.safetensors>] [--input-channel-prefix]\n");
         return 2;
     }
     const char* recipe_path = argv[1];
@@ -783,6 +802,7 @@ int main(int argc, char** argv) {
     for (int i = 5; i < argc; i++) {
         if (strcmp(argv[i], "--lora") == 0 && i + 1 < argc) lora_specs.push_back(argv[++i]);
         else if (strcmp(argv[i], "--inpaint-diff") == 0 && i + 1 < argc) inpaint_diff_path = argv[++i];
+        else if (strcmp(argv[i], "--input-channel-prefix") == 0) g_in_prefix = true;
         else die("unexpected argument '%s'", argv[i]);
     }
 

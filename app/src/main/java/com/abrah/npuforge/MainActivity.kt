@@ -265,10 +265,20 @@ private fun ConvertScreen() {
     var pickedName by rememberSaveable { mutableStateOf("") }
     var editedName by rememberSaveable { mutableStateOf<String?>(null) }
     var report by remember { mutableStateOf<CheckpointInfo.Report?>(null) }
+    // Metadata selects the initial value; the chips remain an explicit override.
+    var predictionType by rememberSaveable { mutableStateOf(CheckpointInfo.PredictionType.EPSILON) }
+    var predictionTypeOverridden by rememberSaveable { mutableStateOf(false) }
     // Plain SD1.5 only: convert into an inpainting model by add-difference.
     var asInpaint by rememberSaveable { mutableStateOf(false) }
     // Plain SD1.5 only: "SD1.5 Swap", LoRA + ControlNet chosen per render (never with asInpaint).
     var asSwap by rememberSaveable { mutableStateOf(false) }
+    // Swap v3: the features this conversion keeps; the rest are left out of the UNet and cost
+    // nothing per render. Kept across checkpoints. Inpaint is off by default: it makes an
+    // inpainting model, so text-to-image wants a second conversion without it.
+    val swapSupported = remember { Converter.swapFeaturesSupported(context) }
+    var swapKeptText by rememberSaveable { mutableStateOf("lora,cn,ip") }
+    val swapKept = swapKeptText.split(',').filter { it in swapSupported }
+    val swapInpaint = asSwap && "inp" in swapKept
     // SD1.5 only; kept across checkpoints. 2 is the long-standing default.
     var clipSkip by rememberSaveable { mutableStateOf(2) }
     val loras = rememberSaveable(
@@ -291,7 +301,8 @@ private fun ConvertScreen() {
         // Clip skip 1 and inpainting exports of one checkpoint can then sit side by side.
         val suffix = (if (clipSkip == 1 && report?.model != CheckpointInfo.Model.SDXL) "_cs1" else "") +
             (if (asInpaint) "_inpaint" else "") +
-            (if (asSwap) "_npuforge_swap" else "")
+            (if (asSwap) "_npuforge_swap" else "") +
+            (if (swapInpaint) "_inpaint" else "")
         if (suffix.isEmpty()) base else base.take(60 - suffix.length) + suffix
     }
 
@@ -315,10 +326,14 @@ private fun ConvertScreen() {
         report = null
         asInpaint = false
         asSwap = false
+        predictionType = CheckpointInfo.PredictionType.EPSILON
+        predictionTypeOverridden = false
         inspectError = null
         val uri = picked ?: return@LaunchedEffect
         try {
-            report = withContext(Dispatchers.IO) { CheckpointInfo.inspect(context, uri) }
+            val inspected = withContext(Dispatchers.IO) { CheckpointInfo.inspect(context, uri) }
+            report = inspected
+            predictionType = inspected.predictionType ?: CheckpointInfo.PredictionType.EPSILON
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -355,11 +370,19 @@ private fun ConvertScreen() {
         val checkpoint = picked
         if (uri != null && checkpoint != null) {
             notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-            ConvertService.start(
-                context, checkpoint, modelName, loras.map { it.first to it.third },
-                model = CheckpointInfo.Model.SD15_INPAINT, inpaintDiff = true, inpaintDiffUri = uri,
-                clipSkip = clipSkip,
-            )
+            if (swapInpaint) {
+                ConvertService.start(
+                    context, checkpoint, modelName, model = CheckpointInfo.Model.SD15_SWAP,
+                    inpaintDiffUri = uri, clipSkip = clipSkip, swapFeatures = swapKept,
+                    predictionType = predictionType.takeIf { predictionTypeOverridden },
+                )
+            } else {
+                ConvertService.start(
+                    context, checkpoint, modelName, loras.map { it.first to it.third },
+                    model = CheckpointInfo.Model.SD15_INPAINT, inpaintDiff = true, inpaintDiffUri = uri,
+                    clipSkip = clipSkip, predictionType = predictionType.takeIf { predictionTypeOverridden },
+                )
+            }
         }
     }
 
@@ -618,6 +641,37 @@ private fun ConvertScreen() {
                         )
                     }
                     report?.let { CheckpointCard(it) }
+                    if (report?.convertible == true) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(R.string.prediction_type_label), style = MaterialTheme.typography.labelMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(
+                                    selected = predictionType == CheckpointInfo.PredictionType.EPSILON,
+                                    onClick = {
+                                        predictionType = CheckpointInfo.PredictionType.EPSILON
+                                        predictionTypeOverridden = true
+                                    },
+                                    label = { Text(stringResource(R.string.prediction_epsilon)) },
+                                )
+                                FilterChip(
+                                    selected = predictionType == CheckpointInfo.PredictionType.V_PREDICTION,
+                                    onClick = {
+                                        predictionType = CheckpointInfo.PredictionType.V_PREDICTION
+                                        predictionTypeOverridden = true
+                                    },
+                                    label = { Text(stringResource(R.string.prediction_v)) },
+                                )
+                            }
+                            Text(
+                                stringResource(
+                                    if (report?.predictionType == null) R.string.prediction_unknown_note
+                                    else R.string.prediction_detected_note,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     if (report?.model == CheckpointInfo.Model.SD15 && report?.convertible == true) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(stringResource(R.string.mode_label), style = MaterialTheme.typography.labelMedium)
@@ -638,10 +692,46 @@ private fun ConvertScreen() {
                             }
                             if (asSwap) {
                                 Text(
-                                    stringResource(R.string.mode_swap_note),
+                                    stringResource(
+                                        if (swapSupported.isEmpty()) R.string.mode_swap_note else R.string.mode_swap_note_v3,
+                                    ),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                            }
+                            if (asSwap && swapSupported.isNotEmpty()) {
+                                Text(stringResource(R.string.swap_features_label), style = MaterialTheme.typography.labelMedium)
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    for (feature in swapSupported) {
+                                        FilterChip(
+                                            selected = feature in swapKept,
+                                            onClick = {
+                                                swapKeptText = (if (feature in swapKept) swapKept - feature
+                                                    else swapKept + feature).joinToString(",")
+                                            },
+                                            label = {
+                                                Text(stringResource(when (feature) {
+                                                    "lora" -> R.string.swap_feature_lora
+                                                    "cn" -> R.string.swap_feature_cn
+                                                    "ip" -> R.string.swap_feature_ip
+                                                    else -> R.string.swap_feature_inp
+                                                }))
+                                            },
+                                        )
+                                    }
+                                }
+                                if (swapInpaint) {
+                                    Text(
+                                        stringResource(
+                                            if (InpaintDiff.isReady(context)) R.string.swap_inpaint_note_ready
+                                            else R.string.swap_inpaint_note_download,
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                             if (asInpaint) {
                                 Text(
@@ -700,6 +790,8 @@ private fun ConvertScreen() {
                         ConvertService.start(
                             context, picked!!, modelName, bakedLoras.map { it.first to it.third },
                             model = model, inpaintDiff = inpaintByDiff, clipSkip = clipSkip,
+                            swapFeatures = if (swap && swapSupported.isNotEmpty()) swapKept else null,
+                            predictionType = predictionType.takeIf { predictionTypeOverridden },
                         )
                     }
 
@@ -710,7 +802,7 @@ private fun ConvertScreen() {
                             if (report?.model == CheckpointInfo.Model.SDXL && missing) {
                                 pendingConversionModel = CheckpointInfo.Model.SDXL
                                 showVaeDownloadDialog = true
-                            } else if (inpaintByDiff && !InpaintDiff.isReady(context)) {
+                            } else if ((inpaintByDiff || (swap && swapInpaint)) && !InpaintDiff.isReady(context)) {
                                 showInpaintDiffDialog = true
                             } else {
                                 startConversion()
@@ -738,11 +830,20 @@ private fun ConvertScreen() {
                             TextButton(onClick = {
                                 showInpaintDiffDialog = false
                                 notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                ConvertService.start(
-                                    context, picked!!, modelName, loras.map { it.first to it.third },
-                                    model = CheckpointInfo.Model.SD15_INPAINT, inpaintDiff = true,
-                                    clipSkip = clipSkip,
-                                )
+                                if (swapInpaint) {
+                                    ConvertService.start(
+                                        context, picked!!, modelName, model = CheckpointInfo.Model.SD15_SWAP,
+                                        clipSkip = clipSkip, swapFeatures = swapKept,
+                                        predictionType = predictionType.takeIf { predictionTypeOverridden },
+                                    )
+                                } else {
+                                    ConvertService.start(
+                                        context, picked!!, modelName, loras.map { it.first to it.third },
+                                        model = CheckpointInfo.Model.SD15_INPAINT, inpaintDiff = true,
+                                        clipSkip = clipSkip,
+                                        predictionType = predictionType.takeIf { predictionTypeOverridden },
+                                    )
+                                }
                             }) { Text(stringResource(R.string.inpaint_diff_dialog_confirm)) }
                         },
                         dismissButton = {
@@ -778,6 +879,7 @@ private fun ConvertScreen() {
                                     ConvertService.start(
                                         context, picked!!, modelName, loras.map { it.first to it.third },
                                         model = model,
+                                        predictionType = predictionType.takeIf { predictionTypeOverridden },
                                     )
                                 } else {
                                     ConvertService.downloadVae(context)

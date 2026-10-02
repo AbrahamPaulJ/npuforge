@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 """Phase 1 (docs/ON-DEVICE-CONVERT.md): checkpoint + recipe -> TPLPACK1, and its gate.
 
-    tpl_apply.py finalize <model.cpp> <recipe_raw.json> <recipe.json>
+    tpl_apply.py finalize <model.cpp> <recipe_raw.json> <recipe.json> [--template-constant <binvar>]...
         Adds what the phone needs and cannot derive: per-bias input-activation scale
-        and weight partner. Template constants stay as template bytes.
+        and weight partner. Template constants stay as template bytes; a WEIGHT with no
+        checkpoint source is an error unless named by --template-constant.
     tpl_apply.py apply <recipe.json> <template.pack> <checkpoint.safetensors> <out.pack>
         [--inpaint-diff <diff.safetensors>]: add-difference inpainting first
+        [--input-channel-prefix]: a 4-D conv source wider on axis 1 than its entry maps
+            its LEADING input channels (the Swap v3 template's sample-side conv_in reads
+            channels 0..3 of a 9-wide add-difference conv_in; the 5 inpaint channels are
+            a template constant). Off by default: a width mismatch stays an error.
     tpl_apply.py compare <a.pack> <b.pack>
 
 Quantization rules, each verified against the converter's output (tpl_rules.py/diag):
@@ -55,7 +60,18 @@ def rha(x32, lo, hi, dt):
     return np.clip(np.sign(x) * np.floor(np.abs(x) + 0.5), lo, hi).astype(dt)
 
 
-def finalize(cpp, raw_json, out):
+def finalize(cpp, raw_json, out, *options):
+    # --template-constant <binvar>: a weight (or its bias) with no checkpoint source that is MEANT
+    # to keep the template's bytes. Swap v3: conv_in's 5 inpaint channels are the official
+    # inpainting model's own for every add-difference conversion. Any other unmatched weight is
+    # still an error -- it would silently ship the template checkpoint's values.
+    keep = set()
+    opts = list(options)
+    while opts:
+        flag = opts.pop(0)
+        if flag != "--template-constant" or not opts:
+            raise SystemExit("usage: finalize <model.cpp> <recipe_raw.json> <recipe.json> [--template-constant <binvar>]...")
+        keep.add(opts.pop(0))
     R = json.load(open(raw_json))
     src = open(cpp, errors="replace").read()
     consumer = {}
@@ -69,6 +85,12 @@ def finalize(cpp, raw_json, out):
     rules = {}
     for e in R["entries"]:
         d, enc, s = e["dtype"], e["enc"], e["source"]
+        if e["binvar"] in keep:
+            assert not s, f'{e["binvar"]} has a checkpoint source; it is not a template constant'
+            e["rule"] = "template"
+            rules["template"] = rules.get("template", 0) + 1
+            keep.discard(e["binvar"])
+            continue
         if d.endswith("SFIXED_POINT_8") and enc == "axis":
             e["rule"] = "i8_axis"
         elif d.endswith("UFIXED_POINT_8") and enc == "scalar":
@@ -84,13 +106,22 @@ def finalize(cpp, raw_json, out):
             e["rule"] = "template"
         assert e["rule"] == "template" or s or e["rule"] == "i32_axis_zero", e["binvar"]
         rules[e["rule"]] = rules.get(e["rule"], 0) + 1
+    assert not keep, f"--template-constant names no pack entry: {sorted(keep)}"
     del R["pairs"]
     json.dump(R, open(out, "w"))
     print("rules:", rules, "->", out)
 
 
+IN_PREFIX = False
+
+
 def src_of(sd, e):
     v = sd[e["source"]].astype(np.float32)
+    if IN_PREFIX and v.ndim == 4 and e["head"] is None:
+        k = v.shape[0] * v.shape[2] * v.shape[3]
+        n = int(np.prod(e["dims"]))
+        if n % k == 0 and n // k < v.shape[1]:
+            v = np.ascontiguousarray(v[:, :n // k])
     if e["head"] is not None:
         d = int(np.prod(e["dims"])) // (v.size // v.shape[0])
         v = v[e["head"] * d:(e["head"] + 1) * d]
@@ -128,10 +159,16 @@ def apply(recipe, template_pack, ckpt, out, *options):
     tpl = {n: (p, b) for n, p, b in read_pack(template_pack)}
     with safe_open(ckpt, framework="np") as source:
         sd = {key: source.get_tensor(key) for key in {e["source"] for e in R["entries"] if e.get("source")}}
-    if options:
-        if len(options) != 2 or options[0] != "--inpaint-diff":
-            raise SystemExit("usage: apply <recipe> <template.pack> <ckpt> <out> [--inpaint-diff <diff>]")
-        add_inpaint_diff(sd, options[1])
+    global IN_PREFIX
+    opts = list(options)
+    if "--input-channel-prefix" in opts:
+        opts.remove("--input-channel-prefix")
+        IN_PREFIX = True
+    if opts:
+        if len(opts) != 2 or opts[0] != "--inpaint-diff":
+            raise SystemExit("usage: apply <recipe> <template.pack> <ckpt> <out> [--inpaint-diff <diff>] "
+                             "[--input-channel-prefix]")
+        add_inpaint_diff(sd, opts[1])
     wscale = {}          # weight binvar -> new per-channel scales (float32)
     entries = []
     order = sorted(R["entries"], key=lambda e: e["rule"] in ("i32_axis_bias", "i32_axis_zero"))

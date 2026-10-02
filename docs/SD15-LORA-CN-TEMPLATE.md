@@ -16,6 +16,7 @@ the scripts are in `notes/2026-09-29-input-lora-cn-probe.md`.
 6. Runtime (Nightmare Mobile), 6b. In the app: "SD1.5 Swap"
 7. Open work
 8. Swap v2: IP-Adapter inputs
+9. Swap v3: features chosen per conversion, and an inpaint branch
 
 ## 1. Graph contract
 
@@ -202,3 +203,79 @@ ONNX. ⚠ int8 fails Plus: worst K/V cosine 0.838 dynamic, 0.991 weight-only, 0.
 — ViT-H's activation outliers, amplified by the Plus resampler. int16 weights behind
 `DequantizeLinear` give 0.99999995 at 1.17 GB and ~1.4 GB peak RSS; fp16 weights behind `Cast`
 are as exact but ONNX Runtime expands every one at load (3.3 GB). ~6 s per picture on the S25.
+
+## 9. Swap v3: features chosen per conversion, and an inpaint branch
+
+Built 2026-10-02 (QAIRT 2.50). One template whose four features -- LoRA, ControlNet, IP-Adapter and
+inpaint -- are each chosen **per conversion**; a feature left out is absent from the compiled graph
+and costs nothing per render. It replaces the planned separate "Swap Inpaint" template.
+
+**Feature omission.** A QNN context is static, but the phone composes it from the pack-loading
+`libqnn_model.so` at every conversion. `tools/tpl_features.py` rewrites `model_tpl.cpp` so the lib
+reads `$QNN_TPL_DROP` (`lora,cn,ip,inp`, any subset) at compose time: every node tainted by a dropped
+input is skipped, and each branch's merge Add (ElementWiseBinary ADD, one tainted side, the clean side
+the same shape) becomes an alias to the clean side, which carries its own encoding. Static tensors and
+inputs no kept node reads are skipped too. Merges cut: ControlNet 13, IP 16, LoRA 832 (16 blocks x 52 --
+q/k/v merge per head), inpaint 1. `QNN_TPL_DROP` unset = the original graph call for call.
+
+Measured first on Swap v2 (S25, AbsoluteReality, 2026-10-02): drop nothing = the shipped v2 context
+**byte-identical**; drop all = 3 inputs, 881.8 MB, compile 68 s (full 120 s); every slim graph matches
+the full one at 55-61 dB on the held-out row with the same feature gain and cosine. Unused cost, NPU
+accelerator min of 3 interleaved passes x 50: plain 274-278 ms, +ControlNet 271-273 (0%), +IP 276-279
+(+1%), +LoRA 304-307 (+11%), all three 306-309 (+12%) -- LoRA is the whole unused cost.
+
+**The inpaint branch.** conv_in is split by linearity into `conv_in_a(sample 4ch, bias)` +
+`conv_in_b([mask 1 | masked_latent 4], no bias)`, merged by one Add: dropping `inp` leaves exactly the
+4-channel txt2img graph (v2's 369 inputs), keeping it is exactly the 9-channel inpainting UNet. New
+inputs go last: `mask` [1,1,64,64] window [0, 1], `masked_latent` [1,4,64,64] window +-8. For an
+add-difference conversion conv_in's channels 4..8 are the official inpainting model's own for every
+checkpoint, so `conv_in_b` is a **template constant** (`tpl_apply.py finalize --template-constant`);
+`conv_in_a` reads channels 0..3 of the 9-wide add-differenced conv_in through the opt-in
+`--input-channel-prefix` (tplconv and tpl_apply.py, byte-identical). A plain conversion gives conv_in
+its 4 channels as before.
+
+**Authoring** (the v2 recipe, section 8, with): template weights = DreamShaper 8 + the official
+difference in float32; 8 calibration rows -- v2's 4 txt2img rows with mask and masked latent zero, and
+4 inpaint rows from add-difference DreamShaper 8 trajectories (t 999 / 19 / 839 full-mask uncond / 719
+face). ⭐ **Activation ranges are the UNION of two calibrations** (the shipped bundle, "v3b"): the
+add-difference weights over all 8 rows, and the plain DreamShaper 8 weights (with the template's
+conv_in_b) over the 4 txt2img rows, merged per tensor into 6,928 overrides for the final quantize.
+Calibrating once on the add-difference weights only ("v3a") clipped plain-checkpoint txt2img:
+1,924 activations ran past their range, the attn2 head outputs of up_blocks.2 by up to 2x, and
+txt2img fell 1.2 dB below v2 (table below). ⚠ The 8-row quantize's working set exceeded WSL's 8 GB
+plus 11.5 GB of swap; with `memory=13GB` in `.wslconfig` it peaked at 3.9 GB swap.
+
+**Gates** (host): split graph vs diffusers' 9-channel inpaint UNet with IP, fp32: max |d| 5.1e-6;
+encodings: time_proj reaches 999, 0 dead, 1,249 / 1,265 overrides (v2's 16 renamed attn1 tensors; every
+IP, mask and masked-latent window landed); identity pack vs stock byte-identical; discover 1,358 matched
+/ 0 ambiguous (unmatched 1,155 = v2's 1,153 + conv_in_b's weight and bias); round trip 0 scale
+mismatches, 239 bias bytes plus 15 weights with 1-2 elements one step apart (rounding ties of the
+float32 add-difference weights; fp16 sources never tie); AbsoluteReality inpaint pack: native tplconv
+from the bundle == tpl_apply.py (md5 `a02e6091...`). Bundle: `recipe.bin` 418 KB, `tpl_trim.pack` 87 KB,
+gated aarch64 lib 17 MB, `swap_features.json`.
+
+**Phone** (S25, AbsoluteReality packed by the phone's tplconv -- the inpaint pack's md5 equals the
+host's -- one context per feature set from the one gated lib). Held-out rows vs ORT fp32; gain / cosine
+compare the NPU's delta with fp32's:
+
+| | v2 | v3a (one calibration) | **v3b (union, shipped)** |
+|---|---|---|---|
+| txt2img base | 34.3 dB | 33.1 dB | **35.2 dB** |
+| txt2img LoRA | 1.026 / 0.984 | 1.056 / 0.971 | **1.027 / 0.986** |
+| txt2img canny | 1.018 / 0.996 | 1.025 / 0.996 | **1.018 / 0.997** |
+| txt2img IP | 1.010 / 0.972 | 1.011 / 0.960 | **1.006 / 0.974** |
+| inpaint base (add-difference, inpaint row) | -- | 39.1 dB | **39.5 dB** |
+| inpaint LoRA / canny / IP cosine | -- | 0.979 / 0.998 / 0.952 | **0.985 / 0.999 / 0.959** |
+
+Contexts: txt2img (inp dropped) 886,886,680 B -- v2's size, the same graph; inpaint with everything
+886,948,480 B. Accelerator time, best of 3 interleaved passes x 50: v2 308 ms, v3 txt2img 310 ms,
+v3 inpaint 310 ms -- the inpaint branch (one 5-channel conv) is inside this run's noise (the phone was
+suspending with its screen off; one pass ran at half speed throughout).
+
+**In the app.** *Convert as -> SD1.5 Swap* shows feature chips when `template_swap/` carries
+`swap_features.json`: LoRA, ControlNet, IP-Adapter on and Inpaint off by default. Inpaint downloads the
+difference once and names the export `..._npuforge_swap_inpaint`. The export writes
+`swap_features.json` (what its UNet kept); `lora_targets.json` stays as the Swap marker; a dropped
+IP-Adapter drops `ip_targets.json`. Nightmare Mobile 1.6.075 feeds a v3 inpaint model's `mask` /
+`masked_latent` from its Swap Inpaint node (its backend patch 017; walked 2026-10-02 on an Anything V5
+conversion made in this app); it does not yet hide a dropped feature's controls.

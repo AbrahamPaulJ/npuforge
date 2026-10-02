@@ -198,10 +198,10 @@ successful MOP run's 8 steps / CFG 1 / LCM cannot establish a universal preset.
 However, the saved standard-sampler runs mean changing presets alone is not a
 complete explanation here. [Illustrious model card](https://huggingface.co/OnomaAIResearch/Illustrious-xl-early-release-v0)
 
-Some derivatives use a different prediction type. npuforge exports
-architecture/context markers; the generation request supplies the prediction
-setting in Fancy-Ai or Nightmare Mobile. Verify it for the specific checkpoint rather
-than assuming it from the name “anime” or “SDXL”.
+Some derivatives use a different prediction type. Since 1.0.8, npuforge reads
+standard checkpoint metadata, exposes an explicit epsilon/v-prediction override
+and exports `V_PRED` for compatible runtimes. Verify it for the specific
+checkpoint rather than assuming it from the name “anime” or “SDXL”.
 
 ### Original Pony v6 failure
 
