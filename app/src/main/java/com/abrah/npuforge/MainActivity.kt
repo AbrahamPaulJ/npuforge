@@ -284,6 +284,11 @@ private fun ConvertScreen() {
         runCatching { "recipe.bin" in context.assets.list(CheckpointInfo.Model.SDXL_SWAP.templateDirectory).orEmpty() }
             .getOrDefault(false)
     }
+    // Its own selection, NONE by default: with no feature kept the export is a plain SDXL model that
+    // importers render today; a kept feature needs the generating app's SDXL Swap support.
+    val sdxlSwapSupported = remember { Converter.swapFeaturesSupported(context, CheckpointInfo.Model.SDXL_SWAP) }
+    var sdxlSwapKeptText by rememberSaveable { mutableStateOf("") }
+    val sdxlSwapKept = sdxlSwapKeptText.split(',').filter { it in sdxlSwapSupported }
     // SD1.5 only; kept across checkpoints. 2 is the long-standing default.
     var clipSkip by rememberSaveable { mutableStateOf(2) }
     val loras = rememberSaveable(
@@ -770,6 +775,34 @@ private fun ConvertScreen() {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                            if (asSwap && sdxlSwapSupported.isNotEmpty()) {
+                                Text(stringResource(R.string.swap_features_label), style = MaterialTheme.typography.labelMedium)
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    for (feature in sdxlSwapSupported) {
+                                        FilterChip(
+                                            selected = feature in sdxlSwapKept,
+                                            onClick = {
+                                                sdxlSwapKeptText = (if (feature in sdxlSwapKept) sdxlSwapKept - feature
+                                                    else sdxlSwapKept + feature).joinToString(",")
+                                            },
+                                            label = {
+                                                Text(stringResource(when (feature) {
+                                                    "lora" -> R.string.swap_feature_lora
+                                                    "cn" -> R.string.swap_feature_cn
+                                                    else -> R.string.swap_feature_ip
+                                                }))
+                                            },
+                                        )
+                                    }
+                                }
+                                if (sdxlSwapKept.isNotEmpty()) {
+                                    Text(
+                                        stringResource(R.string.mode_sdxl_swap_features_note),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            }
                         }
                     }
                     if (report?.model != CheckpointInfo.Model.SDXL && report?.convertible == true) {
@@ -819,7 +852,11 @@ private fun ConvertScreen() {
                         ConvertService.start(
                             context, picked!!, modelName, bakedLoras.map { it.first to it.third },
                             model = model, inpaintDiff = inpaintByDiff, clipSkip = clipSkip,
-                            swapFeatures = if (swap && swapSupported.isNotEmpty()) swapKept else null,
+                            swapFeatures = when {
+                                sdxlSwap -> sdxlSwapKept
+                                swap && swapSupported.isNotEmpty() -> swapKept
+                                else -> null
+                            },
                             predictionType = predictionType.takeIf { predictionTypeOverridden },
                         )
                     }
@@ -912,6 +949,7 @@ private fun ConvertScreen() {
                                         if (pending == CheckpointInfo.Model.SDXL_SWAP) emptyList()
                                         else loras.map { it.first to it.third },
                                         model = pending,
+                                        swapFeatures = if (pending == CheckpointInfo.Model.SDXL_SWAP) sdxlSwapKept else null,
                                         predictionType = predictionType.takeIf { predictionTypeOverridden },
                                     )
                                 } else {

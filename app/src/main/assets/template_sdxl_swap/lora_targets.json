@@ -1,0 +1,4205 @@
+{
+"rank": 64,
+"targets": [
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.attn1.q",
+"idx": 0,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.attn1.k",
+"idx": 1,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.attn1.v",
+"idx": 2,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.attn1.out",
+"idx": 3,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.ff.proj",
+"idx": 4,
+"din": 640,
+"dout": 5120
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.ff.out",
+"idx": 5,
+"din": 2560,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.attn2.q",
+"idx": 6,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.attn2.k",
+"idx": 7,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.attn2.v",
+"idx": 8,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.0.attn2.out",
+"idx": 9,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.1.attn1.q",
+"idx": 10,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.1.attn1.k",
+"idx": 11,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.1.attn1.v",
+"idx": 12,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.1.attn1.out",
+"idx": 13,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.1.ff.proj",
+"idx": 14,
+"din": 640,
+"dout": 5120
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.1.ff.out",
+"idx": 15,
+"din": 2560,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.1.attn2.q",
+"idx": 16,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.1.attn2.k",
+"idx": 17,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.1.attn2.v",
+"idx": 18,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.0.transformer_blocks.1.attn2.out",
+"idx": 19,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.attn1.q",
+"idx": 20,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.attn1.k",
+"idx": 21,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.attn1.v",
+"idx": 22,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.attn1.out",
+"idx": 23,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.ff.proj",
+"idx": 24,
+"din": 640,
+"dout": 5120
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.ff.out",
+"idx": 25,
+"din": 2560,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.attn2.q",
+"idx": 26,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.attn2.k",
+"idx": 27,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.attn2.v",
+"idx": 28,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.0.attn2.out",
+"idx": 29,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.1.attn1.q",
+"idx": 30,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.1.attn1.k",
+"idx": 31,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.1.attn1.v",
+"idx": 32,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.1.attn1.out",
+"idx": 33,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.1.ff.proj",
+"idx": 34,
+"din": 640,
+"dout": 5120
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.1.ff.out",
+"idx": 35,
+"din": 2560,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.1.attn2.q",
+"idx": 36,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.1.attn2.k",
+"idx": 37,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.1.attn2.v",
+"idx": 38,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "down_blocks.1.attentions.1.transformer_blocks.1.attn2.out",
+"idx": 39,
+"din": 640,
+"dout": 640
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.attn1.q",
+"idx": 40,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.attn1.k",
+"idx": 41,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.attn1.v",
+"idx": 42,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.attn1.out",
+"idx": 43,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.ff.proj",
+"idx": 44,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.ff.out",
+"idx": 45,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.attn2.q",
+"idx": 46,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.attn2.k",
+"idx": 47,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.attn2.v",
+"idx": 48,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.0.attn2.out",
+"idx": 49,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.1.attn1.q",
+"idx": 50,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.1.attn1.k",
+"idx": 51,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.1.attn1.v",
+"idx": 52,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.1.attn1.out",
+"idx": 53,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.1.ff.proj",
+"idx": 54,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.1.ff.out",
+"idx": 55,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.1.attn2.q",
+"idx": 56,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.1.attn2.k",
+"idx": 57,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.1.attn2.v",
+"idx": 58,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.1.attn2.out",
+"idx": 59,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.2.attn1.q",
+"idx": 60,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.2.attn1.k",
+"idx": 61,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.2.attn1.v",
+"idx": 62,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.2.attn1.out",
+"idx": 63,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.2.ff.proj",
+"idx": 64,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.2.ff.out",
+"idx": 65,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.2.attn2.q",
+"idx": 66,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.2.attn2.k",
+"idx": 67,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.2.attn2.v",
+"idx": 68,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.2.attn2.out",
+"idx": 69,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.3.attn1.q",
+"idx": 70,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.3.attn1.k",
+"idx": 71,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.3.attn1.v",
+"idx": 72,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.3.attn1.out",
+"idx": 73,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.3.ff.proj",
+"idx": 74,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.3.ff.out",
+"idx": 75,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.3.attn2.q",
+"idx": 76,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.3.attn2.k",
+"idx": 77,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.3.attn2.v",
+"idx": 78,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.3.attn2.out",
+"idx": 79,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.4.attn1.q",
+"idx": 80,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.4.attn1.k",
+"idx": 81,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.4.attn1.v",
+"idx": 82,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.4.attn1.out",
+"idx": 83,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.4.ff.proj",
+"idx": 84,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.4.ff.out",
+"idx": 85,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.4.attn2.q",
+"idx": 86,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.4.attn2.k",
+"idx": 87,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.4.attn2.v",
+"idx": 88,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.4.attn2.out",
+"idx": 89,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.5.attn1.q",
+"idx": 90,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.5.attn1.k",
+"idx": 91,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.5.attn1.v",
+"idx": 92,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.5.attn1.out",
+"idx": 93,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.5.ff.proj",
+"idx": 94,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.5.ff.out",
+"idx": 95,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.5.attn2.q",
+"idx": 96,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.5.attn2.k",
+"idx": 97,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.5.attn2.v",
+"idx": 98,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.5.attn2.out",
+"idx": 99,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.6.attn1.q",
+"idx": 100,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.6.attn1.k",
+"idx": 101,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.6.attn1.v",
+"idx": 102,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.6.attn1.out",
+"idx": 103,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.6.ff.proj",
+"idx": 104,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.6.ff.out",
+"idx": 105,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.6.attn2.q",
+"idx": 106,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.6.attn2.k",
+"idx": 107,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.6.attn2.v",
+"idx": 108,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.6.attn2.out",
+"idx": 109,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.7.attn1.q",
+"idx": 110,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.7.attn1.k",
+"idx": 111,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.7.attn1.v",
+"idx": 112,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.7.attn1.out",
+"idx": 113,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.7.ff.proj",
+"idx": 114,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.7.ff.out",
+"idx": 115,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.7.attn2.q",
+"idx": 116,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.7.attn2.k",
+"idx": 117,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.7.attn2.v",
+"idx": 118,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.7.attn2.out",
+"idx": 119,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.8.attn1.q",
+"idx": 120,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.8.attn1.k",
+"idx": 121,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.8.attn1.v",
+"idx": 122,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.8.attn1.out",
+"idx": 123,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.8.ff.proj",
+"idx": 124,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.8.ff.out",
+"idx": 125,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.8.attn2.q",
+"idx": 126,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.8.attn2.k",
+"idx": 127,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.8.attn2.v",
+"idx": 128,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.8.attn2.out",
+"idx": 129,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.9.attn1.q",
+"idx": 130,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.9.attn1.k",
+"idx": 131,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.9.attn1.v",
+"idx": 132,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.9.attn1.out",
+"idx": 133,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.9.ff.proj",
+"idx": 134,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.9.ff.out",
+"idx": 135,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.9.attn2.q",
+"idx": 136,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.9.attn2.k",
+"idx": 137,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.9.attn2.v",
+"idx": 138,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.0.transformer_blocks.9.attn2.out",
+"idx": 139,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.attn1.q",
+"idx": 140,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.attn1.k",
+"idx": 141,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.attn1.v",
+"idx": 142,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.attn1.out",
+"idx": 143,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.ff.proj",
+"idx": 144,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.ff.out",
+"idx": 145,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.attn2.q",
+"idx": 146,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.attn2.k",
+"idx": 147,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.attn2.v",
+"idx": 148,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.0.attn2.out",
+"idx": 149,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.1.attn1.q",
+"idx": 150,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.1.attn1.k",
+"idx": 151,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.1.attn1.v",
+"idx": 152,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.1.attn1.out",
+"idx": 153,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.1.ff.proj",
+"idx": 154,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.1.ff.out",
+"idx": 155,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.1.attn2.q",
+"idx": 156,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.1.attn2.k",
+"idx": 157,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.1.attn2.v",
+"idx": 158,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.1.attn2.out",
+"idx": 159,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.2.attn1.q",
+"idx": 160,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.2.attn1.k",
+"idx": 161,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.2.attn1.v",
+"idx": 162,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.2.attn1.out",
+"idx": 163,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.2.ff.proj",
+"idx": 164,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.2.ff.out",
+"idx": 165,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.2.attn2.q",
+"idx": 166,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.2.attn2.k",
+"idx": 167,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.2.attn2.v",
+"idx": 168,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.2.attn2.out",
+"idx": 169,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.3.attn1.q",
+"idx": 170,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.3.attn1.k",
+"idx": 171,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.3.attn1.v",
+"idx": 172,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.3.attn1.out",
+"idx": 173,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.3.ff.proj",
+"idx": 174,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.3.ff.out",
+"idx": 175,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.3.attn2.q",
+"idx": 176,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.3.attn2.k",
+"idx": 177,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.3.attn2.v",
+"idx": 178,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.3.attn2.out",
+"idx": 179,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.4.attn1.q",
+"idx": 180,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.4.attn1.k",
+"idx": 181,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.4.attn1.v",
+"idx": 182,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.4.attn1.out",
+"idx": 183,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.4.ff.proj",
+"idx": 184,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.4.ff.out",
+"idx": 185,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.4.attn2.q",
+"idx": 186,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.4.attn2.k",
+"idx": 187,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.4.attn2.v",
+"idx": 188,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.4.attn2.out",
+"idx": 189,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.5.attn1.q",
+"idx": 190,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.5.attn1.k",
+"idx": 191,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.5.attn1.v",
+"idx": 192,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.5.attn1.out",
+"idx": 193,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.5.ff.proj",
+"idx": 194,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.5.ff.out",
+"idx": 195,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.5.attn2.q",
+"idx": 196,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.5.attn2.k",
+"idx": 197,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.5.attn2.v",
+"idx": 198,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.5.attn2.out",
+"idx": 199,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.6.attn1.q",
+"idx": 200,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.6.attn1.k",
+"idx": 201,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.6.attn1.v",
+"idx": 202,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.6.attn1.out",
+"idx": 203,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.6.ff.proj",
+"idx": 204,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.6.ff.out",
+"idx": 205,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.6.attn2.q",
+"idx": 206,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.6.attn2.k",
+"idx": 207,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.6.attn2.v",
+"idx": 208,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.6.attn2.out",
+"idx": 209,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.7.attn1.q",
+"idx": 210,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.7.attn1.k",
+"idx": 211,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.7.attn1.v",
+"idx": 212,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.7.attn1.out",
+"idx": 213,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.7.ff.proj",
+"idx": 214,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.7.ff.out",
+"idx": 215,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.7.attn2.q",
+"idx": 216,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.7.attn2.k",
+"idx": 217,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.7.attn2.v",
+"idx": 218,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.7.attn2.out",
+"idx": 219,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.8.attn1.q",
+"idx": 220,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.8.attn1.k",
+"idx": 221,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.8.attn1.v",
+"idx": 222,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.8.attn1.out",
+"idx": 223,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.8.ff.proj",
+"idx": 224,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.8.ff.out",
+"idx": 225,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.8.attn2.q",
+"idx": 226,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.8.attn2.k",
+"idx": 227,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.8.attn2.v",
+"idx": 228,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.8.attn2.out",
+"idx": 229,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.9.attn1.q",
+"idx": 230,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.9.attn1.k",
+"idx": 231,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.9.attn1.v",
+"idx": 232,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.9.attn1.out",
+"idx": 233,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.9.ff.proj",
+"idx": 234,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.9.ff.out",
+"idx": 235,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.9.attn2.q",
+"idx": 236,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.9.attn2.k",
+"idx": 237,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.9.attn2.v",
+"idx": 238,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "down_blocks.2.attentions.1.transformer_blocks.9.attn2.out",
+"idx": 239,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.0.attn1.q",
+"idx": 240,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.0.attn1.k",
+"idx": 241,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.0.attn1.v",
+"idx": 242,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.0.attn1.out",
+"idx": 243,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.0.ff.proj",
+"idx": 244,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.0.ff.out",
+"idx": 245,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.0.attn2.q",
+"idx": 246,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.0.attn2.k",
+"idx": 247,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.0.attn2.v",
+"idx": 248,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.0.attn2.out",
+"idx": 249,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.1.attn1.q",
+"idx": 250,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.1.attn1.k",
+"idx": 251,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.1.attn1.v",
+"idx": 252,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.1.attn1.out",
+"idx": 253,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.1.ff.proj",
+"idx": 254,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.1.ff.out",
+"idx": 255,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.1.attn2.q",
+"idx": 256,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.1.attn2.k",
+"idx": 257,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.1.attn2.v",
+"idx": 258,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.1.attn2.out",
+"idx": 259,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.2.attn1.q",
+"idx": 260,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.2.attn1.k",
+"idx": 261,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.2.attn1.v",
+"idx": 262,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.2.attn1.out",
+"idx": 263,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.2.ff.proj",
+"idx": 264,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.2.ff.out",
+"idx": 265,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.2.attn2.q",
+"idx": 266,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.2.attn2.k",
+"idx": 267,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.2.attn2.v",
+"idx": 268,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.2.attn2.out",
+"idx": 269,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.3.attn1.q",
+"idx": 270,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.3.attn1.k",
+"idx": 271,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.3.attn1.v",
+"idx": 272,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.3.attn1.out",
+"idx": 273,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.3.ff.proj",
+"idx": 274,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.3.ff.out",
+"idx": 275,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.3.attn2.q",
+"idx": 276,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.3.attn2.k",
+"idx": 277,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.3.attn2.v",
+"idx": 278,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.3.attn2.out",
+"idx": 279,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.4.attn1.q",
+"idx": 280,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.4.attn1.k",
+"idx": 281,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.4.attn1.v",
+"idx": 282,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.4.attn1.out",
+"idx": 283,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.4.ff.proj",
+"idx": 284,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.4.ff.out",
+"idx": 285,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.4.attn2.q",
+"idx": 286,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.4.attn2.k",
+"idx": 287,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.4.attn2.v",
+"idx": 288,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.4.attn2.out",
+"idx": 289,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.5.attn1.q",
+"idx": 290,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.5.attn1.k",
+"idx": 291,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.5.attn1.v",
+"idx": 292,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.5.attn1.out",
+"idx": 293,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.5.ff.proj",
+"idx": 294,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.5.ff.out",
+"idx": 295,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.5.attn2.q",
+"idx": 296,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.5.attn2.k",
+"idx": 297,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.5.attn2.v",
+"idx": 298,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.5.attn2.out",
+"idx": 299,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.6.attn1.q",
+"idx": 300,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.6.attn1.k",
+"idx": 301,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.6.attn1.v",
+"idx": 302,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.6.attn1.out",
+"idx": 303,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.6.ff.proj",
+"idx": 304,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.6.ff.out",
+"idx": 305,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.6.attn2.q",
+"idx": 306,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.6.attn2.k",
+"idx": 307,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.6.attn2.v",
+"idx": 308,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.6.attn2.out",
+"idx": 309,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.7.attn1.q",
+"idx": 310,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.7.attn1.k",
+"idx": 311,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.7.attn1.v",
+"idx": 312,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.7.attn1.out",
+"idx": 313,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.7.ff.proj",
+"idx": 314,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.7.ff.out",
+"idx": 315,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.7.attn2.q",
+"idx": 316,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.7.attn2.k",
+"idx": 317,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.7.attn2.v",
+"idx": 318,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.7.attn2.out",
+"idx": 319,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.8.attn1.q",
+"idx": 320,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.8.attn1.k",
+"idx": 321,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.8.attn1.v",
+"idx": 322,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.8.attn1.out",
+"idx": 323,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.8.ff.proj",
+"idx": 324,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.8.ff.out",
+"idx": 325,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.8.attn2.q",
+"idx": 326,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.8.attn2.k",
+"idx": 327,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.8.attn2.v",
+"idx": 328,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.8.attn2.out",
+"idx": 329,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.9.attn1.q",
+"idx": 330,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.9.attn1.k",
+"idx": 331,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.9.attn1.v",
+"idx": 332,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.9.attn1.out",
+"idx": 333,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.9.ff.proj",
+"idx": 334,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.9.ff.out",
+"idx": 335,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.9.attn2.q",
+"idx": 336,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.9.attn2.k",
+"idx": 337,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.9.attn2.v",
+"idx": 338,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.0.transformer_blocks.9.attn2.out",
+"idx": 339,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.0.attn1.q",
+"idx": 340,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.0.attn1.k",
+"idx": 341,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.0.attn1.v",
+"idx": 342,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.0.attn1.out",
+"idx": 343,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.0.ff.proj",
+"idx": 344,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.0.ff.out",
+"idx": 345,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.0.attn2.q",
+"idx": 346,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.0.attn2.k",
+"idx": 347,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.0.attn2.v",
+"idx": 348,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.0.attn2.out",
+"idx": 349,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.1.attn1.q",
+"idx": 350,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.1.attn1.k",
+"idx": 351,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.1.attn1.v",
+"idx": 352,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.1.attn1.out",
+"idx": 353,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.1.ff.proj",
+"idx": 354,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.1.ff.out",
+"idx": 355,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.1.attn2.q",
+"idx": 356,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.1.attn2.k",
+"idx": 357,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.1.attn2.v",
+"idx": 358,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.1.attn2.out",
+"idx": 359,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.2.attn1.q",
+"idx": 360,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.2.attn1.k",
+"idx": 361,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.2.attn1.v",
+"idx": 362,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.2.attn1.out",
+"idx": 363,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.2.ff.proj",
+"idx": 364,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.2.ff.out",
+"idx": 365,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.2.attn2.q",
+"idx": 366,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.2.attn2.k",
+"idx": 367,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.2.attn2.v",
+"idx": 368,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.2.attn2.out",
+"idx": 369,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.3.attn1.q",
+"idx": 370,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.3.attn1.k",
+"idx": 371,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.3.attn1.v",
+"idx": 372,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.3.attn1.out",
+"idx": 373,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.3.ff.proj",
+"idx": 374,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.3.ff.out",
+"idx": 375,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.3.attn2.q",
+"idx": 376,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.3.attn2.k",
+"idx": 377,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.3.attn2.v",
+"idx": 378,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.3.attn2.out",
+"idx": 379,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.4.attn1.q",
+"idx": 380,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.4.attn1.k",
+"idx": 381,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.4.attn1.v",
+"idx": 382,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.4.attn1.out",
+"idx": 383,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.4.ff.proj",
+"idx": 384,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.4.ff.out",
+"idx": 385,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.4.attn2.q",
+"idx": 386,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.4.attn2.k",
+"idx": 387,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.4.attn2.v",
+"idx": 388,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.4.attn2.out",
+"idx": 389,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.5.attn1.q",
+"idx": 390,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.5.attn1.k",
+"idx": 391,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.5.attn1.v",
+"idx": 392,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.5.attn1.out",
+"idx": 393,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.5.ff.proj",
+"idx": 394,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.5.ff.out",
+"idx": 395,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.5.attn2.q",
+"idx": 396,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.5.attn2.k",
+"idx": 397,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.5.attn2.v",
+"idx": 398,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.5.attn2.out",
+"idx": 399,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.6.attn1.q",
+"idx": 400,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.6.attn1.k",
+"idx": 401,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.6.attn1.v",
+"idx": 402,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.6.attn1.out",
+"idx": 403,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.6.ff.proj",
+"idx": 404,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.6.ff.out",
+"idx": 405,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.6.attn2.q",
+"idx": 406,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.6.attn2.k",
+"idx": 407,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.6.attn2.v",
+"idx": 408,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.6.attn2.out",
+"idx": 409,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.7.attn1.q",
+"idx": 410,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.7.attn1.k",
+"idx": 411,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.7.attn1.v",
+"idx": 412,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.7.attn1.out",
+"idx": 413,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.7.ff.proj",
+"idx": 414,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.7.ff.out",
+"idx": 415,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.7.attn2.q",
+"idx": 416,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.7.attn2.k",
+"idx": 417,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.7.attn2.v",
+"idx": 418,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.7.attn2.out",
+"idx": 419,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.8.attn1.q",
+"idx": 420,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.8.attn1.k",
+"idx": 421,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.8.attn1.v",
+"idx": 422,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.8.attn1.out",
+"idx": 423,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.8.ff.proj",
+"idx": 424,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.8.ff.out",
+"idx": 425,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.8.attn2.q",
+"idx": 426,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.8.attn2.k",
+"idx": 427,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.8.attn2.v",
+"idx": 428,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.8.attn2.out",
+"idx": 429,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.9.attn1.q",
+"idx": 430,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.9.attn1.k",
+"idx": 431,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.9.attn1.v",
+"idx": 432,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.9.attn1.out",
+"idx": 433,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.9.ff.proj",
+"idx": 434,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.9.ff.out",
+"idx": 435,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.9.attn2.q",
+"idx": 436,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.9.attn2.k",
+"idx": 437,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.9.attn2.v",
+"idx": 438,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.1.transformer_blocks.9.attn2.out",
+"idx": 439,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.0.attn1.q",
+"idx": 440,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.0.attn1.k",
+"idx": 441,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.0.attn1.v",
+"idx": 442,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.0.attn1.out",
+"idx": 443,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.0.ff.proj",
+"idx": 444,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.0.ff.out",
+"idx": 445,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.0.attn2.q",
+"idx": 446,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.0.attn2.k",
+"idx": 447,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.0.attn2.v",
+"idx": 448,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.0.attn2.out",
+"idx": 449,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.1.attn1.q",
+"idx": 450,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.1.attn1.k",
+"idx": 451,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.1.attn1.v",
+"idx": 452,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.1.attn1.out",
+"idx": 453,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.1.ff.proj",
+"idx": 454,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.1.ff.out",
+"idx": 455,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.1.attn2.q",
+"idx": 456,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.1.attn2.k",
+"idx": 457,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.1.attn2.v",
+"idx": 458,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.1.attn2.out",
+"idx": 459,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.2.attn1.q",
+"idx": 460,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.2.attn1.k",
+"idx": 461,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.2.attn1.v",
+"idx": 462,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.2.attn1.out",
+"idx": 463,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.2.ff.proj",
+"idx": 464,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.2.ff.out",
+"idx": 465,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.2.attn2.q",
+"idx": 466,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.2.attn2.k",
+"idx": 467,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.2.attn2.v",
+"idx": 468,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.2.attn2.out",
+"idx": 469,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.3.attn1.q",
+"idx": 470,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.3.attn1.k",
+"idx": 471,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.3.attn1.v",
+"idx": 472,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.3.attn1.out",
+"idx": 473,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.3.ff.proj",
+"idx": 474,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.3.ff.out",
+"idx": 475,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.3.attn2.q",
+"idx": 476,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.3.attn2.k",
+"idx": 477,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.3.attn2.v",
+"idx": 478,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.3.attn2.out",
+"idx": 479,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.4.attn1.q",
+"idx": 480,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.4.attn1.k",
+"idx": 481,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.4.attn1.v",
+"idx": 482,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.4.attn1.out",
+"idx": 483,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.4.ff.proj",
+"idx": 484,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.4.ff.out",
+"idx": 485,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.4.attn2.q",
+"idx": 486,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.4.attn2.k",
+"idx": 487,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.4.attn2.v",
+"idx": 488,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.4.attn2.out",
+"idx": 489,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.5.attn1.q",
+"idx": 490,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.5.attn1.k",
+"idx": 491,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.5.attn1.v",
+"idx": 492,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.5.attn1.out",
+"idx": 493,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.5.ff.proj",
+"idx": 494,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.5.ff.out",
+"idx": 495,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.5.attn2.q",
+"idx": 496,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.5.attn2.k",
+"idx": 497,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.5.attn2.v",
+"idx": 498,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.5.attn2.out",
+"idx": 499,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.6.attn1.q",
+"idx": 500,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.6.attn1.k",
+"idx": 501,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.6.attn1.v",
+"idx": 502,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.6.attn1.out",
+"idx": 503,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.6.ff.proj",
+"idx": 504,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.6.ff.out",
+"idx": 505,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.6.attn2.q",
+"idx": 506,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.6.attn2.k",
+"idx": 507,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.6.attn2.v",
+"idx": 508,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.6.attn2.out",
+"idx": 509,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.7.attn1.q",
+"idx": 510,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.7.attn1.k",
+"idx": 511,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.7.attn1.v",
+"idx": 512,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.7.attn1.out",
+"idx": 513,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.7.ff.proj",
+"idx": 514,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.7.ff.out",
+"idx": 515,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.7.attn2.q",
+"idx": 516,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.7.attn2.k",
+"idx": 517,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.7.attn2.v",
+"idx": 518,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.7.attn2.out",
+"idx": 519,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.8.attn1.q",
+"idx": 520,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.8.attn1.k",
+"idx": 521,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.8.attn1.v",
+"idx": 522,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.8.attn1.out",
+"idx": 523,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.8.ff.proj",
+"idx": 524,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.8.ff.out",
+"idx": 525,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.8.attn2.q",
+"idx": 526,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.8.attn2.k",
+"idx": 527,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.8.attn2.v",
+"idx": 528,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.8.attn2.out",
+"idx": 529,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.9.attn1.q",
+"idx": 530,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.9.attn1.k",
+"idx": 531,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.9.attn1.v",
+"idx": 532,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.9.attn1.out",
+"idx": 533,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.9.ff.proj",
+"idx": 534,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.9.ff.out",
+"idx": 535,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.9.attn2.q",
+"idx": 536,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.9.attn2.k",
+"idx": 537,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.9.attn2.v",
+"idx": 538,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "up_blocks.0.attentions.2.transformer_blocks.9.attn2.out",
+"idx": 539,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.attn1.q",
+"idx": 540,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.attn1.k",
+"idx": 541,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.attn1.v",
+"idx": 542,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.attn1.out",
+"idx": 543,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.ff.proj",
+"idx": 544,
+"din": 640,
+"dout": 5120
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.ff.out",
+"idx": 545,
+"din": 2560,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.attn2.q",
+"idx": 546,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.attn2.k",
+"idx": 547,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.attn2.v",
+"idx": 548,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.0.attn2.out",
+"idx": 549,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.1.attn1.q",
+"idx": 550,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.1.attn1.k",
+"idx": 551,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.1.attn1.v",
+"idx": 552,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.1.attn1.out",
+"idx": 553,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.1.ff.proj",
+"idx": 554,
+"din": 640,
+"dout": 5120
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.1.ff.out",
+"idx": 555,
+"din": 2560,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.1.attn2.q",
+"idx": 556,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.1.attn2.k",
+"idx": 557,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.1.attn2.v",
+"idx": 558,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.0.transformer_blocks.1.attn2.out",
+"idx": 559,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.attn1.q",
+"idx": 560,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.attn1.k",
+"idx": 561,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.attn1.v",
+"idx": 562,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.attn1.out",
+"idx": 563,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.ff.proj",
+"idx": 564,
+"din": 640,
+"dout": 5120
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.ff.out",
+"idx": 565,
+"din": 2560,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.attn2.q",
+"idx": 566,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.attn2.k",
+"idx": 567,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.attn2.v",
+"idx": 568,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.0.attn2.out",
+"idx": 569,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.1.attn1.q",
+"idx": 570,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.1.attn1.k",
+"idx": 571,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.1.attn1.v",
+"idx": 572,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.1.attn1.out",
+"idx": 573,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.1.ff.proj",
+"idx": 574,
+"din": 640,
+"dout": 5120
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.1.ff.out",
+"idx": 575,
+"din": 2560,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.1.attn2.q",
+"idx": 576,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.1.attn2.k",
+"idx": 577,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.1.attn2.v",
+"idx": 578,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.1.transformer_blocks.1.attn2.out",
+"idx": 579,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.attn1.q",
+"idx": 580,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.attn1.k",
+"idx": 581,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.attn1.v",
+"idx": 582,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.attn1.out",
+"idx": 583,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.ff.proj",
+"idx": 584,
+"din": 640,
+"dout": 5120
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.ff.out",
+"idx": 585,
+"din": 2560,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.attn2.q",
+"idx": 586,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.attn2.k",
+"idx": 587,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.attn2.v",
+"idx": 588,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.0.attn2.out",
+"idx": 589,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.1.attn1.q",
+"idx": 590,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.1.attn1.k",
+"idx": 591,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.1.attn1.v",
+"idx": 592,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.1.attn1.out",
+"idx": 593,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.1.ff.proj",
+"idx": 594,
+"din": 640,
+"dout": 5120
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.1.ff.out",
+"idx": 595,
+"din": 2560,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.1.attn2.q",
+"idx": 596,
+"din": 640,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.1.attn2.k",
+"idx": 597,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.1.attn2.v",
+"idx": 598,
+"din": 2048,
+"dout": 640
+},
+{
+"name": "up_blocks.1.attentions.2.transformer_blocks.1.attn2.out",
+"idx": 599,
+"din": 640,
+"dout": 640
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.attn1.q",
+"idx": 600,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.attn1.k",
+"idx": 601,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.attn1.v",
+"idx": 602,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.attn1.out",
+"idx": 603,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.ff.proj",
+"idx": 604,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.ff.out",
+"idx": 605,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.attn2.q",
+"idx": 606,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.attn2.k",
+"idx": 607,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.attn2.v",
+"idx": 608,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.0.attn2.out",
+"idx": 609,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.1.attn1.q",
+"idx": 610,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.1.attn1.k",
+"idx": 611,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.1.attn1.v",
+"idx": 612,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.1.attn1.out",
+"idx": 613,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.1.ff.proj",
+"idx": 614,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.1.ff.out",
+"idx": 615,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.1.attn2.q",
+"idx": 616,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.1.attn2.k",
+"idx": 617,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.1.attn2.v",
+"idx": 618,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.1.attn2.out",
+"idx": 619,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.2.attn1.q",
+"idx": 620,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.2.attn1.k",
+"idx": 621,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.2.attn1.v",
+"idx": 622,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.2.attn1.out",
+"idx": 623,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.2.ff.proj",
+"idx": 624,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.2.ff.out",
+"idx": 625,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.2.attn2.q",
+"idx": 626,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.2.attn2.k",
+"idx": 627,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.2.attn2.v",
+"idx": 628,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.2.attn2.out",
+"idx": 629,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.3.attn1.q",
+"idx": 630,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.3.attn1.k",
+"idx": 631,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.3.attn1.v",
+"idx": 632,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.3.attn1.out",
+"idx": 633,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.3.ff.proj",
+"idx": 634,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.3.ff.out",
+"idx": 635,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.3.attn2.q",
+"idx": 636,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.3.attn2.k",
+"idx": 637,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.3.attn2.v",
+"idx": 638,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.3.attn2.out",
+"idx": 639,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.4.attn1.q",
+"idx": 640,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.4.attn1.k",
+"idx": 641,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.4.attn1.v",
+"idx": 642,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.4.attn1.out",
+"idx": 643,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.4.ff.proj",
+"idx": 644,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.4.ff.out",
+"idx": 645,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.4.attn2.q",
+"idx": 646,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.4.attn2.k",
+"idx": 647,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.4.attn2.v",
+"idx": 648,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.4.attn2.out",
+"idx": 649,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.5.attn1.q",
+"idx": 650,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.5.attn1.k",
+"idx": 651,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.5.attn1.v",
+"idx": 652,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.5.attn1.out",
+"idx": 653,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.5.ff.proj",
+"idx": 654,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.5.ff.out",
+"idx": 655,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.5.attn2.q",
+"idx": 656,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.5.attn2.k",
+"idx": 657,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.5.attn2.v",
+"idx": 658,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.5.attn2.out",
+"idx": 659,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.6.attn1.q",
+"idx": 660,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.6.attn1.k",
+"idx": 661,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.6.attn1.v",
+"idx": 662,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.6.attn1.out",
+"idx": 663,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.6.ff.proj",
+"idx": 664,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.6.ff.out",
+"idx": 665,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.6.attn2.q",
+"idx": 666,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.6.attn2.k",
+"idx": 667,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.6.attn2.v",
+"idx": 668,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.6.attn2.out",
+"idx": 669,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.7.attn1.q",
+"idx": 670,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.7.attn1.k",
+"idx": 671,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.7.attn1.v",
+"idx": 672,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.7.attn1.out",
+"idx": 673,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.7.ff.proj",
+"idx": 674,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.7.ff.out",
+"idx": 675,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.7.attn2.q",
+"idx": 676,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.7.attn2.k",
+"idx": 677,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.7.attn2.v",
+"idx": 678,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.7.attn2.out",
+"idx": 679,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.8.attn1.q",
+"idx": 680,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.8.attn1.k",
+"idx": 681,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.8.attn1.v",
+"idx": 682,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.8.attn1.out",
+"idx": 683,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.8.ff.proj",
+"idx": 684,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.8.ff.out",
+"idx": 685,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.8.attn2.q",
+"idx": 686,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.8.attn2.k",
+"idx": 687,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.8.attn2.v",
+"idx": 688,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.8.attn2.out",
+"idx": 689,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.9.attn1.q",
+"idx": 690,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.9.attn1.k",
+"idx": 691,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.9.attn1.v",
+"idx": 692,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.9.attn1.out",
+"idx": 693,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.9.ff.proj",
+"idx": 694,
+"din": 1280,
+"dout": 10240
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.9.ff.out",
+"idx": 695,
+"din": 5120,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.9.attn2.q",
+"idx": 696,
+"din": 1280,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.9.attn2.k",
+"idx": 697,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.9.attn2.v",
+"idx": 698,
+"din": 2048,
+"dout": 1280
+},
+{
+"name": "mid_block.attentions.0.transformer_blocks.9.attn2.out",
+"idx": 699,
+"din": 1280,
+"dout": 1280
+}
+]
+}

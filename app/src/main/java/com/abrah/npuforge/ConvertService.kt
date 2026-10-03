@@ -294,15 +294,17 @@ class ConvertService : Service() {
         }
         // Swap v3: what this UNet keeps and what its compile leaves out. A template that cannot
         // drop features (Swap v2) keeps everything it has, and gets no features marker.
-        val swapSupported = if (model == CheckpointInfo.Model.SD15_SWAP) Converter.swapFeaturesSupported(this)
-            else emptyList()
+        val swapModel = model == CheckpointInfo.Model.SD15_SWAP || model == CheckpointInfo.Model.SDXL_SWAP
+        val swapSupported = if (swapModel) Converter.swapFeaturesSupported(this, model) else emptyList()
         val swapKept: List<String>? = if (swapSupported.isEmpty()) null else {
             val asked = intent?.getStringExtra(EXTRA_SWAP_FEATURES)?.split(',')?.map { it.trim() }?.toSet()
             swapSupported.filter { asked == null || it in asked }
         }
-        val swapDrop = swapKept?.let { kept -> swapSupported.filterNot { it in kept }.joinToString(",") }.orEmpty()
-        // SDXL Swap (preview) keeps no feature yet: the compile leaves all four out.
-        val tplDrop = if (model == CheckpointInfo.Model.SDXL_SWAP) Converter.SDXL_SWAP_DROP else swapDrop
+        // Everything the template has but this conversion does not keep -- including a feature the
+        // build does not offer (SDXL Swap's inpaint), which is therefore always left out.
+        val swapDrop = swapKept?.let { kept ->
+            Converter.swapTemplateFeatures(this, model).filterNot { it in kept }.joinToString(",")
+        }.orEmpty()
         // A Swap model with the inpaint feature is add-differenced like an SD15_INPAINT export.
         val swapInpaint = swapKept?.contains("inp") == true
         val clipSkip = if (model.isSdxl) 2
@@ -362,10 +364,9 @@ class ConvertService : Service() {
                     diagnostic.record("LoRA strengths=${loraSpecs.map { it.second }}")
                     diagnostic.record("Inpaint add-difference=$inpaintDiff")
                     diagnostic.record("Clip skip=$clipSkip")
-                    if (model == CheckpointInfo.Model.SD15_SWAP) {
+                    if (swapModel) {
                         diagnostic.record("Swap features supported=$swapSupported kept=$swapKept drop=[$swapDrop]")
                     }
-                    if (model == CheckpointInfo.Model.SDXL_SWAP) diagnostic.record("SDXL Swap drop=[$tplDrop]")
                     work.deleteRecursively()
                     work.mkdirs()
                     diagnostic.record("Conversion workspace: ${work.absolutePath}")
@@ -506,7 +507,7 @@ class ConvertService : Service() {
                     step++
                     post(getString(R.string.stage_compile))
                     val unet = Converter.stageCompile(
-                        this@ConvertService, pack, work, model, diagnostic, tplDrop = tplDrop,
+                        this@ConvertService, pack, work, model, diagnostic, tplDrop = swapDrop,
                     ) {
                         logLine(getString(R.string.stage_compile), it)
                     }

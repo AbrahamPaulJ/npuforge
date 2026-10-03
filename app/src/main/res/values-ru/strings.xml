@@ -106,7 +106,8 @@
     <string name="mode_swap">SD1.5 Swap</string>
     <string name="mode_swap_note" formatted="false">LoRA и ControlNet выбираются при каждой генерации в Nightmare Mobile, без повторной конвертации. Генерация примерно на 15% медленнее; компиляция примерно вдвое дольше.</string>
     <string name="mode_sdxl_swap">SDXL Swap (предпросмотр)</string>
-    <string name="mode_sdxl_swap_note" formatted="false">Конвертирует в шаблон SDXL Swap со всеми функциями выключенными: обычная модель SDXL, которую Nightmare Mobile генерирует уже сейчас. LoRA, ControlNet и IP-Adapter при каждой генерации появятся вместе с поддержкой SDXL в Nightmare. Компиляция занимает около часа; держите телефон на зарядке, с включённым экраном и закрытыми приложениями.</string>
+    <string name="mode_sdxl_swap_note" formatted="false">Конвертирует в шаблон SDXL Swap. Без отмеченных функций экспорт — обычная модель SDXL, которую Nightmare Mobile генерирует уже сейчас. Компиляция занимает около часа; держите телефон на зарядке, с включённым экраном и закрытыми приложениями.</string>
+    <string name="mode_sdxl_swap_features_note" formatted="false">Отмеченная функция делает LoRA, ControlNet или IP-Adapter входами графа: такую модель может генерировать только приложение с поддержкой SDXL Swap (Nightmare Mobile с SDXL Swap). Inpaint пока недоступен.</string>
     <string name="mode_inpaint_note_ready">Добавляет к этой модели разницу SD1.5 inpainting и экспортирует 9-канальную inpainting-модель.</string>
     <string name="mode_inpaint_note_download">Добавляет к этой модели разницу SD1.5 inpainting и экспортирует 9-канальную inpainting-модель. Нужна однократная загрузка 1,7 ГБ.</string>
     <string name="inpaint_diff_dialog_title">Загрузка разницы inpainting</string>

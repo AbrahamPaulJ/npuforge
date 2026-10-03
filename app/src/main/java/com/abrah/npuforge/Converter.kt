@@ -78,22 +78,28 @@ object Converter {
     val SWAP_FEATURES = listOf("lora", "cn", "ip", "inp")
 
     /**
-     * SDXL Swap (preview) keeps no feature yet: every one is left out of the compiled UNet, which
-     * then takes exactly the plain SDXL inputs. On the S25 Ultra this compile ran 52 min with all
-     * four kept; the template is in `template_sdxl_swap/` (docs/SDXL-SWAP-TEMPLATE.md).
+     * Features a template has but this build does not OFFER. SDXL Swap's inpaint needs the SDXL
+     * inpainting difference (~5 GB, official SDXL inpaint UNet minus SDXL base), which is not hosted
+     * yet; its compile always leaves inpaint out.
      */
-    val SDXL_SWAP_DROP = SWAP_FEATURES.joinToString(",")
+    private val UNOFFERED = mapOf(CheckpointInfo.Model.SDXL_SWAP to setOf("inp"))
 
-    /** The features `template_swap/` can drop; empty for a template that cannot (Swap v2). */
-    fun swapFeaturesSupported(context: Context): List<String> = runCatching {
-        val text = context.assets.open("${CheckpointInfo.Model.SD15_SWAP.templateDirectory}/$SWAP_FEATURES_MARKER")
+    /** The features a Swap template's gated lib can leave out; empty for one that cannot (Swap v2). */
+    fun swapTemplateFeatures(context: Context, model: CheckpointInfo.Model): List<String> = runCatching {
+        val text = context.assets.open("${model.templateDirectory}/$SWAP_FEATURES_MARKER")
             .use { it.readBytes().toString(Charsets.UTF_8) }
         val listed = Regex("\"(\\w+)\"").findAll(text.substringAfter("[")).map { it.groupValues[1] }.toSet()
         SWAP_FEATURES.filter { it in listed }
     }.getOrDefault(emptyList())
 
-    fun swapFeaturesJson(kept: Collection<String>): String =
-        "{\"template\":\"swap_v3\",\"features\":[" +
+    /** The features the user may keep: the template's, minus any this build does not offer. */
+    fun swapFeaturesSupported(
+        context: Context,
+        model: CheckpointInfo.Model = CheckpointInfo.Model.SD15_SWAP,
+    ): List<String> = swapTemplateFeatures(context, model) - UNOFFERED[model].orEmpty()
+
+    fun swapFeaturesJson(kept: Collection<String>, template: String = "swap_v3"): String =
+        "{\"template\":\"$template\",\"features\":[" +
             SWAP_FEATURES.filter { it in kept }.joinToString(",") { "\"$it\"" } + "]}"
 
     /** Copies checkpoint or LoRA data into this conversion's work directory. */
@@ -480,10 +486,18 @@ object Converter {
                     // `lora_targets.json` is both the Swap marker and the data a
                     // LoRA packer needs: the order of the UNet's 160 LoRA inputs.
                     val familyMarkers = when (model) {
-                        // SDXL Swap (preview) drops every feature, so its UNet takes the plain SDXL
-                        // inputs: the plain SDXL markers, and no Swap marker until features exist.
-                        CheckpointInfo.Model.SDXL, CheckpointInfo.Model.SDXL_SWAP ->
-                            mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")
+                        CheckpointInfo.Model.SDXL -> mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")
+                        // SDXL Swap with no feature kept takes the plain SDXL inputs: the plain SDXL
+                        // markers only, so today's importers render it. With a feature kept it also
+                        // carries the Swap markers, which an importer must understand to feed the
+                        // feature inputs (Nightmare's SDXL Swap support), or the render fails.
+                        CheckpointInfo.Model.SDXL_SWAP -> mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1") +
+                            if (swapFeatures.isNullOrEmpty()) emptyMap() else
+                                (listOf(SWAP_MARKER) + (if ("ip" in swapFeatures) listOf(IP_MARKER) else emptyList()))
+                                    .associateWith { m ->
+                                        context.assets.open("${model.templateDirectory}/$m")
+                                            .use { it.readBytes().toString(Charsets.UTF_8) }
+                                    } + mapOf(SWAP_FEATURES_MARKER to swapFeaturesJson(swapFeatures, "sdxl_swap_v1"))
                         CheckpointInfo.Model.SD15_INPAINT -> mapOf("INPAINT" to "")
                         // `ip_targets.json` (Swap v2): the template takes IP-Adapter K/V
                         // inputs; Nightmare offers a reference picture only when it is here.
