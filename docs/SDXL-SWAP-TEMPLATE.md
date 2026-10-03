@@ -152,6 +152,7 @@ On the phone (S25 Ultra, v79):
 | inpaint, all features | gain 1.000, cosine 1.000 (effect 24 %) |
 | IP-Adapter | gain **1.183**, cosine 0.988 (effect 0.4 %) |
 | LoRA (held-out toyface, strength 1) | gain **0.893**, cosine 0.988 (effect 0.1 %) |
+| `tplconv` (npuforge 1.0.9 APK) on Juggernaut XL Ragnarok, on the phone | **103 s**, byte-identical to the host's `tpl_apply` pack (md5 `ea4cf45c…`) |
 
 The LoRA and IP effects at this step are tiny, so their gains rest on small absolute deltas — the open
 question for a render with a LoRA / reference picture. The txt2img and all-dropped contexts were not
