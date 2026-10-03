@@ -77,6 +77,13 @@ object Converter {
     /** Every Swap feature name, in `QNN_TPL_DROP` spelling: LoRA, ControlNet, IP-Adapter, inpaint. */
     val SWAP_FEATURES = listOf("lora", "cn", "ip", "inp")
 
+    /**
+     * SDXL Swap (preview) keeps no feature yet: every one is left out of the compiled UNet, which
+     * then takes exactly the plain SDXL inputs. On the S25 Ultra this compile ran 52 min with all
+     * four kept; the template is in `template_sdxl_swap/` (docs/SDXL-SWAP-TEMPLATE.md).
+     */
+    val SDXL_SWAP_DROP = SWAP_FEATURES.joinToString(",")
+
     /** The features `template_swap/` can drop; empty for a template that cannot (Swap v2). */
     fun swapFeaturesSupported(context: Context): List<String> = runCatching {
         val text = context.assets.open("${CheckpointInfo.Model.SD15_SWAP.templateDirectory}/$SWAP_FEATURES_MARKER")
@@ -343,7 +350,7 @@ object Converter {
                     "--log_level", "info",
                 ),
                 buildMap {
-                    if (model == CheckpointInfo.Model.SDXL || (component == "unet" && isLowRam(context))) {
+                    if (model.isSdxl || (component == "unet" && isLowRam(context))) {
                         put("LD_PRELOAD", File(libs, "libcompiler_heap.so").absolutePath)
                         put("QNN_COMPILER_HEAP_DIR", work.absolutePath)
                     }
@@ -473,7 +480,10 @@ object Converter {
                     // `lora_targets.json` is both the Swap marker and the data a
                     // LoRA packer needs: the order of the UNet's 160 LoRA inputs.
                     val familyMarkers = when (model) {
-                        CheckpointInfo.Model.SDXL -> mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")
+                        // SDXL Swap (preview) drops every feature, so its UNet takes the plain SDXL
+                        // inputs: the plain SDXL markers, and no Swap marker until features exist.
+                        CheckpointInfo.Model.SDXL, CheckpointInfo.Model.SDXL_SWAP ->
+                            mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")
                         CheckpointInfo.Model.SD15_INPAINT -> mapOf("INPAINT" to "")
                         // `ip_targets.json` (Swap v2): the template takes IP-Adapter K/V
                         // inputs; Nightmare offers a reference picture only when it is here.

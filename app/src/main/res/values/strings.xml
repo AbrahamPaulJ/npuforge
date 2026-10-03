@@ -74,6 +74,8 @@
     <string name="mode_inpaint">Inpainting</string>
     <string name="mode_swap">SD1.5 Swap</string>
     <string name="mode_swap_note" formatted="false">LoRAs and ControlNet are chosen per render in Nightmare Mobile, with no reconversion. Renders about 15% slower; the compile takes about twice as long.</string>
+    <string name="mode_sdxl_swap">SDXL Swap (preview)</string>
+    <string name="mode_sdxl_swap_note" formatted="false">Converts into the SDXL Swap template with every feature off: an ordinary SDXL model that Nightmare Mobile renders today. LoRA, ControlNet and IP-Adapter per render come with Nightmare\'s SDXL support. The compile takes about an hour; keep the phone plugged in, awake, with other apps closed.</string>
     <string name="mode_inpaint_note_ready">Adds the SD1.5 inpainting difference to this checkpoint and exports a 9-channel inpainting model.</string>
     <string name="mode_inpaint_note_download">Adds the SD1.5 inpainting difference to this checkpoint and exports a 9-channel inpainting model. Needs a one-time 1.7 GB download.</string>
     <string name="inpaint_diff_dialog_title">Download inpainting difference</string>

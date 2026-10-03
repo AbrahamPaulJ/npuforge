@@ -301,9 +301,11 @@ class ConvertService : Service() {
             swapSupported.filter { asked == null || it in asked }
         }
         val swapDrop = swapKept?.let { kept -> swapSupported.filterNot { it in kept }.joinToString(",") }.orEmpty()
+        // SDXL Swap (preview) keeps no feature yet: the compile leaves all four out.
+        val tplDrop = if (model == CheckpointInfo.Model.SDXL_SWAP) Converter.SDXL_SWAP_DROP else swapDrop
         // A Swap model with the inpaint feature is add-differenced like an SD15_INPAINT export.
         val swapInpaint = swapKept?.contains("inp") == true
-        val clipSkip = if (model == CheckpointInfo.Model.SDXL) 2
+        val clipSkip = if (model.isSdxl) 2
             else intent?.getIntExtra(EXTRA_CLIP_SKIP, 2)?.takeIf { it == 1 } ?: 2
         val requestedPredictionType = intent?.getStringExtra(EXTRA_PREDICTION_TYPE)?.let { value ->
             runCatching { CheckpointInfo.PredictionType.valueOf(value) }.getOrNull()
@@ -363,10 +365,11 @@ class ConvertService : Service() {
                     if (model == CheckpointInfo.Model.SD15_SWAP) {
                         diagnostic.record("Swap features supported=$swapSupported kept=$swapKept drop=[$swapDrop]")
                     }
+                    if (model == CheckpointInfo.Model.SDXL_SWAP) diagnostic.record("SDXL Swap drop=[$tplDrop]")
                     work.deleteRecursively()
                     work.mkdirs()
                     diagnostic.record("Conversion workspace: ${work.absolutePath}")
-                    steps = (if (model == CheckpointInfo.Model.SDXL) 6 else 10) + loraSpecs.size +
+                    steps = (if (model.isSdxl) 6 else 10) + loraSpecs.size +
                         (if (inpaintDiff || swapInpaint) 1 else 0)
                     step = 0
 
@@ -378,7 +381,7 @@ class ConvertService : Service() {
 
                     step++
                     post(getString(R.string.stage_validate))
-                    if (model == CheckpointInfo.Model.SDXL && Converter.socTier() == "8gen1") {
+                    if (model.isSdxl && Converter.socTier() == "8gen1") {
                         // The SDXL graphs and VAE contexts target v75; 8 Gen 1 is v69.
                         throw Converter.Failure(
                             "SDXL needs Snapdragon 8 Gen 3 or newer. This phone (8 Gen 1) can convert SD1.5 models.",
@@ -390,9 +393,18 @@ class ConvertService : Service() {
                             "SD1.5 Swap does not bake LoRAs in; choose them per render in the generating app.",
                         )
                     }
+                    if (model == CheckpointInfo.Model.SDXL_SWAP && loraSpecs.isNotEmpty()) {
+                        throw Converter.Failure(
+                            "SDXL Swap does not bake LoRAs in; they will be chosen per render in the generating app.",
+                        )
+                    }
                     val checkpointReport = CheckpointInfo.validate(
                         this@ConvertService, ckpt,
-                        if (inpaintDiff || model == CheckpointInfo.Model.SD15_SWAP) CheckpointInfo.Model.SD15 else model,
+                        when {
+                            inpaintDiff || model == CheckpointInfo.Model.SD15_SWAP -> CheckpointInfo.Model.SD15
+                            model == CheckpointInfo.Model.SDXL_SWAP -> CheckpointInfo.Model.SDXL
+                            else -> model
+                        },
                         clipSkip,
                     )
                     val predictionType = requestedPredictionType ?: checkpointReport.predictionType
@@ -421,7 +433,7 @@ class ConvertService : Service() {
                     ) {
                         logLine(getString(R.string.stage_clip), it)
                     }
-                    if (model == CheckpointInfo.Model.SDXL) {
+                    if (model.isSdxl) {
                         downloadSdxlVaeFiles { name, progress ->
                             post(getString(R.string.stage_vae_download), "$name $progress".trim())
                         }
@@ -494,7 +506,7 @@ class ConvertService : Service() {
                     step++
                     post(getString(R.string.stage_compile))
                     val unet = Converter.stageCompile(
-                        this@ConvertService, pack, work, model, diagnostic, tplDrop = swapDrop,
+                        this@ConvertService, pack, work, model, diagnostic, tplDrop = tplDrop,
                     ) {
                         logLine(getString(R.string.stage_compile), it)
                     }

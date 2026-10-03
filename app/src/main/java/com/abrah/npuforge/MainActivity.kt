@@ -279,6 +279,11 @@ private fun ConvertScreen() {
     var swapKeptText by rememberSaveable { mutableStateOf("lora,cn,ip") }
     val swapKept = swapKeptText.split(',').filter { it in swapSupported }
     val swapInpaint = asSwap && "inp" in swapKept
+    // SDXL Swap (preview): offered only when this build carries its template (the 190 MB lib).
+    val sdxlSwapAvailable = remember {
+        runCatching { "recipe.bin" in context.assets.list(CheckpointInfo.Model.SDXL_SWAP.templateDirectory).orEmpty() }
+            .getOrDefault(false)
+    }
     // SD1.5 only; kept across checkpoints. 2 is the long-standing default.
     var clipSkip by rememberSaveable { mutableStateOf(2) }
     val loras = rememberSaveable(
@@ -745,6 +750,28 @@ private fun ConvertScreen() {
                             }
                         }
                     }
+                    if (report?.model == CheckpointInfo.Model.SDXL && report?.convertible == true && sdxlSwapAvailable) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(R.string.mode_label), style = MaterialTheme.typography.labelMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(
+                                    selected = !asSwap, onClick = { asSwap = false },
+                                    label = { Text(stringResource(R.string.mode_txt2img)) },
+                                )
+                                FilterChip(
+                                    selected = asSwap, onClick = { asSwap = true; asInpaint = false },
+                                    label = { Text(stringResource(R.string.mode_sdxl_swap)) },
+                                )
+                            }
+                            if (asSwap) {
+                                Text(
+                                    stringResource(R.string.mode_sdxl_swap_note),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
                     if (report?.model != CheckpointInfo.Model.SDXL && report?.convertible == true) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(stringResource(R.string.clip_skip_label), style = MaterialTheme.typography.labelMedium)
@@ -780,10 +807,12 @@ private fun ConvertScreen() {
 
                     val inpaintByDiff = asInpaint && report?.model == CheckpointInfo.Model.SD15
                     val swap = asSwap && report?.model == CheckpointInfo.Model.SD15
+                    val sdxlSwap = asSwap && report?.model == CheckpointInfo.Model.SDXL && sdxlSwapAvailable
                     val startConversion = {
                         val model = when {
                             inpaintByDiff -> CheckpointInfo.Model.SD15_INPAINT
                             swap -> CheckpointInfo.Model.SD15_SWAP
+                            sdxlSwap -> CheckpointInfo.Model.SDXL_SWAP
                             else -> report!!.model
                         }
                         notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -800,7 +829,8 @@ private fun ConvertScreen() {
                             val vaeDir = File(context.filesDir, "vae_sdxl")
                             val missing = !File(vaeDir, "vae_decoder.bin").isFile || !File(vaeDir, "vae_encoder.bin").isFile
                             if (report?.model == CheckpointInfo.Model.SDXL && missing) {
-                                pendingConversionModel = CheckpointInfo.Model.SDXL
+                                pendingConversionModel =
+                                    if (sdxlSwap) CheckpointInfo.Model.SDXL_SWAP else CheckpointInfo.Model.SDXL
                                 showVaeDownloadDialog = true
                             } else if ((inpaintByDiff || (swap && swapInpaint)) && !InpaintDiff.isReady(context)) {
                                 showInpaintDiffDialog = true
@@ -875,10 +905,13 @@ private fun ConvertScreen() {
                                 val pending = pendingConversionModel
                                 pendingConversionModel = null
                                 if (pending != null) {
-                                    val model = report!!.model
+                                    // The pending model, not the report's: an SDXL Swap choice must
+                                    // survive the VAE download prompt.
                                     ConvertService.start(
-                                        context, picked!!, modelName, loras.map { it.first to it.third },
-                                        model = model,
+                                        context, picked!!, modelName,
+                                        if (pending == CheckpointInfo.Model.SDXL_SWAP) emptyList()
+                                        else loras.map { it.first to it.third },
+                                        model = pending,
                                         predictionType = predictionType.takeIf { predictionTypeOverridden },
                                     )
                                 } else {

@@ -32,6 +32,12 @@ private val SD15_COMPONENTS = setOf(
     "vae_encoder.bin", "vae_decoder.bin",
 )
 
+private val SDXL_COMPONENTS = setOf(
+    "clip.mnn", "clip_2.mnn", "clip_2.mnn.weight", "tokenizer.json",
+    "pos_emb.bin", "token_emb.bin", "pos_emb_2.bin", "token_emb_2.bin",
+    "vae_encoder.bin", "vae_decoder.bin",
+)
+
 object CheckpointInfo {
 
     /**
@@ -75,11 +81,18 @@ object CheckpointInfo {
          * Never detected from a header: the checkpoint validates as [SD15].
          */
         SD15_SWAP("template_swap", "components_sd15", SD15_COMPONENTS),
-        SDXL("template_sdxl", "components_sdxl", setOf(
-            "clip.mnn", "clip_2.mnn", "clip_2.mnn.weight", "tokenizer.json",
-            "pos_emb.bin", "token_emb.bin", "pos_emb_2.bin", "token_emb_2.bin",
-            "vae_encoder.bin", "vae_decoder.bin",
-        )),
+        SDXL("template_sdxl", "components_sdxl", SDXL_COMPONENTS),
+        /**
+         * "SDXL Swap" (preview): a plain SDXL checkpoint converted into the SDXL Swap template
+         * (docs/SDXL-SWAP-TEMPLATE.md) with every feature dropped -- an ordinary 6-input SDXL
+         * UNet that today's importers render. Same tensors and components as [SDXL]; the
+         * features (LoRA, ControlNet, IP-Adapter, inpaint) arrive with the generating app's
+         * SDXL support. Never detected from a header: the checkpoint validates as [SDXL].
+         */
+        SDXL_SWAP("template_sdxl_swap", "components_sdxl", SDXL_COMPONENTS);
+
+        /** Both SDXL families: two text encoders, the downloaded VAE contexts, no clip skip. */
+        val isSdxl: Boolean get() = this == SDXL || this == SDXL_SWAP
     }
 
     private const val UNET = "model.diffusion_model."
@@ -128,7 +141,7 @@ object CheckpointInfo {
      * SDXL has no choice.
      */
     fun clipDirectory(model: Model, clipSkip: Int): String =
-        if (model != Model.SDXL && clipSkip == 1) "${model.componentDirectory}/clip_skip1"
+        if (!model.isSdxl && clipSkip == 1) "${model.componentDirectory}/clip_skip1"
         else model.componentDirectory
 
     fun inspect(context: Context, uri: Uri): Report {
@@ -213,7 +226,7 @@ object CheckpointInfo {
             }
         }
         val clipManifest = "${clipDirectory ?: model.componentDirectory}/clip_requirements.json"
-        val manifests = if (model == Model.SDXL) {
+        val manifests = if (model.isSdxl) {
             listOf(clipManifest)
         } else {
             listOf(

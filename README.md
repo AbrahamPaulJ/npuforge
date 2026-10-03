@@ -47,6 +47,13 @@ building the APK are developer tasks performed separately on a workstation.
   a plain conversion (the IP inputs add 3% when unused); the compile takes about
   twice as long. 512×512. Exports from 1.0.6 keep working without a reference
   picture. Details: [docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md).
+- **SDXL Swap (preview, 1.0.9):** *Convert as → SDXL Swap* builds an SDXL
+  checkpoint into the SDXL Swap template — LoRA, ControlNet, IP-Adapter and
+  inpaint as graph inputs, quantized on SDXL base 1.0. This preview leaves every
+  feature out, so the export is an ordinary SDXL model that Nightmare Mobile
+  renders today; the features follow with Nightmare's SDXL support. The on-phone
+  compile takes about an hour on an 8 Elite (plugged in, screen on, other apps
+  closed). Details: [docs/SDXL-SWAP-TEMPLATE.md](docs/SDXL-SWAP-TEMPLATE.md).
 - **Clip skip 1 or 2:** choose how SD1.5 text encoders are built. 2 is the
   default and matches earlier exports; 1 uses the full text encoder.
 - **V-prediction compatibility:** the app reads standard

@@ -1,0 +1,27 @@
+{
+  "graphs": [
+    {
+      "vtcm_mb": 8,
+      "graph_names": [
+        "model"
+      ],
+      "O": 3.0,
+      "finalize_config": {
+        "source_destructive_ops": 0,
+        "source_destructive_custom_ops": 0
+      }
+    }
+  ],
+  "devices": [
+    {
+      "dsp_arch": "v75",
+      "soc_model": 57,
+      "cores": [
+        {
+          "perf_profile": "burst",
+          "rpc_control_latency": 100
+        }
+      ]
+    }
+  ]
+}

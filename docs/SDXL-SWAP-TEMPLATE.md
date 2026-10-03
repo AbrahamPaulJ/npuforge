@@ -96,18 +96,89 @@ optional (it speeds the trajectories; quantize is CPU). `setup_vm.sh` installs t
 NDK r27c) and downloads every model with a size check. Then `PROBE=2` — read the probe's peak RSS and
 time per row, stop if the projection passes ~80 % of RAM — then `PROBE=0` in the same work directory.
 
+**The real build** (Vast.ai KVM VM: Ryzen 9950X 30 vCPU, 197 GB RAM, RTX 4090 48 GB; SDXL base 1.0,
+inpaint, union, rank 64; ~8 h of VM time including the traps below, ~5 h without them):
+
+| stage | wall | peak RSS |
+|---|---|---|
+| D, A, E (export) | 0.3 / 0.4 / 5 min | 19 / 26 / 24 GiB |
+| R (10 rows, verify rel 7.4e-4 in fp16 on the GPU) | 4.5 min | 27 GiB |
+| C (calibration list, 9.7 GB of raws) | 3.5 min | 22 GiB |
+| QA probe (2 rows) / QA (8 rows) | 30 / 39 min | 53 GiB — flat, set by the graph, not the rows (SD1.5: 400 rows in ~32 GB) |
+| EB + UB / UN / Q | 5 + 32 min / 7 s / 41 min | 53 GiB |
+| x86 libs, stock and template (in parallel) | 27–33 min each | 24 GiB |
+| host context (v79), each | 11 min | 18 GiB; `unet.bin` 2.69 GB |
+| P1 discover | 1 min | 9,060 matched, 0 ambiguous, every source once; round trip: 3 biases differ by 1 byte |
+| C2 (Animagine XL 3.1) | 1.5 min per pack | exactly the 9,060 mapped sites change |
+| ARM lib at `-O0` | 3.6 min | 8 GiB; 190 MB |
+
+**Traps that only SDXL's size exposed** (all fixed in the scripts):
+
+- `clang` 14 selects GCC 12 when it is installed: without `libstdc++-12-dev`, the lib generator fails on
+  `<algorithm>`.
+- The stock lib links one object per weight: 20,766 objects, 2.35 MB of arguments, over the 2 MB
+  default `ARG_MAX` ("Argument list too long"). `ulimit -s 65536` raises it to the kernel's 6 MB.
+- The stock lib's 2.6 GB of `objcopy`'d weights in `.data` push `.bss` out of `crtbeginS.o`'s ±2 GB PC32
+  reach ("relocation truncated to fit"). `stock_lib` renames the weight sections to `.lrodata` (x86-64
+  large data, laid out after `.bss`) and builds in a directory that survives a failed link.
+- **`qnn-context-binary-generator` is not deterministic at this size**: one lib compiled twice differs in
+  12.9 M of 2.69 G bytes and in `opDataSize` (±256). The md5 identity gate cannot pass; the gate compares
+  the context metadata (`qnn-context-binary-utility`, all but `opDataSize`) and requires a byte
+  difference under 1 %. Measured: template vs a stock build — metadata identical, 24–29 K bytes apart.
+  SD1.5 and the tiny model stay byte-identical.
+- The ARM lib at the generator's `-O3 -g` ran over 2.5 h (`-O1` over 1 h): clang inlines all 93,277
+  guarded `add*` calls into one `QnnModel_composeGraphs`. The lib only builds the graph, so `arm_lib`
+  builds at `-O0 -g0` (3.6 min). Its `composeGraphs` frame is 3 MB: fine on the generator process's
+  main thread (8 MB), which is how npuforge and `phone_eval.sh` run it — never call it on a 1 MB thread.
+- Ubuntu's unattended upgrades replaced the NVIDIA libraries under the running driver mid-session
+  ("Driver/library version mismatch"): any GPU step after that needs a reboot or the CPU.
+
 ## 6. Scoring it on the phone
 
 From the authoring PC (phone access stays off the rented host): pull `bundle/`, `identity.pack`,
 `ref/` and the held-out rows, then `phone_eval.sh`. It composes three contexts from the gated lib on
 the phone (txt2img, inpaint, all features dropped), runs every held-out case through `qnn-net-run`,
 and `cmp_sdxl.py` scores base SNR and each feature's gain / cosine against fp32 — SD1.5 v3 shipped at
-base 35.2 dB, LoRA 1.027 / 0.986, canny 1.018 / 0.997, IP 1.006 / 0.974.
+base 35.2 dB, LoRA 1.027 / 0.986, canny 1.018 / 0.997, IP 1.006 / 0.974. `decode_preview.py` turns each
+case's single step (t = 519) into a predicted image (x0 through the SDXL VAE), fp32 beside phone.
+
+On the phone (S25 Ultra, v79):
+
+| | measured |
+|---|---|
+| compile, inpaint context (every feature kept) | **52 min wall** (31 min CPU), storage-backed heap peak **15.1 GB**, 2,693,166,144 B — awake, plugged in, apps closed |
+| base (held-out inpaint row, t = 519) vs fp32 | **46.7 dB** (SD1.5 v3 shipped at 35.2) |
+| ControlNet | gain 1.007, cosine 0.999 (effect 1.0 %) |
+| inpaint, all features | gain 1.000, cosine 1.000 (effect 24 %) |
+| IP-Adapter | gain **1.183**, cosine 0.988 (effect 0.4 %) |
+| LoRA (held-out toyface, strength 1) | gain **0.893**, cosine 0.988 (effect 0.1 %) |
+
+The LoRA and IP effects at this step are tiny, so their gains rest on small absolute deltas — the open
+question for a render with a LoRA / reference picture. The txt2img and all-dropped contexts were not
+compiled (~50 min each).
+
+What it took to get there:
+
+- Without the storage-backed allocator the compile fails in graph finalize (`error 1002`, "mprotect
+  failed … Out of memory"); `phone_eval.sh` preloads npuforge's `libcompiler_heap.so` into the generator.
+- A dozing phone with 2.7 GB available lost the compile 3 min in, with no kill logged (lmkd was reclaiming
+  apps at the same second); awake, plugged in and with apps closed (4.7 GB available) it completed.
+- An `adbd` restart (a USB event) kills every adb shell: the on-phone script runs detached (`nohup setsid`),
+  its launch is retried until its log exists, and the PC only polls.
+- `adb.exe` reads stdin (it swallowed a `while read` loop's file list): every adb call gets `< /dev/null`;
+  the 3,268 held-out files go as one directory push (1.7 GB in 87 s on Wi-Fi).
+- Over mobile Tailscale, plain `adb push` of GB files fails and adb reports success on corrupt data (23 of
+  78 chunks): `chunkpush.sh`/`chunkfix.sh`/`vm2phone.sh` move 32 MiB chunks, each accepted on its md5.
 
 ## 7. Open work
 
-- The real build: the probe's RSS decides the full run; held-out scores, on-phone compile time and
-  memory (1,559 inputs) are unmeasured.
+- LoRA and IP-Adapter strength on the phone (gain 0.89 / 1.18 at tiny effects): measure on a render, and
+  on more cases, before calling them good. Calibration prompts: 6 of 8 rows are photo-style; Mr.J advises
+  Danbooru tags without style words so one template suits anime and realistic fine-tunes — test an
+  anime checkpoint first, recalibrate (a `rows_config` edit, ~3–4 h of VM) if it degrades.
+- ~50 min per on-phone conversion compile (8 Elite): drop features, `O=1`, or prebuilt contexts.
+- Compiling for v75 from a v79+ phone (contexts run forward only, so a v75 build covers 8 Gen 3 and up):
+  npuforge records on-phone compiles as ignoring the configured arch — untested on purpose.
 - App side: an `SDXL_SWAP` conversion type in npuforge, Nightmare's SDXL pipeline binding the inputs
   (its SD1.5 patches 015–017), an SDXL ControlNet context on the phone (its 77-token text input is an
   assumption of the rows) and the IP-Adapter SDXL head (the ViT-H encoder is SD1.5 Plus's).
