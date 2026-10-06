@@ -100,7 +100,7 @@
     <string name="mode_swap">SD1.5 Swap</string>
     <string name="mode_swap_note" formatted="false">LoRA 和 ControlNet 在 Nightmare Mobile 中每次生成时选择，无需重新转换。生成约慢 15%；编译时间约为两倍。</string>
     <string name="mode_sdxl_swap">SDXL Swap</string>
-    <string name="mode_sdxl_swap_note" formatted="false">转换为 SDXL Swap v2 模板：基于 Illustrious、NoobAI v-pred 和 SDXL base 校准，提示词最长 462 个 token。LoRA、ControlNet 和 IP-Adapter 在 Nightmare Mobile 中每次生成时选择，无需重新转换。只勾选会用到的功能：每保留一项都会让每次生成变慢（LoRA 影响最大，约 30%）。导出的模型需要支持 SDXL Swap v2 的 Nightmare Mobile。编译需要一小时或更久；请保持手机充电、亮屏，并关闭其他应用。</string>
+    <string name="mode_sdxl_swap_note" formatted="false">转换为 SDXL Swap 模板：基于 Illustrious、NoobAI v-pred 和 SDXL base 校准，提示词最长 462 个 token。勾选 LoRA 后，可在 Nightmare Mobile 中每次生成时选择 LoRA，无需重新转换；每次生成约慢 30%。此版本不提供 ControlNet、IP-Adapter 和 Inpaint。导出的模型需要 Nightmare Mobile 1.6.096 或更新版本。编译需要一小时或更久；请保持手机充电、亮屏，并关闭其他应用。</string>
     <string name="mode_inpaint_note_ready">将 SD1.5 局部重绘差分加到此模型上，导出 9 通道局部重绘模型。</string>
     <string name="mode_inpaint_note_download">将 SD1.5 局部重绘差分加到此模型上，导出 9 通道局部重绘模型。需要一次性下载 1.7 GB。</string>
     <string name="inpaint_diff_dialog_title">下载局部重绘差分</string>
