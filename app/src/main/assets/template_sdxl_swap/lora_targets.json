@@ -4200,6 +4200,356 @@
 "idx": 699,
 "din": 1280,
 "dout": 1280
+},
+{
+"name": "down_blocks.0.resnets.0.time_emb_proj.w",
+"idx": 700,
+"din": 1280,
+"dout": 320,
+"kind": "lin"
+},
+{
+"name": "down_blocks.0.resnets.1.time_emb_proj.w",
+"idx": 701,
+"din": 1280,
+"dout": 320,
+"kind": "lin"
+},
+{
+"name": "down_blocks.1.attentions.0.proj_in.w",
+"idx": 702,
+"din": 640,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "down_blocks.1.attentions.0.proj_out.w",
+"idx": 703,
+"din": 640,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "down_blocks.1.attentions.1.proj_in.w",
+"idx": 704,
+"din": 640,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "down_blocks.1.attentions.1.proj_out.w",
+"idx": 705,
+"din": 640,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "down_blocks.1.resnets.0.time_emb_proj.w",
+"idx": 706,
+"din": 1280,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "down_blocks.1.resnets.0.conv_shortcut.w",
+"idx": 707,
+"din": 320,
+"dout": 640,
+"kind": "conv1x1"
+},
+{
+"name": "down_blocks.1.resnets.1.time_emb_proj.w",
+"idx": 708,
+"din": 1280,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "down_blocks.2.attentions.0.proj_in.w",
+"idx": 709,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "down_blocks.2.attentions.0.proj_out.w",
+"idx": 710,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "down_blocks.2.attentions.1.proj_in.w",
+"idx": 711,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "down_blocks.2.attentions.1.proj_out.w",
+"idx": 712,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "down_blocks.2.resnets.0.time_emb_proj.w",
+"idx": 713,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "down_blocks.2.resnets.0.conv_shortcut.w",
+"idx": 714,
+"din": 640,
+"dout": 1280,
+"kind": "conv1x1"
+},
+{
+"name": "down_blocks.2.resnets.1.time_emb_proj.w",
+"idx": 715,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "up_blocks.0.attentions.0.proj_in.w",
+"idx": 716,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "up_blocks.0.attentions.0.proj_out.w",
+"idx": 717,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "up_blocks.0.attentions.1.proj_in.w",
+"idx": 718,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "up_blocks.0.attentions.1.proj_out.w",
+"idx": 719,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "up_blocks.0.attentions.2.proj_in.w",
+"idx": 720,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "up_blocks.0.attentions.2.proj_out.w",
+"idx": 721,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "up_blocks.0.resnets.0.time_emb_proj.w",
+"idx": 722,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "up_blocks.0.resnets.0.conv_shortcut.w",
+"idx": 723,
+"din": 2560,
+"dout": 1280,
+"kind": "conv1x1"
+},
+{
+"name": "up_blocks.0.resnets.1.time_emb_proj.w",
+"idx": 724,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "up_blocks.0.resnets.1.conv_shortcut.w",
+"idx": 725,
+"din": 2560,
+"dout": 1280,
+"kind": "conv1x1"
+},
+{
+"name": "up_blocks.0.resnets.2.time_emb_proj.w",
+"idx": 726,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "up_blocks.0.resnets.2.conv_shortcut.w",
+"idx": 727,
+"din": 1920,
+"dout": 1280,
+"kind": "conv1x1"
+},
+{
+"name": "up_blocks.1.attentions.0.proj_in.w",
+"idx": 728,
+"din": 640,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "up_blocks.1.attentions.0.proj_out.w",
+"idx": 729,
+"din": 640,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "up_blocks.1.attentions.1.proj_in.w",
+"idx": 730,
+"din": 640,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "up_blocks.1.attentions.1.proj_out.w",
+"idx": 731,
+"din": 640,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "up_blocks.1.attentions.2.proj_in.w",
+"idx": 732,
+"din": 640,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "up_blocks.1.attentions.2.proj_out.w",
+"idx": 733,
+"din": 640,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "up_blocks.1.resnets.0.time_emb_proj.w",
+"idx": 734,
+"din": 1280,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "up_blocks.1.resnets.0.conv_shortcut.w",
+"idx": 735,
+"din": 1920,
+"dout": 640,
+"kind": "conv1x1"
+},
+{
+"name": "up_blocks.1.resnets.1.time_emb_proj.w",
+"idx": 736,
+"din": 1280,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "up_blocks.1.resnets.1.conv_shortcut.w",
+"idx": 737,
+"din": 1280,
+"dout": 640,
+"kind": "conv1x1"
+},
+{
+"name": "up_blocks.1.resnets.2.time_emb_proj.w",
+"idx": 738,
+"din": 1280,
+"dout": 640,
+"kind": "lin"
+},
+{
+"name": "up_blocks.1.resnets.2.conv_shortcut.w",
+"idx": 739,
+"din": 960,
+"dout": 640,
+"kind": "conv1x1"
+},
+{
+"name": "up_blocks.2.resnets.0.time_emb_proj.w",
+"idx": 740,
+"din": 1280,
+"dout": 320,
+"kind": "lin"
+},
+{
+"name": "up_blocks.2.resnets.0.conv_shortcut.w",
+"idx": 741,
+"din": 960,
+"dout": 320,
+"kind": "conv1x1"
+},
+{
+"name": "up_blocks.2.resnets.1.time_emb_proj.w",
+"idx": 742,
+"din": 1280,
+"dout": 320,
+"kind": "lin"
+},
+{
+"name": "up_blocks.2.resnets.1.conv_shortcut.w",
+"idx": 743,
+"din": 640,
+"dout": 320,
+"kind": "conv1x1"
+},
+{
+"name": "up_blocks.2.resnets.2.time_emb_proj.w",
+"idx": 744,
+"din": 1280,
+"dout": 320,
+"kind": "lin"
+},
+{
+"name": "up_blocks.2.resnets.2.conv_shortcut.w",
+"idx": 745,
+"din": 640,
+"dout": 320,
+"kind": "conv1x1"
+},
+{
+"name": "mid_block.attentions.0.proj_in.w",
+"idx": 746,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "mid_block.attentions.0.proj_out.w",
+"idx": 747,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "mid_block.resnets.0.time_emb_proj.w",
+"idx": 748,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
+},
+{
+"name": "mid_block.resnets.1.time_emb_proj.w",
+"idx": 749,
+"din": 1280,
+"dout": 1280,
+"kind": "lin"
 }
 ]
 }

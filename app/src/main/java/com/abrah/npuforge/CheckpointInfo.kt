@@ -83,11 +83,11 @@ object CheckpointInfo {
         SD15_SWAP("template_swap", "components_sd15", SD15_COMPONENTS),
         SDXL("template_sdxl", "components_sdxl", SDXL_COMPONENTS),
         /**
-         * "SDXL Swap" (preview): a plain SDXL checkpoint converted into the SDXL Swap template
-         * (docs/SDXL-SWAP-TEMPLATE.md) with every feature dropped -- an ordinary 6-input SDXL
-         * UNet that today's importers render. Same tensors and components as [SDXL]; the
-         * features (LoRA, ControlNet, IP-Adapter, inpaint) arrive with the generating app's
-         * SDXL support. Never detected from a header: the checkpoint validates as [SDXL].
+         * "SDXL Swap": a plain SDXL checkpoint converted into the SDXL Swap v2 template
+         * (docs/SDXL-SWAP-TEMPLATE.md §7c): a 462-token (6-chunk) SDXL UNet whose chosen features
+         * (LoRA, ControlNet, IP-Adapter, inpaint) are graph inputs; every other feature is left out
+         * of the compile. Rendering it needs the generating app's SDXL Swap v2 support. Same tensors
+         * and components as [SDXL]. Never detected from a header: the checkpoint validates as [SDXL].
          */
         SDXL_SWAP("template_sdxl_swap", "components_sdxl", SDXL_COMPONENTS);
 

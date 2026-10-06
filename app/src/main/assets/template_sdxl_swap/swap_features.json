@@ -1,1 +1,1 @@
-{"template": "sdxl_swap_v1", "features": ["lora", "cn", "ip", "inp"]}
+{"template": "sdxl_swap_v2", "features": ["lora", "cn", "ip", "conv", "freeu", "pag", "couple", "inp"], "text_tokens": 462}

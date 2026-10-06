@@ -105,9 +105,8 @@
     <string name="mode_inpaint">Inpainting</string>
     <string name="mode_swap">SD1.5 Swap</string>
     <string name="mode_swap_note" formatted="false">LoRA и ControlNet выбираются при каждой генерации в Nightmare Mobile, без повторной конвертации. Генерация примерно на 15% медленнее; компиляция примерно вдвое дольше.</string>
-    <string name="mode_sdxl_swap">SDXL Swap (предпросмотр)</string>
-    <string name="mode_sdxl_swap_note" formatted="false">Конвертирует в шаблон SDXL Swap. Без отмеченных функций экспорт — обычная модель SDXL, которую Nightmare Mobile генерирует уже сейчас. Компиляция занимает около часа; держите телефон на зарядке, с включённым экраном и закрытыми приложениями.</string>
-    <string name="mode_sdxl_swap_features_note" formatted="false">Отмеченная функция делает LoRA, ControlNet или IP-Adapter входами графа: такую модель может генерировать только приложение с поддержкой SDXL Swap (Nightmare Mobile с SDXL Swap). Inpaint пока недоступен.</string>
+    <string name="mode_sdxl_swap">SDXL Swap</string>
+    <string name="mode_sdxl_swap_note" formatted="false">Конвертирует в шаблон SDXL Swap v2: откалиброван на Illustrious, NoobAI v-pred и SDXL base, промпты до 462 токенов. LoRA, ControlNet и IP-Adapter выбираются при каждой генерации в Nightmare Mobile, без повторной конвертации. Отмечайте только то, чем будете пользоваться: каждая оставленная функция замедляет каждую генерацию (сильнее всего LoRA, примерно на 30%). Для экспорта нужен Nightmare Mobile с поддержкой SDXL Swap v2. Компиляция занимает час или больше; держите телефон на зарядке, с включённым экраном и закрытыми приложениями.</string>
     <string name="mode_inpaint_note_ready">Добавляет к этой модели разницу SD1.5 inpainting и экспортирует 9-канальную inpainting-модель.</string>
     <string name="mode_inpaint_note_download">Добавляет к этой модели разницу SD1.5 inpainting и экспортирует 9-канальную inpainting-модель. Нужна однократная загрузка 1,7 ГБ.</string>
     <string name="inpaint_diff_dialog_title">Загрузка разницы inpainting</string>
@@ -136,6 +135,9 @@
     <string name="swap_feature_cn">ControlNet</string>
     <string name="swap_feature_ip">IP-Adapter</string>
     <string name="swap_feature_inp">Inpaint</string>
-    <string name="swap_inpaint_note_ready">Inpaint делает модель для инпейнтинга (добавляется разница SD1.5 inpainting). Для text-to-image конвертируйте ещё раз без него.</string>
-    <string name="swap_inpaint_note_download">Inpaint делает модель для инпейнтинга (добавляется разница SD1.5 inpainting; однократная загрузка 1,7 ГБ). Для text-to-image конвертируйте ещё раз без него.</string>
+    <string name="swap_inpaint_note_ready">Inpaint делает модель для инпейнтинга (добавляется разница SD1.5 inpainting): намного лучше для редактирования, хуже для генерации по тексту. Для text-to-image конвертируйте ещё раз без него.</string>
+    <string name="swap_inpaint_note_download">Inpaint делает модель для инпейнтинга (добавляется разница SD1.5 inpainting; однократная загрузка 1,7 ГБ): намного лучше для редактирования, хуже для генерации по тексту. Для text-to-image конвертируйте ещё раз без него.</string>
+    <string name="sdxl_inpaint_diff_dialog_message">Для SDXL inpainting-модели нужна однократная загрузка разницы SDXL inpainting (5,1 ГБ, CreativeML Open RAIL++-M). Она сохраняется для следующих конвертаций и докачивается при обрыве. По возможности используйте Wi-Fi.\n\nЕсли загрузка всё время прерывается, скачайте sdxl_inpaint_diff_f16.safetensors с huggingface.co/AbrahamPJ/npuforge-sdxl-inpaint-diff (или hf-mirror.com/AbrahamPJ/npuforge-sdxl-inpaint-diff) в браузере и нажмите «Использовать скачанный файл».</string>
+    <string name="sdxl_swap_inpaint_note_download">Inpaint делает модель для инпейнтинга: разница SDXL inpainting добавляется ко всем весам. Она намного лучше редактирует (инпейнтинг, аутпейнтинг, исправление части изображения), но заметно хуже генерирует по тексту с нуля (более плоско, меньше деталей). Чтобы было и то и другое, конвертируйте дважды: с Inpaint и без. Нужна однократная загрузка 5,1 ГБ.</string>
+    <string name="sdxl_swap_inpaint_note_ready">Inpaint делает модель для инпейнтинга: разница SDXL inpainting добавляется ко всем весам. Она намного лучше редактирует (инпейнтинг, аутпейнтинг, исправление части изображения), но заметно хуже генерирует по тексту с нуля (более плоско, меньше деталей). Чтобы было и то и другое, конвертируйте дважды: с Inpaint и без.</string>
 </resources>

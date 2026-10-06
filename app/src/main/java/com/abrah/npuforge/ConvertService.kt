@@ -470,14 +470,16 @@ class ConvertService : Service() {
 
                     val unetArgs = if (inpaintDiff || swapInpaint) {
                         step++
-                        val diff = if (inpaintDiffUri != null && !InpaintDiff.isReady(this@ConvertService)) {
+                        // SD1.5's or SDXL's difference, by the family being converted.
+                        val diffFile = InpaintDiff.forModel(model)
+                        val diff = if (inpaintDiffUri != null && !diffFile.isReady(this@ConvertService)) {
                             post(getString(R.string.stage_inpaint_diff_import))
-                            InpaintDiff.import(this@ConvertService, inpaintDiffUri) {
+                            diffFile.import(this@ConvertService, inpaintDiffUri) {
                                 post(getString(R.string.stage_inpaint_diff_import), it)
                             }
                         } else {
                             post(getString(R.string.stage_inpaint_diff_download))
-                            InpaintDiff.ensure(this@ConvertService) {
+                            diffFile.ensure(this@ConvertService) {
                                 post(getString(R.string.stage_inpaint_diff_download), it)
                             }
                         }

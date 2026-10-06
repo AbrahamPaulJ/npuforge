@@ -74,15 +74,36 @@ object Converter {
     internal fun predictionMarkers(type: CheckpointInfo.PredictionType): Map<String, String> =
         if (type == CheckpointInfo.PredictionType.V_PREDICTION) mapOf(V_PRED_MARKER to "")
         else emptyMap()
-    /** Every Swap feature name, in `QNN_TPL_DROP` spelling: LoRA, ControlNet, IP-Adapter, inpaint. */
-    val SWAP_FEATURES = listOf("lora", "cn", "ip", "inp")
+    /**
+     * Every Swap feature name, in `QNN_TPL_DROP` spelling: LoRA, ControlNet, IP-Adapter, inpaint, and
+     * SDXL Swap v2's conv LoRA, FreeU, PAG and attention coupling (regional prompts).
+     * ⚠ A template feature missing from this list is never dropped: it would stay in every graph.
+     */
+    val SWAP_FEATURES = listOf("lora", "cn", "ip", "inp", "conv", "freeu", "pag", "couple")
 
     /**
-     * Features a template has but this build does not OFFER. SDXL Swap's inpaint needs the SDXL
-     * inpainting difference (~5 GB, official SDXL inpaint UNet minus SDXL base), which is not hosted
-     * yet; its compile always leaves inpaint out.
+     * Features a template has but this build does not OFFER, so every compile leaves them out. SDXL
+     * Swap v2's conv LoRA, FreeU, PAG and coupling: no app feeds them yet, a kept feature costs render
+     * time even unused, and coupling with the other features does not fit one HTP process on an
+     * S25 (4.02 GB; docs/SDXL-SWAP-TEMPLATE.md §7c).
      */
-    private val UNOFFERED = mapOf(CheckpointInfo.Model.SDXL_SWAP to setOf("inp"))
+    // ⚠ SDXL Swap offers LoRA ONLY since 1.0.11 (the user's call, 2026-10-06). Its Inpaint renders
+    // blotchy, photographic fills on Illustrious, unresolved: the quantized context reproduces fp32
+    // on held-out rows, so the add-difference itself is the suspect (docs/SDXL-SWAP-TEMPLATE.md §7a).
+    // ControlNet and IP-Adapter are re-verified on renders before they are offered. SD1.5 Swap keeps
+    // every feature (walked on the phone in v3).
+    private val UNOFFERED = mapOf(
+        CheckpointInfo.Model.SDXL_SWAP to setOf("cn", "ip", "inp", "conv", "freeu", "pag", "couple"),
+    )
+
+    /** The SDXL Swap template's name and prompt length, from its `swap_features.json` (`sdxl_swap_v2`, 462). */
+    fun sdxlSwapTemplate(context: Context): Pair<String, Int> = runCatching {
+        val text = context.assets.open("${CheckpointInfo.Model.SDXL_SWAP.templateDirectory}/$SWAP_FEATURES_MARKER")
+            .use { it.readBytes().toString(Charsets.UTF_8) }
+        val name = Regex("\"template\"\\s*:\\s*\"(\\w+)\"").find(text)?.groupValues?.get(1) ?: "sdxl_swap_v1"
+        val tokens = Regex("\"text_tokens\"\\s*:\\s*(\\d+)").find(text)?.groupValues?.get(1)?.toInt() ?: 231
+        name to tokens
+    }.getOrDefault("sdxl_swap_v1" to 231)
 
     /** The features a Swap template's gated lib can leave out; empty for one that cannot (Swap v2). */
     fun swapTemplateFeatures(context: Context, model: CheckpointInfo.Model): List<String> = runCatching {
@@ -487,17 +508,22 @@ object Converter {
                     // LoRA packer needs: the order of the UNet's 160 LoRA inputs.
                     val familyMarkers = when (model) {
                         CheckpointInfo.Model.SDXL -> mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1")
-                        // SDXL Swap with no feature kept takes the plain SDXL inputs: the plain SDXL
-                        // markers only, so today's importers render it. With a feature kept it also
-                        // carries the Swap markers, which an importer must understand to feed the
-                        // feature inputs (Nightmare's SDXL Swap support), or the render fails.
-                        CheckpointInfo.Model.SDXL_SWAP -> mapOf("SDXL" to "", "qnn_context.txt" to "231_masked_v1") +
-                            if (swapFeatures.isNullOrEmpty()) emptyMap() else
-                                (listOf(SWAP_MARKER) + (if ("ip" in swapFeatures) listOf(IP_MARKER) else emptyList()))
+                        // SDXL Swap v2 reads a 462-token prompt (6 chunks) whatever is kept, so every
+                        // export carries `qnn_context.txt` = `462_masked_v1`, the Swap marker
+                        // (`lora_targets.json`, which also identifies a Swap folder) and the features
+                        // marker naming `sdxl_swap_v2`: only an importer with SDXL Swap v2 support
+                        // renders it. IP / conv target lists come with their features.
+                        CheckpointInfo.Model.SDXL_SWAP -> {
+                            val (tplName, tokens) = sdxlSwapTemplate(context)
+                            val kept = swapFeatures.orEmpty()
+                            mapOf("SDXL" to "", "qnn_context.txt" to "${tokens}_masked_v1") +
+                                (listOf(SWAP_MARKER) + (if ("ip" in kept) listOf(IP_MARKER) else emptyList()) +
+                                    (if ("conv" in kept) listOf("conv_targets.json") else emptyList()))
                                     .associateWith { m ->
                                         context.assets.open("${model.templateDirectory}/$m")
                                             .use { it.readBytes().toString(Charsets.UTF_8) }
-                                    } + mapOf(SWAP_FEATURES_MARKER to swapFeaturesJson(swapFeatures, "sdxl_swap_v1"))
+                                    } + mapOf(SWAP_FEATURES_MARKER to swapFeaturesJson(kept, tplName))
+                        }
                         CheckpointInfo.Model.SD15_INPAINT -> mapOf("INPAINT" to "")
                         // `ip_targets.json` (Swap v2): the template takes IP-Adapter K/V
                         // inputs; Nightmare offers a reference picture only when it is here.

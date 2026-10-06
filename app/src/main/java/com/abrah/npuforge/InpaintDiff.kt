@@ -18,13 +18,16 @@ import java.security.MessageDigest
  * the chosen source and the other one ([HfDownload]). Either way the file is
  * used only after its size and SHA-256 match; the hash is checked once and
  * recorded in a stamp beside the file.
+ *
+ * SDXL has its own difference ([SdxlInpaintDiff]): the official SDXL inpainting UNet minus SDXL
+ * base 1.0, 5.1 GB. [forModel] picks the one a conversion needs.
  */
-object InpaintDiff {
-    const val NAME = "sd15inp_diff_f16.safetensors"
-    private const val PATH = "AbrahamPJ/npuforge-sd15-inpaint-diff/resolve/main/$NAME"
-    const val SIZE = 1_719_165_856L
-    private const val SHA256 = "9f08e2684fc2c6261e705e28ff437fd0fae569b1dcf62336afef5994beb6d487"
-
+open class InpaintDiffFile(
+    val NAME: String,
+    private val PATH: String,
+    val SIZE: Long,
+    private val SHA256: String,
+) {
     private fun dir(context: Context) = File(context.filesDir, "inpaint_diff")
     fun file(context: Context) = File(dir(context), NAME)
     private fun stamp(context: Context) = File(dir(context), "$NAME.sha256")
@@ -144,3 +147,26 @@ object InpaintDiff {
         stamp(context).writeText(SHA256)
     }
 }
+
+/** The SD1.5 inpainting difference (1.7 GB). */
+object InpaintDiff : InpaintDiffFile(
+    NAME = "sd15inp_diff_f16.safetensors",
+    PATH = "AbrahamPJ/npuforge-sd15-inpaint-diff/resolve/main/sd15inp_diff_f16.safetensors",
+    SIZE = 1_719_165_856L,
+    SHA256 = "9f08e2684fc2c6261e705e28ff437fd0fae569b1dcf62336afef5994beb6d487",
+) {
+    /** The difference a conversion into [model] adds. */
+    fun forModel(model: CheckpointInfo.Model): InpaintDiffFile = if (model.isSdxl) SdxlInpaintDiff else InpaintDiff
+}
+
+/**
+ * The SDXL inpainting difference: `diffusers/stable-diffusion-xl-1.0-inpainting-0.1` UNet minus
+ * `stable-diffusion-xl-base-1.0`, every UNet tensor, float16 (5.1 GB; conv_in 9-wide: channels 4..8
+ * are the inpaint model's own). Hosted 2026-10-04 (docs/SDXL-SWAP-TEMPLATE.md §7a).
+ */
+object SdxlInpaintDiff : InpaintDiffFile(
+    NAME = "sdxl_inpaint_diff_f16.safetensors",
+    PATH = "AbrahamPJ/npuforge-sdxl-inpaint-diff/resolve/main/sdxl_inpaint_diff_f16.safetensors",
+    SIZE = 5_135_203_248L,
+    SHA256 = "2cc2aee6a13b3b0b62217f9b2ed722860b09a2acb7d25746e64bd6c698e29c2b",
+)

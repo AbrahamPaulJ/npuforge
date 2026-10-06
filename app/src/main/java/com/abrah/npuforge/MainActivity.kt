@@ -279,7 +279,7 @@ private fun ConvertScreen() {
     var swapKeptText by rememberSaveable { mutableStateOf("lora,cn,ip") }
     val swapKept = swapKeptText.split(',').filter { it in swapSupported }
     val swapInpaint = asSwap && "inp" in swapKept
-    // SDXL Swap (preview): offered only when this build carries its template (the 190 MB lib).
+    // SDXL Swap: offered only when this build carries its template (the 300 MB lib).
     val sdxlSwapAvailable = remember {
         runCatching { "recipe.bin" in context.assets.list(CheckpointInfo.Model.SDXL_SWAP.templateDirectory).orEmpty() }
             .getOrDefault(false)
@@ -289,6 +289,9 @@ private fun ConvertScreen() {
     val sdxlSwapSupported = remember { Converter.swapFeaturesSupported(context, CheckpointInfo.Model.SDXL_SWAP) }
     var sdxlSwapKeptText by rememberSaveable { mutableStateOf("") }
     val sdxlSwapKept = sdxlSwapKeptText.split(',').filter { it in sdxlSwapSupported }
+    // SDXL Swap with Inpaint kept: add-differenced with the SDXL inpainting difference (5.1 GB).
+    val sdxlSwapInpaint = asSwap && report?.model == CheckpointInfo.Model.SDXL && sdxlSwapAvailable &&
+        "inp" in sdxlSwapKept
     // SD1.5 only; kept across checkpoints. 2 is the long-standing default.
     var clipSkip by rememberSaveable { mutableStateOf(2) }
     val loras = rememberSaveable(
@@ -312,7 +315,7 @@ private fun ConvertScreen() {
         val suffix = (if (clipSkip == 1 && report?.model != CheckpointInfo.Model.SDXL) "_cs1" else "") +
             (if (asInpaint) "_inpaint" else "") +
             (if (asSwap) "_npuforge_swap" else "") +
-            (if (swapInpaint) "_inpaint" else "")
+            (if (swapInpaint || sdxlSwapInpaint) "_inpaint" else "")
         if (suffix.isEmpty()) base else base.take(60 - suffix.length) + suffix
     }
 
@@ -380,7 +383,13 @@ private fun ConvertScreen() {
         val checkpoint = picked
         if (uri != null && checkpoint != null) {
             notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-            if (swapInpaint) {
+            if (sdxlSwapInpaint) {
+                ConvertService.start(
+                    context, checkpoint, modelName, model = CheckpointInfo.Model.SDXL_SWAP,
+                    inpaintDiffUri = uri, swapFeatures = sdxlSwapKept,
+                    predictionType = predictionType.takeIf { predictionTypeOverridden },
+                )
+            } else if (swapInpaint) {
                 ConvertService.start(
                     context, checkpoint, modelName, model = CheckpointInfo.Model.SD15_SWAP,
                     inpaintDiffUri = uri, clipSkip = clipSkip, swapFeatures = swapKept,
@@ -789,17 +798,22 @@ private fun ConvertScreen() {
                                                 Text(stringResource(when (feature) {
                                                     "lora" -> R.string.swap_feature_lora
                                                     "cn" -> R.string.swap_feature_cn
-                                                    else -> R.string.swap_feature_ip
+                                                    "ip" -> R.string.swap_feature_ip
+                                                    else -> R.string.swap_feature_inp
                                                 }))
                                             },
                                         )
                                     }
                                 }
-                                if (sdxlSwapKept.isNotEmpty()) {
+                                // The inpaint trade-off, shown when Inpaint is ticked (as SD1.5 Swap's note).
+                                if (sdxlSwapInpaint) {
                                     Text(
-                                        stringResource(R.string.mode_sdxl_swap_features_note),
+                                        stringResource(
+                                            if (SdxlInpaintDiff.isReady(context)) R.string.sdxl_swap_inpaint_note_ready
+                                            else R.string.sdxl_swap_inpaint_note_download,
+                                        ),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }
@@ -865,7 +879,11 @@ private fun ConvertScreen() {
                         onClick = {
                             val vaeDir = File(context.filesDir, "vae_sdxl")
                             val missing = !File(vaeDir, "vae_decoder.bin").isFile || !File(vaeDir, "vae_encoder.bin").isFile
-                            if (report?.model == CheckpointInfo.Model.SDXL && missing) {
+                            if (sdxlSwapInpaint && !SdxlInpaintDiff.isReady(context)) {
+                                // Asked first: the 5.1 GB difference is the big download (the conversion
+                                // fetches the VAE too if it is missing).
+                                showInpaintDiffDialog = true
+                            } else if (report?.model == CheckpointInfo.Model.SDXL && missing) {
                                 pendingConversionModel =
                                     if (sdxlSwap) CheckpointInfo.Model.SDXL_SWAP else CheckpointInfo.Model.SDXL
                                 showVaeDownloadDialog = true
@@ -892,12 +910,23 @@ private fun ConvertScreen() {
                     AlertDialog(
                         onDismissRequest = { showInpaintDiffDialog = false },
                         title = { Text(stringResource(R.string.inpaint_diff_dialog_title)) },
-                        text = { Text(stringResource(R.string.inpaint_diff_dialog_message)) },
+                        text = {
+                            Text(stringResource(
+                                if (sdxlSwapInpaint) R.string.sdxl_inpaint_diff_dialog_message
+                                else R.string.inpaint_diff_dialog_message,
+                            ))
+                        },
                         confirmButton = {
                             TextButton(onClick = {
                                 showInpaintDiffDialog = false
                                 notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                if (swapInpaint) {
+                                if (sdxlSwapInpaint) {
+                                    ConvertService.start(
+                                        context, picked!!, modelName, model = CheckpointInfo.Model.SDXL_SWAP,
+                                        swapFeatures = sdxlSwapKept,
+                                        predictionType = predictionType.takeIf { predictionTypeOverridden },
+                                    )
+                                } else if (swapInpaint) {
                                     ConvertService.start(
                                         context, picked!!, modelName, model = CheckpointInfo.Model.SD15_SWAP,
                                         clipSkip = clipSkip, swapFeatures = swapKept,

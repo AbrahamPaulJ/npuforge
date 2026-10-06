@@ -1,185 +1,148 @@
-# Developer overview
+# NPUforge handoff
 
-npuforge converts SD1.5 and SDXL checkpoints into importable Qualcomm NPU model
-bundles on Android for [Fancy-Ai](https://github.com/Mr-J-369/Fancy-Ai) and
-[Nightmare Mobile](https://github.com/AbrahamPaulJ/nightmare-mobile). Output compatibility is limited
-to those two apps. Start with [README.md](README.md) for the project overview
-and [docs/BUILD.md](docs/BUILD.md) for dependencies and build instructions.
+NPuforge converts SD1.5 and SDXL checkpoints into Qualcomm NPU packages on
+Android. Start with [README.md](README.md); build instructions are in
+[docs/BUILD.md](docs/BUILD.md), measured limits in [docs/LIMITS.md](docs/LIMITS.md),
+and the documentation index in [CLAUDE.md](CLAUDE.md).
 
-## Current implementation
+## Where things are - 4 October 2026
 
-- Both families use the selected checkpoint's UNet, text encoder weights and
-  embeddings, VAE encoder and VAE decoder. SDXL has two text encoders.
-  Exception: SDXL downloads Mr.J's precompiled VAE contexts
-  (`Mr-J-369/Fancy-AI`) instead of compiling the checkpoint's VAE.
-- Downloads (SDXL VAE, inpaint difference) go through `HfDownload.kt`:
-  resumable, starting from the Utility tab's *Download source* (huggingface.co
-  or `hf-mirror.com`; a China timezone defaults to the mirror) and falling back
-  to the other. Each has an offline import ([docs/LIMITS.md](docs/LIMITS.md)
-  §Downloads). The SDXL VAE is asked for only when an SDXL conversion starts.
-- The app writes MNN text encoders and compiles QNN UNet/VAE contexts. Graph
-  templates and tokenizer assets are prepared separately and bundled with the
-  app; conversion does not recalibrate the UNet for each checkpoint.
-- QAIRT 2.50.0.260828. On the phone every context is compiled for the
-  device's own HTP arch; the configs' `dsp_arch` (SD1.5 v73, SDXL v75) is not
-  applied, their graph options are (8 MB VTCM; SDXL O=3 with
-  source-destructive reuse disabled). Exports are therefore chip-specific.
-- The SDXL compiler subprocess uses storage-backed allocation, including
-  compact small-object slabs; so does the SD1.5 UNet compile on phones under
-  10 GiB (`Converter.isLowRam`). Active conversion files live under
-  `noBackupFilesDir/conversion-work` and are explicitly cleaned up.
-- UNet LoRA merging supports standard kohya attention, ResNet, convolution,
-  sampling and embedding-layer mappings. Unmatched tensors produce a warning;
-  matched layers are merged. Retained merged weights are capped at 128 MiB.
-  Text-encoder LoRA remains unsupported; BF16 checkpoints are read as FP32.
-- SD1.5 clip skip 1 or 2 (default 2) selects `components_sd15/` or
-  `components_sd15/clip_skip1/` for the text-encoder recipe.
-- SD1.5 inpainting: a 9-channel `conv_in` selects `CheckpointInfo.Model.SD15_INPAINT`
-  and the `template_inpaint/` UNet template (QAIRT 2.50, DreamShaper 8
-  inpainting calibration); exports carry an `INPAINT` marker. A plain SD1.5
-  checkpoint can instead be converted **as** an inpainting model: the app
-  downloads the official SD1.5 inpainting difference once
-  (`AbrahamPJ/npuforge-sd15-inpaint-diff`, 1.72 GB, SHA-256 checked) or
-  imports a user-supplied copy, and runs `tplconv --inpaint-diff`.
-  [docs/SD15-INPAINT.md](docs/SD15-INPAINT.md).
+**1.0.11-preview installed (uncommitted, branch `sdxl-swap`): SDXL Swap is the v2.1 template** (no longer
+labelled preview). `template_sdxl_swap/` = the v2.1 bundle from the private HF archive
+`AbrahamPJ/sdxl-swap-vm-archive` (`v21/bundle/`; lib 302 MB, gitignored like before). Chips: LoRA,
+ControlNet, IP-Adapter and now **Inpaint** (downloads the hosted SDXL difference, `SdxlInpaintDiff` in
+`InpaintDiff.kt`, 5.1 GB, size + SHA-256 pinned; the trade-off — better editing, weaker text-to-image — is
+explained under the chip, in all four locales). v2's conv / FreeU / PAG / coupling are always dropped
+(`Converter.UNOFFERED`; coupling + the rest exceeds the S25's HTP process memory). Every export carries
+`qnn_context.txt` = `462_masked_v1` + `lora_targets.json` + `swap_features.json` (`sdxl_swap_v2`).
+⚠ The first v2 conversion on the phone (LoRA only, Juggernaut) started 4 Oct 21:31 and was still
+compiling at 22:52 (storage-backed compiler heap peak 15.2 GB; it needs that much free disk). Nightmare
+1.6.078 reads 6-chunk prompts and v2's LoRA targets; ControlNet / IP / inpaint inputs are not fed on SDXL yet. v1 SDXL Swap was never released: no
+compatibility kept. Everything below is the 3 October state.
 
-## State and next steps — 28 September 2026
+**Newest, unpushed: branch `sdxl-swap` (`6a61838`, `415cdaf`, `0ad819b`), 1.0.10-preview installed on
+the user's phone.** *Convert as → SDXL Swap* (preview) for SDXL checkpoints, from `template_sdxl_swap/`
+(the SDXL Swap template, [docs/SDXL-SWAP-TEMPLATE.md](docs/SDXL-SWAP-TEMPLATE.md)): LoRA / ControlNet /
+IP-Adapter chips, none ticked by default (a plain SDXL export); inpaint is in the template but not offered
+(its SDXL difference is not hosted). Its 190 MB lib (`-O0`) and `recipe.bin` / `tpl_trim.pack` are
+gitignored; the bundle lives in the authoring PC's WSL (`~/sdxl_swap/out/bundle`). Proven: the phone's
+`tplconv` rebuilt the Juggernaut XL Ragnarok pack byte for byte (103 s); the template's on-phone compile
+took 52 min. Not yet run end to end in the app — the user converted Juggernaut with 1.0.9 (features off)
+and is testing a LoRA conversion with Nightmare 1.6.076. The next template (v2) and its plan: the doc's §7.
 
-v1.0.4 (27 September) added inpainting, clip skip and resilient downloads; v1.0.5
-is below. Nightmare Mobile 1.6.033 is out, so SD1.5 exports
-work there. The signed release is installed on the test phone; the old debug
-build (same application id, debug key) had to be uninstalled first.
+**v1.0.8 is published as a GitHub pre-release.** `main` and the local
+`sd15-swap-v3` branch point to commit `d4905de`; annotated tag `v1.0.8` points to
+the same commit. The release is
+[NPUforge 1.0.8 - Swap v3 and V-prediction](https://github.com/AbrahamPaulJ/npuforge/releases/tag/v1.0.8).
+The stable `Latest` release remains v1.0.7.
 
-| | |
+Release APK facts:
+
+| Item | Value |
 |---|---|
-| Signed release | `NPUFORGE_SIGNING_PROPERTIES=<.secrets>/npuforge-keystore/signing.properties ./gradlew :app:assembleRelease` (key: CLAUDE.md). Fingerprint matches v1.0.3 |
-| Shareable test build | `./gradlew :app:assemblePreview`: debug-key signed, `com.abrah.npuforge.preview`, installs beside the release. ⚠ Never share the debug APK ([docs/BUILD.md](docs/BUILD.md)) |
-| Toolchain | NDK **30.0.16248370** (Mr.J's bump). Phone `tplconv` from the NDK 30 APK gave the same DreamShaper 8 pack md5 as the host (`042b99cf…`). 56/56 host tests pass |
+| Asset | `npuforge-1.0.8.apk` |
+| Size | 129,054,305 bytes |
+| SHA-256 | `8a94649e1ef27a693ec9a23101b9bd0834b1774102bf4277831f0a24f41f16ae` |
+| Package | `com.abrah.npuforge`, version code 9, version name 1.0.8 |
+| Signature | release certificate SHA-256 `901e78f6b49a382b1e53eb15449e7fa3df9533896026460d30f0c71b346ac26b` |
 
-What 1.0.4 adds over v1.0.3, with its evidence:
+The release build and lint passed, as did the complete Android unit suite. The
+Swap-v3 host suite was previously recorded as 60/60. The user explicitly chose
+to publish without a final manual phone pass. The release APK was not installed
+or pushed to the phone because the expected USB serial (in the private notes) was absent;
+only a changing LAN transport was visible. Do not claim v1.0.8 has been rendered
+on-device as a release build.
 
-| Change | Evidence |
-|---|---|
-| SD1.5 inpainting: 9-channel checkpoints and *Convert as → Inpainting* | Phone renders and field reports, [docs/SD15-INPAINT.md](docs/SD15-INPAINT.md); user re-tested 27 September |
-| Clip skip 1/2 | Encoder parity on host; one phone conversion and a "decent" image (user) |
-| Low-RAM compile (<10 GiB) | Allocator measured on the S25 via shell; **not yet run in the app on an 8 GB phone** |
-| Downloads: resume, mirror, source setting, file import | Ranged requests checked from outside China; **unconfirmed in China** |
-| File pickers list other file managers | User picked the checkpoint through a file manager |
-| Checkpoint deleted before compile; outputs deleted as zipped | Code change; user conversions completed |
+### What v1.0.8 contains
 
-**Field reports behind this (27 September):** a user in China could not finish
-an in-app download (probably the SDXL VAE, whose old downloader had no timeout,
-retry or resume); an 8 GB SM8450 lost inpaint conversions to Android's memory
-killer at the same UNet-compile peak a plain conversion survived. That phone is
-8 Gen 1, which stays unsupported (decision, 27 September): the V68/V69
-libraries Mr.J removed in v1.0.3 stay out.
+- **SD1.5 Swap v3:** conversion-time chips keep or remove LoRA, ControlNet,
+  IP-Adapter and inpaint inputs. Omitted features are absent from the compiled
+  graph. The inpaint path uses `--input-channel-prefix` and template constants.
+  The evidence and authoring contract are in
+  [docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md) section 9.
+- **Prediction type:** `modelspec.prediction_type` values `v` and `epsilon` are
+  detected from safetensors metadata; the UI permits an explicit override.
+  Missing or unknown metadata remains epsilon. V-prediction exports contain an
+  empty root `V_PRED` entry; epsilon exports do not. See
+  [docs/PREDICTION-TYPES.md](docs/PREDICTION-TYPES.md).
+- **SDXL Swap authoring work:** the checked-in plan and tiny-model evidence live
+  in [docs/SDXL-SWAP-TEMPLATE.md](docs/SDXL-SWAP-TEMPLATE.md). The live Vast/WSL
+  build is owned by `../nightmare-mobile/notes/HANDOFF.md`; do not restart it
+  from this document.
 
-**Last release: v1.0.5 (28 September 2026): 8 Gen 1 support for SD1.5.** V69
-libraries restored (V68 stays out), `htp_config_8gen1.json` beside the four
-SD1.5 templates, SDXL refused on SM8450/SM8475, readable SM8735 fp16 error.
-Field result: the 8 GB SM8450 reporter converted SD1.5 and inpainted in
-Nightmare. ⚠ Found while checking it: **on-device compiles target the device's
-own arch** and ignore the config's `dsp_arch` (docs/LIMITS.md), so exports are
-chip-specific, and 8 Gen 1 exports from 1.0.1/1.0.2 were v69 all along. Mr.J
-should hear both (it also reverses his V69 removal, and his per-SoC SDXL configs
-select graph options, not the arch).
+Nightmare Mobile v1.6.075 understands the same `V_PRED` marker and was released
+as a pre-release alongside this build. Its importer preserves the zero-byte
+entry and its common model-launch path supplies `--use_v_pred` for SD1.5, SDXL
+and Swap/template packages.
 
-**Known issue (in README and the 1.0.5 notes): SM8735 (8s Gen 4) cannot convert
-SD1.5**: no fp16 on its NPU; see README §Known issues and ROADMAP §Older QAIRT
-compatibility variant for the plan (user decision: note it, do not build yet).
+## One next step
 
-**✅ 2026-09-29: an SD1.5 template with LoRA and ControlNet as graph INPUTS**
-([docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md)) — the user's goal: a checkpoint
-converts on the phone and LoRA + ControlNet swap per render. Proven with the phone tools by
-hand (`tplconv` + on-phone compile of SD1.5 base: bit-identical to the PC build, 38 dB) and
-rendered in Nightmare (backend patch 015). **Not in the app yet.** Scripts and log:
-[notes/2026-09-29-input-lora-cn-probe.md](notes/2026-09-29-input-lora-cn-probe.md).
+Wait for field or manual reports before promoting v1.0.8. The smallest useful
+release-candidate check is one known v-prediction checkpoint:
 
-**Released 2026-09-30: `v1.0.6` — EXPERIMENTAL PRE-RELEASE** (SD1.5 Swap; `npuforge-1.0.6.apk`, 128,551,074 B, release-signed, `main` = `39252ba`, one commit since 1.0.5; "Latest" stays v1.0.5; the preview APK is superseded). Promote after reports with `gh release edit v1.0.6 --prerelease=false --latest`.
+1. confirm metadata selects V-prediction, then override both choices once;
+2. inspect the resulting ZIPs (`V_PRED` present only in the V-prediction one);
+3. import the V-prediction package into Nightmare Mobile v1.6.075;
+4. confirm `BackendProcess` logs the marker and `--use_v_pred`, then render and
+   compare against an epsilon launch.
 
-**✅ SD1.5 Swap in the app (2026-09-29)**: branch `sd15-swap` `8de0913` (local, not pushed) — the
-third *Convert as* chip ([docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md) §6b); a
-cuteyukimix conversion renders in Nightmare with LoRA + canny + openpose per render. The preview
-build **`npuforge-1.0.5-preview-swap.apk`** is in the phone's Downloads for the user to share with
-users; the release goes out with Nightmare's (Nightmare branch `sd15-swap`, 1.6.060). Next here:
-merge + release with Nightmare; the template-design questions (one template with features
-omitted at conversion; inpaint-as-txt2img) are in nightmare-mobile `docs/ROADMAP.md` §2j.
-(2) then Nightmare's side (app wiring and UI; the backend is done); (3) the 8 Gen 1 reporter's
-logs if they send them; send 1.0.5 to the China reporter; Mr.J: SDXL inpaint template,
-[docs/SDXL-INPAINT-TEMPLATE.md](docs/SDXL-INPAINT-TEMPLATE.md), and other SD1.5 resolutions.
+Promotion, only after that evidence:
 
-**Other resolutions** are new templates, not app changes: each (architecture,
-resolution) needs its own ONNX export, calibration at that resolution, quantize,
-recipe and bundle ([docs/TEMPLATE-AUTHORING.md](docs/TEMPLATE-AUTHORING.md); the
-inpaint runbook is [docs/SD15-INPAINT.md](docs/SD15-INPAINT.md) §Reproduction).
-`tplconv`, the inpaint difference and the app path are resolution-agnostic.
-Every resolution needs its own activation-range measurement, and above 512×768
-the host quantize hits a memory cliff (LocalDream's `docs/CONVERSION.md` §2).
-Phone compile memory at larger graphs is unmeasured.
+```powershell
+gh release edit v1.0.8 --repo AbrahamPaulJ/npuforge --prerelease=false --latest
+```
 
-**Do not redo:** the DreamShaper-inpaint calibration rows in LocalDream cover
-only timesteps 77–913 (recalibrate); the QAIRT SDK downloads with plain `curl`;
-`tools/mk_inpaint_diff.py` rebuilds the difference; the CLIP authoring env is
-WSL `~/npuconvert/.venv` plus pip `MNN==3.6.1` (`~/clipskip/`), which reproduces
-the shipped skip-2 recipe except MNN's random model UUID.
+Do not rebuild or republish merely to change the GitHub release flag. The asset
+digest above is already verified against GitHub's uploaded digest.
 
-Left behind for the LoRA/ControlNet template: WSL `~/cap/` (~3.5 GB: `keep/` converter
-output, `identity.pack`, `lib_tpl/`, `bundle/`, `out_ds/` DreamShaper context, `run_cap.sh`),
-`~/probe/` (export and probe scripts in `scripts/`, the combined ONNX in `combo/`, and
-`session0929/` = everything else the note calls "the session scratchpad": `cap/` pipeline and
-phone scripts, `b1/windows.json` + residual raws, `loras/` packed LoRAs, `cguard.ps1`); phone
-`/data/local/tmp/probe/` (~10 GB of probe contexts; `capph.bin` = the phone-built template,
-`cap/` = the bundle and `tplconv_arm`) and `/data/local/tmp/nmtest/` (Nightmare test rig).
-Left behind: WSL `inp9/` (~25 GB inpaint authoring workspace, includes the
-official difference in `inp9/off/`), `~/clipskip/` (CLIP authoring),
-`~/ramtest/` (DreamShaper 8 and inpaint packs), `~/ctxinfo/` (~1 GB of pulled
-contexts; `ctxinfo.sh` reads their metadata with `qnn-context-binary-utility`).
-On the test phone: `/data/local/tmp/ramtest` (~5 GB: packs, app binaries,
-v69 and low-RAM test contexts; safe to delete), and in Download
-`DreamShaper_8_pruned.safetensors`, `npuforge-1.0.4-preview-8gen1.apk`,
-`npuforge-1.0.5.apk`. Installed: release 1.0.5 and `npuforge preview`.
+## Do not redo
 
-## Evidence and remaining scope
+- Prediction type changes sampler interpretation, not QNN graph conversion.
+- `V_PRED` is the established LocalDream package marker; the spelling is not
+  `V_PRE`.
+- SD1.5 community v-prediction checkpoints often lack prediction metadata, so
+  the manual override is required even though SDXL files commonly carry
+  ModelSpec metadata.
+- Swap v3 feature removal happens at template composition/compile time through
+  `QNN_TPL_DROP`; it is not a runtime toggle.
+- The released Swap-v3 template and generated QNN/QAIRT assets are intentionally
+  staged build inputs and are excluded where licensing requires it. Do not add
+  signing material or restricted SDK binaries to git.
+- Do not touch the active WSL `~/sdxl_swap/`, Vast VM, or the phone's
+  `/data/local/tmp/probe` from this handoff. Their current state is documented
+  in Nightmare's handoff.
 
-Phone results include SD1.5/SDXL generation on a Galaxy S25 Ultra, a successful
-Pony CLIP-only diagnostic and full-component Illustrious output. The latest
-test APK also received a successful field report after allocator, workspace
-and LoRA compatibility fixes. No post-fix device-specific logs accompany that
-confirmation; it does not establish universal Vivo/Nubia compatibility.
+## Rebuild and verify
 
-[docs/LIMITS.md](docs/LIMITS.md) defines current support and measurement scope.
-[docs/SDXL-INVESTIGATION.md](docs/SDXL-INVESTIGATION.md) separates historical
-failure evidence, source changes and reported results. Broader checkpoint
-coverage and plain SD1.5 text-to-image/image-to-image in the consuming apps
-need further phone results; SD1.5 components have run on the phone only through
-inpaint models so far. BF16 work is deferred.
+Release signing properties live outside the repositories under
+`<.secrets>\npuforge-keystore\`.
+
+```powershell
+$env:NPUFORGE_SIGNING_PROPERTIES = '<.secrets>\npuforge-keystore\signing.properties'
+.\gradlew.bat :app:testDebugUnitTest --no-daemon
+.\gradlew.bat :app:assembleRelease :app:lintRelease --no-daemon
+```
+
+Then verify `app/build/outputs/apk/release/app-release.apk` with the newest
+Android SDK `apksigner.bat`. Never print the signing properties or copy them
+into this repository.
 
 ## Source navigation
 
-| Area                                    | Entry point                                                       |
-|-----------------------------------------|-------------------------------------------------------------------|
-| Android conversion lifecycle            | `app/src/main/java/com/abrah/npuforge/ConvertService.kt`          |
-| Native process staging and export       | `app/src/main/java/com/abrah/npuforge/Converter.kt`               |
-| Model family and component requirements | `app/src/main/java/com/abrah/npuforge/CheckpointInfo.kt`          |
-| Weight conversion and UNet LoRA         | `native/tplconv.cpp`, `tools/tpl_apply.py`, `tools/lora_merge.py` |
-| Inpaint difference                      | `InpaintDiff.kt` (download), `tools/mk_inpaint_diff.py` (build)   |
-| CLIP component writer                   | `native/componentconv.cpp`, `tools/clip_recipe.py`                |
-| VAE template authoring                  | `tools/vae_template.py`                                           |
-| Compiler allocation backing             | `native/compiler_heap.c`, `native/compiler_heap.map`              |
-| Regression coverage                     | `tests/`                                                          |
+| Area | Entry point |
+|---|---|
+| Checkpoint family and prediction metadata | `CheckpointInfo.kt` |
+| Conversion lifecycle and override/default choice | `ConvertService.kt` |
+| Package markers and ZIP assembly | `Converter.kt` |
+| Prediction-type UI | `MainActivity.kt` |
+| Swap-v3 native packing | `native/tplconv.cpp`, `tools/tpl_apply.py`, `tools/tpl_features.py` |
+| Prediction regression tests | `app/src/test/java/com/abrah/npuforge/PredictionTypeTest.kt` |
+| Swap-v3 native regression tests | `tests/test_input_channel_prefix.py` |
 
-## Development conventions
+## Existing limits that remain
 
-- Preserve native/Python weight-pack parity and `-ffp-contract=off`.
-  QNN context binaries are not byte-reproducible; a different checksum alone
-  does not establish a numerical regression.
-- Keep compatibility decisions tied to evidence. Do not turn unmatched LoRA
-  tensors or an uncalibrated quality heuristic into a blanket rejection.
-- Use focused host tests and build/lint checks for changed paths. Device
-  deployment and expensive full-model experiments are separate activities.
-- Keep SDK binaries, generated models, checkpoints, local reports and private
-  device identifiers outside source control. [NOTICE](NOTICE) records the
-  third-party provenance and distribution restrictions.
-
-See [ROADMAP.md](ROADMAP.md) for proposed work and [CLAUDE.md](CLAUDE.md) for
-the documentation index.
+QAIRT is 2.50.0.260828. Phone compilation targets the phone's own HTP
+architecture, so exports are chip-specific. SDXL still uses the precompiled VAE
+contexts described in [docs/LIMITS.md](docs/LIMITS.md). Text-encoder LoRA remains
+unsupported, BF16 checkpoint data is read as FP32, and device-specific coverage
+is not universal. Keep new compatibility claims tied to measured phone results.
