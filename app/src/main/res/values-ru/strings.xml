@@ -140,4 +140,11 @@
     <string name="sdxl_inpaint_diff_dialog_message">Для SDXL inpainting-модели нужна однократная загрузка разницы SDXL inpainting (5,1 ГБ, CreativeML Open RAIL++-M). Она сохраняется для следующих конвертаций и докачивается при обрыве. По возможности используйте Wi-Fi.\n\nЕсли загрузка всё время прерывается, скачайте sdxl_inpaint_diff_f16.safetensors с huggingface.co/AbrahamPJ/npuforge-sdxl-inpaint-diff (или hf-mirror.com/AbrahamPJ/npuforge-sdxl-inpaint-diff) в браузере и нажмите «Использовать скачанный файл».</string>
     <string name="sdxl_swap_inpaint_note_download">Inpaint делает модель для инпейнтинга: разница SDXL inpainting добавляется ко всем весам. Она намного лучше редактирует (инпейнтинг, аутпейнтинг, исправление части изображения), но заметно хуже генерирует по тексту с нуля (более плоско, меньше деталей). Чтобы было и то и другое, конвертируйте дважды: с Inpaint и без. Нужна однократная загрузка 5,1 ГБ.</string>
     <string name="sdxl_swap_inpaint_note_ready">Inpaint делает модель для инпейнтинга: разница SDXL inpainting добавляется ко всем весам. Она намного лучше редактирует (инпейнтинг, аутпейнтинг, исправление части изображения), но заметно хуже генерирует по тексту с нуля (более плоско, меньше деталей). Чтобы было и то и другое, конвертируйте дважды: с Inpaint и без.</string>
+    <string name="channel_convert_done">Конвертация завершена</string>
+    <string name="converting_title">Конвертация: %1$s</string>
+    <string name="notify_done_title">Конвертация завершена</string>
+    <string name="notify_failed_title">Ошибка конвертации</string>
+    <string name="config_no_features">без функций</string>
+    <string name="config_loras_baked">вшито LoRA: %1$d</string>
+    <string name="config_clip_skip">clip skip %1$d</string>
 </resources>

@@ -519,6 +519,10 @@ private fun ConvertScreen() {
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                         )
+                        // ⭐ What is being converted (the user's ask, 2026-10-06).
+                        if (s.config.isNotEmpty()) {
+                            Text(s.config, style = MaterialTheme.typography.bodyMedium)
+                        }
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
@@ -575,6 +579,9 @@ private fun ConvertScreen() {
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.tertiary,
                         )
+                        if (s.config.isNotEmpty()) {
+                            Text(s.config, style = MaterialTheme.typography.bodyMedium)
+                        }
                         Text(
                             stringResource(R.string.done_where, s.dir),
                             style = MaterialTheme.typography.bodySmall,

@@ -48,8 +48,10 @@ class ConvertService : Service() {
             val steps: Int = 0,
             val log: List<String> = emptyList(),
             val startedAt: Long = 0,
+            /** What is being converted, one line: `name · SDXL Swap · LoRA · V-pred`. */
+            val config: String = "",
         ) : State
-        data class Done(val dir: String, val seconds: Long, val log: String = "") : State
+        data class Done(val dir: String, val seconds: Long, val log: String = "", val config: String = "") : State
         data class Failed(val message: String, val log: String = "") : State
     }
 
@@ -57,6 +59,10 @@ class ConvertService : Service() {
         private const val TAG = "ConvertService"
         private const val CHANNEL = "convert"
         internal const val NOTE_ID = 1
+        /** The finished/failed notice: its own id, so it outlives the foreground note. */
+        private const val DONE_ID = 2
+        /** Default importance, unlike [CHANNEL]: a finish after an hour must actually be seen. */
+        private const val CHANNEL_DONE = "convert_done"
         private const val ACTION_STOP = "com.abrah.npuforge.STOP_CONVERSION"
         const val ACTION_DOWNLOAD_VAE = "com.abrah.npuforge.DOWNLOAD_VAE"
         private val WAKE_LOCK_LEASE = 10.minutes
@@ -135,12 +141,22 @@ class ConvertService : Service() {
             NotificationChannel(CHANNEL, getString(R.string.channel_convert),
                 NotificationManager.IMPORTANCE_LOW)
         )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_DONE, getString(R.string.channel_convert_done),
+                NotificationManager.IMPORTANCE_DEFAULT)
+        )
     }
 
     private fun note(text: String): Notification =
         NotificationCompat.Builder(this, CHANNEL)
-            .setContentTitle(getString(R.string.app_name))
+            .setContentTitle(
+                if (convertName.isEmpty()) getString(R.string.app_name)
+                else getString(R.string.converting_title, convertName)
+            )
             .setContentText(text)
+            // ⭐ The config under the stage when the note is expanded (the user's ask, 2026-10-06).
+            .setStyle(NotificationCompat.BigTextStyle().bigText(
+                if (config.isEmpty()) text else "$text\n$config"))
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -161,6 +177,9 @@ class ConvertService : Service() {
     private var step = 0
     private var steps = 0
     private var startedAt = 0L
+    /** This conversion's name and one-line config ([State.Running.config]); empty for a VAE download. */
+    private var convertName = ""
+    private var config = ""
     private val logLines = ArrayDeque<String>()
     private var report: ConversionReport? = null
 
@@ -171,7 +190,7 @@ class ConvertService : Service() {
             logLines.addLast(stage)
         }
         while (logLines.size > 200) logLines.removeFirst()
-        _state.value = State.Running(stage, detail, step, steps, logLines.toList(), startedAt)
+        _state.value = State.Running(stage, detail, step, steps, logLines.toList(), startedAt, config)
         getSystemService(NotificationManager::class.java)
             .notify(NOTE_ID, note(if (steps > 0) "$step/$steps  $stage" else stage))
     }
@@ -235,6 +254,9 @@ class ConvertService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_DOWNLOAD_VAE) {
+            // ⚠ Not a conversion: no name or config left over from the previous one.
+            convertName = ""
+            config = ""
             val stage = getString(R.string.stage_vae_download)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(NOTE_ID, note(stage),
@@ -326,6 +348,27 @@ class ConvertService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        convertName = name
+        config = listOfNotNull(
+            name,
+            when (model) {
+                CheckpointInfo.Model.SD15 -> "SD 1.5"
+                CheckpointInfo.Model.SD15_INPAINT ->
+                    if (inpaintDiff) "SD 1.5 → " + getString(R.string.mode_inpaint)
+                    else "SD 1.5 " + getString(R.string.mode_inpaint)
+                CheckpointInfo.Model.SD15_SWAP -> getString(R.string.mode_swap)
+                CheckpointInfo.Model.SDXL -> "SDXL"
+                CheckpointInfo.Model.SDXL_SWAP -> getString(R.string.mode_sdxl_swap)
+            },
+            swapKept?.let { kept ->
+                if (kept.isEmpty()) getString(R.string.config_no_features)
+                else kept.joinToString(" + ") { featureLabel(it) }
+            },
+            loraSpecs.size.takeIf { it > 0 }?.let { getString(R.string.config_loras_baked, it) },
+            if (model.isSdxl) null else getString(R.string.config_clip_skip, clipSkip),
+            if (requestedPredictionType == CheckpointInfo.PredictionType.V_PREDICTION) "V-pred" else null,
+        ).joinToString(" · ")
+        getSystemService(NotificationManager::class.java).cancel(DONE_ID)
         val firstStage = getString(R.string.stage_import)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTE_ID, note(firstStage),
@@ -555,11 +598,52 @@ class ConvertService : Service() {
                     if (wakeLock.isHeld) wakeLock.release()
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
-                    _state.value = result
+                    _state.value = (result as? State.Done)?.copy(config = config) ?: result
+                    notifyFinished(result)
                 }
             }
         }
         return START_NOT_STICKY
+    }
+
+    private fun featureLabel(id: String): String = when (id) {
+        "lora" -> getString(R.string.swap_feature_lora)
+        "cn" -> getString(R.string.swap_feature_cn)
+        "ip" -> getString(R.string.swap_feature_ip)
+        "inp" -> getString(R.string.swap_feature_inp)
+        else -> id
+    }
+
+    /**
+     * ⭐ "Conversion complete" / "Conversion failed" in the notification bar (the user's ask,
+     * 2026-10-06): a conversion runs an hour or more, and the foreground note simply vanished
+     * when it ended. A stop by the user (a cancellation, [State.Idle]) posts nothing.
+     */
+    private fun notifyFinished(result: State) {
+        val (title, text) = when (result) {
+            is State.Done -> getString(R.string.notify_done_title) to
+                getString(R.string.done_title, result.seconds / 60, result.seconds % 60)
+            is State.Failed -> getString(R.string.notify_failed_title) to result.message
+            else -> return
+        }
+        val body = listOf(text, config).filter { it.isNotEmpty() }.joinToString("\n")
+        val n = NotificationCompat.Builder(this, CHANNEL_DONE)
+            .setContentTitle(title)
+            .setContentText(convertName.ifEmpty { text })
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setSmallIcon(
+                if (result is State.Done) android.R.drawable.stat_sys_download_done
+                else android.R.drawable.stat_notify_error
+            )
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setContentIntent(PendingIntent.getActivity(
+                this, 2, Intent(this, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            ))
+            .build()
+        runCatching { getSystemService(NotificationManager::class.java).notify(DONE_ID, n) }
     }
 
     override fun onDestroy() {

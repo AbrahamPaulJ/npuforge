@@ -136,4 +136,11 @@ If the download keeps stopping, download sd15inp_diff_f16.safetensors from huggi
     <string name="sdxl_inpaint_diff_dialog_message">Making an SDXL inpainting model needs a one-time download of the SDXL inpainting difference (5.1 GB, CreativeML Open RAIL++-M). It is kept for later conversions and resumes if interrupted. Use Wi-Fi if you can.\n\nIf the download keeps stopping, download sdxl_inpaint_diff_f16.safetensors from huggingface.co/AbrahamPJ/npuforge-sdxl-inpaint-diff (or hf-mirror.com/AbrahamPJ/npuforge-sdxl-inpaint-diff) in a browser, then tap Use downloaded file.</string>
     <string name="sdxl_swap_inpaint_note_download">Inpaint makes this an inpainting model: the SDXL inpainting difference is added to every weight. It is much better at editing (inpainting, outpainting, fixing part of a picture) but noticeably weaker at plain text-to-image (flatter, less detail). To have both, convert twice: once with Inpaint, once without. Needs a one-time 5.1 GB download.</string>
     <string name="sdxl_swap_inpaint_note_ready">Inpaint makes this an inpainting model: the SDXL inpainting difference is added to every weight. It is much better at editing (inpainting, outpainting, fixing part of a picture) but noticeably weaker at plain text-to-image (flatter, less detail). To have both, convert twice: once with Inpaint, once without.</string>
+    <string name="channel_convert_done">Conversion finished</string>
+    <string name="converting_title">Converting %1$s</string>
+    <string name="notify_done_title">Conversion complete</string>
+    <string name="notify_failed_title">Conversion failed</string>
+    <string name="config_no_features">no features</string>
+    <string name="config_loras_baked">LoRAs baked in: %1$d</string>
+    <string name="config_clip_skip">clip skip %1$d</string>
 </resources>

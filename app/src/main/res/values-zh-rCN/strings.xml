@@ -134,4 +134,11 @@
     <string name="sdxl_inpaint_diff_dialog_message">制作 SDXL 局部重绘模型需要一次性下载 SDXL 局部重绘差分（5.1 GB，CreativeML Open RAIL++-M 许可）。下载后会保留供以后转换使用，中断后可续传。请尽量使用 Wi-Fi。\n\n如果下载总是中断，请在浏览器中从 huggingface.co/AbrahamPJ/npuforge-sdxl-inpaint-diff（或 hf-mirror.com/AbrahamPJ/npuforge-sdxl-inpaint-diff）下载 sdxl_inpaint_diff_f16.safetensors，然后点按“使用已下载的文件”。</string>
     <string name="sdxl_swap_inpaint_note_download">局部重绘会将此模型转为重绘模型：SDXL inpainting 差值会加到每个权重上。它的编辑能力强得多（局部重绘、扩图、修改图片的一部分），但纯文生图明显变弱（画面更平、细节更少）。如果两者都要，请转换两次：一次勾选局部重绘，一次不勾选。需一次性下载 5.1 GB。</string>
     <string name="sdxl_swap_inpaint_note_ready">局部重绘会将此模型转为重绘模型：SDXL inpainting 差值会加到每个权重上。它的编辑能力强得多（局部重绘、扩图、修改图片的一部分），但纯文生图明显变弱（画面更平、细节更少）。如果两者都要，请转换两次：一次勾选局部重绘，一次不勾选。</string>
+    <string name="channel_convert_done">转换完成</string>
+    <string name="converting_title">正在转换 %1$s</string>
+    <string name="notify_done_title">转换完成</string>
+    <string name="notify_failed_title">转换失败</string>
+    <string name="config_no_features">无功能</string>
+    <string name="config_loras_baked">已融合 %1$d 个 LoRA</string>
+    <string name="config_clip_skip">clip skip %1$d</string>
 </resources>
