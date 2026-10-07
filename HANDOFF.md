@@ -5,9 +5,13 @@ Android. Start with [README.md](README.md); build instructions are in
 [docs/BUILD.md](docs/BUILD.md), measured limits in [docs/LIMITS.md](docs/LIMITS.md),
 and the documentation index in [CLAUDE.md](CLAUDE.md).
 
-## Where things are - 7 October 2026
+## Where things are - 8 October 2026
 
-**1.0.12-preview installed (branch `sdxl-swap`, uncommitted):** SDXL Swap offers ControlNet and IP-Adapter
+**v1.0.12 released 2026-10-08 as Latest** (`main` = `6d81200`, APK signed `90:1E:78:F6…6A:C2:6B`),
+together with Nightmare Mobile v1.6.109, which renders SDXL Swap ControlNet / IP-Adapter. The SDXL Swap
+note names 1.6.109 and warns that IP-Adapter Face gave poor results on Illustrious.
+
+**1.0.12 (was the preview on branch `sdxl-swap`):** SDXL Swap offers ControlNet and IP-Adapter
 again (preview; `Converter.UNOFFERED` keeps inp/conv/freeu/pag/couple), and EVERY export now carries the
 schema-2 `swap_features.json` (`Converter.manifestJson`: producer, family, kind, prediction, text_tokens, size,
 soc, `detail` per feature, `features` LAST -- Nightmare's backend 020 substring-searches after it).
