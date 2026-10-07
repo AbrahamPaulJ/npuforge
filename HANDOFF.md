@@ -5,7 +5,16 @@ Android. Start with [README.md](README.md); build instructions are in
 [docs/BUILD.md](docs/BUILD.md), measured limits in [docs/LIMITS.md](docs/LIMITS.md),
 and the documentation index in [CLAUDE.md](CLAUDE.md).
 
-## Where things are - 4 October 2026
+## Where things are - 7 October 2026
+
+**1.0.12-preview installed (branch `sdxl-swap`, uncommitted):** SDXL Swap offers ControlNet and IP-Adapter
+again (preview; `Converter.UNOFFERED` keeps inp/conv/freeu/pag/couple), and EVERY export now carries the
+schema-2 `swap_features.json` (`Converter.manifestJson`: producer, family, kind, prediction, text_tokens, size,
+soc, `detail` per feature, `features` LAST -- Nightmare's backend 020 substring-searches after it).
+`ManifestTest` pins it. The user is converting Illustrious XL with LoRA + ControlNet + IP; Nightmare's
+side is its backend 023 / 024. Nothing below changed.
+
+## Before that - 4 October 2026
 
 **1.0.11-preview installed (uncommitted, branch `sdxl-swap`): SDXL Swap is the v2.1 template** (no longer
 labelled preview). `template_sdxl_swap/` = the v2.1 bundle from the private HF archive

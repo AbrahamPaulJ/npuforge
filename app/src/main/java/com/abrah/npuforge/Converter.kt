@@ -87,13 +87,14 @@ object Converter {
      * time even unused, and coupling with the other features does not fit one HTP process on an
      * S25 (4.02 GB; docs/SDXL-SWAP-TEMPLATE.md §7c).
      */
-    // ⚠ SDXL Swap offers LoRA ONLY since 1.0.11 (the user's call, 2026-10-06). Its Inpaint renders
-    // blotchy, photographic fills on Illustrious, unresolved: the quantized context reproduces fp32
-    // on held-out rows, so the add-difference itself is the suspect (docs/SDXL-SWAP-TEMPLATE.md §7a).
-    // ControlNet and IP-Adapter are re-verified on renders before they are offered. SD1.5 Swap keeps
-    // every feature (walked on the phone in v3).
+    // ⚠ SDXL Swap's Inpaint stays unoffered (the user's call, 2026-10-06): it renders blotchy,
+    // photographic fills on Illustrious, unresolved -- the quantized context reproduces fp32 on
+    // held-out rows, so the add-difference itself is the suspect (docs/SDXL-SWAP-TEMPLATE.md §7a).
+    // ControlNet and IP-Adapter are offered again from 1.0.12 as a PREVIEW (the user, 2026-10-07):
+    // the test conversion that Nightmare's SDXL ControlNet / IP support is built against.
+    // SD1.5 Swap keeps every feature (walked on the phone in v3).
     private val UNOFFERED = mapOf(
-        CheckpointInfo.Model.SDXL_SWAP to setOf("cn", "ip", "inp", "conv", "freeu", "pag", "couple"),
+        CheckpointInfo.Model.SDXL_SWAP to setOf("inp", "conv", "freeu", "pag", "couple"),
     )
 
     /** The SDXL Swap template's name and prompt length, from its `swap_features.json` (`sdxl_swap_v2`, 462). */
@@ -122,6 +123,66 @@ object Converter {
     fun swapFeaturesJson(kept: Collection<String>, template: String = "swap_v3"): String =
         "{\"template\":\"$template\",\"features\":[" +
             SWAP_FEATURES.filter { it in kept }.joinToString(",") { "\"$it\"" } + "]}"
+
+    /**
+     * ⭐⭐ What a kept feature needs to be fed, per family -- the template's contract
+     * (docs/SD15-LORA-CN-TEMPLATE.md, docs/SDXL-SWAP-TEMPLATE.md §1, §7c), so an importer
+     * sizes its inputs from the export instead of from a guess. Scalars only (see [manifestJson]).
+     */
+    private fun featureDetail(model: CheckpointInfo.Model, feature: String): String? {
+        val xl = model == CheckpointInfo.Model.SDXL_SWAP
+        return when (feature) {
+            "lora" -> "{\"targets\":\"$SWAP_MARKER\",\"rank\":64}"
+            "cn" -> if (xl) "{\"residuals\":10,\"hint\":1024}" else "{\"residuals\":13,\"hint\":512}"
+            "ip" -> "{\"targets\":\"$IP_MARKER\",\"layers\":${if (xl) 70 else 16}}"
+            "inp" -> "{\"mask\":${if (xl) 128 else 64}}"
+            "conv" -> "{\"targets\":\"conv_targets.json\",\"rank\":32}"
+            else -> null
+        }
+    }
+
+    /**
+     * ⭐⭐⭐ `swap_features.json` -- what this conversion IS, in EVERY export since 1.0.12 (the name
+     * is historical: it began as the Swap v3 feature list). Importers decide what to offer from
+     * THIS, never from the folder or zip name, which the user may change.
+     *
+     * `schema` 2 adds, beside v1's `template` and `features`: `producer`, `family` (sd15 | sdxl),
+     * `kind` (plain | inpaint | swap), `prediction` (eps | v), `text_tokens`, `size` (the square
+     * render), `soc` (the chip the context was compiled on -- on-phone compiles target the device's
+     * own arch) and `detail` (per kept feature, [featureDetail]).
+     *
+     * ⚠⚠ `features` is the LAST key and nothing after it may quote a feature name: Nightmare's
+     * backend (patch 020) looks for `"inp"` ANYWHERE after `"features"`. `detail` therefore comes
+     * BEFORE it. A schema-1 reader (Nightmare up to 1.6.099) still finds `template` and `features`.
+     */
+    fun manifestJson(
+        model: CheckpointInfo.Model,
+        kept: Collection<String>,
+        template: String,
+        textTokens: Int,
+        prediction: CheckpointInfo.PredictionType,
+        producer: String,
+        soc: String,
+    ): String {
+        val family = when (model) {
+            CheckpointInfo.Model.SDXL, CheckpointInfo.Model.SDXL_SWAP -> "sdxl"
+            else -> "sd15"
+        }
+        val kind = when (model) {
+            CheckpointInfo.Model.SD15_SWAP, CheckpointInfo.Model.SDXL_SWAP -> "swap"
+            CheckpointInfo.Model.SD15_INPAINT -> "inpaint"
+            else -> "plain"
+        }
+        val features = SWAP_FEATURES.filter { it in kept }
+        val detail = features.mapNotNull { f -> featureDetail(model, f)?.let { "\"$f\":$it" } }
+        fun q(s: String) = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        return "{\"schema\":2,\"producer\":${q(producer)},\"template\":${q(template)}," +
+            "\"family\":\"$family\",\"kind\":\"$kind\"," +
+            "\"prediction\":\"${if (prediction == CheckpointInfo.PredictionType.V_PREDICTION) "v" else "eps"}\"," +
+            "\"text_tokens\":$textTokens,\"size\":${if (family == "sdxl") 1024 else 512},\"soc\":${q(soc)}," +
+            "\"detail\":{${detail.joinToString(",")}}," +
+            "\"features\":[" + features.joinToString(",") { "\"$it\"" } + "]}"
+    }
 
     /** Copies checkpoint or LoRA data into this conversion's work directory. */
     suspend fun importFile(context: Context, uri: Uri, dst: File, onBytes: (Long) -> Unit): File {
@@ -541,7 +602,29 @@ object Converter {
                             (swapFeatures?.let { mapOf(SWAP_FEATURES_MARKER to swapFeaturesJson(it)) } ?: emptyMap())
                         CheckpointInfo.Model.SD15 -> emptyMap()
                     }
-                    val markers = familyMarkers + predictionMarkers(predictionType)
+                    // ⭐ The manifest for EVERY export ([manifestJson]); a Swap export's v1 list is
+                    // replaced by it. ⚠ An SD1.5 Swap export from a template that cannot drop features
+                    // (v2, `swapFeatures` null) keeps writing none, as before: it would have to guess.
+                    val manifest = if (model == CheckpointInfo.Model.SD15_SWAP && swapFeatures == null) {
+                        emptyMap()
+                    } else {
+                        val swapTemplate = when (model) {
+                            CheckpointInfo.Model.SDXL_SWAP -> sdxlSwapTemplate(context)
+                            CheckpointInfo.Model.SD15_SWAP -> "swap_v3" to 77
+                            CheckpointInfo.Model.SDXL -> model.templateDirectory to 231
+                            else -> model.templateDirectory to 77
+                        }
+                        val producer = "npuforge " + runCatching {
+                            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                        }.getOrNull().orEmpty()
+                        mapOf(
+                            SWAP_FEATURES_MARKER to manifestJson(
+                                model, swapFeatures.orEmpty(), swapTemplate.first, swapTemplate.second,
+                                predictionType, producer, Build.SOC_MODEL,
+                            ),
+                        )
+                    }
+                    val markers = familyMarkers + manifest + predictionMarkers(predictionType)
                     for ((entryName, text) in markers) {
                         zip.putNextEntry(ZipEntry(entryName))
                         zip.write(text.toByteArray(Charsets.UTF_8))

@@ -47,15 +47,20 @@ building the APK are developer tasks performed separately on a workstation.
   a plain conversion (the IP inputs add 3% when unused); the compile takes about
   twice as long. 512×512. Exports from 1.0.6 keep working without a reference
   picture. Details: [docs/SD15-LORA-CN-TEMPLATE.md](docs/SD15-LORA-CN-TEMPLATE.md).
-- **SDXL Swap (1.0.11):** *Convert as → SDXL Swap* builds an SDXL checkpoint
-  into the SDXL Swap template — calibrated on Illustrious-XL, NoobAI-XL
-  v-pred and SDXL base, prompts up to 462 tokens, with **LoRA** as a graph input
-  chosen per render (tick it, or leave it off for a plain SDXL export). LoRA
-  slows every render by about 30% in our phone measurements. ControlNet,
-  IP-Adapter and Inpaint are in the template but **not offered in this
-  release**: SDXL Swap inpaint conversions render blotchy fills, and the other
-  two are being verified on renders first. Exports need Nightmare Mobile's SDXL
-  Swap support (1.6.096 or newer). Details: [docs/SDXL-SWAP-TEMPLATE.md](docs/SDXL-SWAP-TEMPLATE.md).
+- **SDXL Swap (1.0.11; ControlNet and IP-Adapter 1.0.12):** *Convert as → SDXL Swap*
+  builds an SDXL checkpoint into the SDXL Swap template — calibrated on
+  Illustrious-XL, NoobAI-XL v-pred and SDXL base, prompts up to 462 tokens, with
+  **LoRA**, **ControlNet** and **IP-Adapter** as graph inputs, each ticked or left
+  out per conversion (a feature left out costs nothing). LoRA slows every render by
+  about 30% in our phone measurements. ControlNet (canny / depth / openpose) and
+  IP-Adapter (Plus / Face) are a **preview** and render in Nightmare Mobile 1.6.109 or
+  newer: ControlNet was rendered on an Illustrious conversion with two LoRAs and depth;
+  IP-Adapter's adapters were trained on SDXL base, and on Illustrious Face gave poor
+  results (Plus untested). **Inpaint** is in the template but not offered: SDXL Swap
+  inpaint conversions render blotchy fills. Every export carries a
+  `swap_features.json` manifest, so Nightmare shows what a conversion can take. A
+  LoRA-only export needs Nightmare Mobile 1.6.096 or newer. Details:
+  [docs/SDXL-SWAP-TEMPLATE.md](docs/SDXL-SWAP-TEMPLATE.md).
 - **Clip skip 1 or 2:** choose how SD1.5 text encoders are built. 2 is the
   default and matches earlier exports; 1 uses the full text encoder.
 - **V-prediction compatibility:** the app reads standard

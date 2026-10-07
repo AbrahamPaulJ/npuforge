@@ -174,8 +174,9 @@ What it took to get there:
 ## 7. Open work: the v2 template
 
 v1 (this doc) is built and shipping in previews: npuforge 1.0.10 converts it, Nightmare 1.6.076 renders
-it with **LoRA per render** (`backend-patches/018` there). Its ControlNet / IP-Adapter inputs are bound to
-zeros until the backend feeds them on `PipelineSdxl`; inpaint is not offered in the app yet. If v1's LoRA,
+it with **LoRA per render** (`backend-patches/018` there). Nightmare's backend 023 / 024 (2026-10-07) feed the
+ControlNet residuals and IP-Adapter K/V on `PipelineSdxl`, offered again from npuforge 1.0.12 as a preview (not
+yet rendered). If v1's LoRA,
 ControlNet and IP-Adapter hold up on renders, **one v2 template** replaces it, aimed at Illustrious / NoobAI
 NSFW-anime workflows (the user, 2026-10-03). Everything optional per conversion, as v1:
 
@@ -270,8 +271,9 @@ w8a16 per-channel → x86 lib → host v79 context. Resumable stages; 30 min wal
   `~/sdxl_swap/cn_<name>/`, phone `/data/local/tmp/probe/sdxl_cn_<name>/`. `build_cn.sh` takes `CN_KIND` = its name.
 - Next for speed, in order of cost: run the ControlNet on the cond pass only and reuse its residuals for the
   uncond pass (measure the picture); the `-small` / `-mid` SDXL ControlNets (diffusers publishes canny/depth);
-  export through the template's redefined modules (convs, per-head attention). Not hosted yet; not wired into
-  `PipelineSdxl` yet.
+  export through the template's redefined modules (convs, per-head attention). **Hosted** 2026-10-07: canny +
+  depth × v75/v79/v81 at `AbrahamPJ/nightmare-sdxl-controlnet-qnn` (public, openrail++); openpose is not (its
+  card defers to OpenPose's licence). Fed by Nightmare's backend 023.
 
 ### 7c. The v2 template (built overnight 2026-10-04)
 
